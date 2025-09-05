@@ -53,7 +53,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
     {
         ArgumentNullException.ThrowIfNull(key);
         options ??= new MemoryCacheEntryOptions();
-        options.RegisterPostEvictionCallback(static (k, v, reason, state) =>
+        options.RegisterPostEvictionCallback(static (_, _, reason, state) =>
         {
             var self = (MeteredMemoryCache)state!;
             self._evictions.Add(1, new KeyValuePair<string, object?>("reason", reason.ToString()));
@@ -78,7 +78,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
         _misses.Add(1);
         var created = _inner.GetOrCreate(key, entry =>
         {
-            entry.RegisterPostEvictionCallback(static (k, v, reason, state) =>
+            entry.RegisterPostEvictionCallback(static (_, _, reason, state) =>
             {
                 var self = (MeteredMemoryCache)state!;
                 self._evictions.Add(1, new KeyValuePair<string, object?>("reason", reason.ToString()));
@@ -105,7 +105,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
     {
         ArgumentNullException.ThrowIfNull(key);
         var entry = _inner.CreateEntry(key);
-        entry.RegisterPostEvictionCallback(static (k, v, reason, state) =>
+        entry.RegisterPostEvictionCallback(static (_, _, reason, state) =>
         {
             var self = (MeteredMemoryCache)state!;
             self._evictions.Add(1, new KeyValuePair<string, object?>("reason", reason.ToString()));
