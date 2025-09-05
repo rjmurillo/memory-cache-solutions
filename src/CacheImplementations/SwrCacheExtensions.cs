@@ -60,7 +60,7 @@ public static class SwrCacheExtensions
         var newBox = new SwrBox<T>(value, freshUntil);
         cache.Set(key, newBox, new MemoryCacheEntryOptions
         {
-            AbsoluteExpirationRelativeToNow = opt.Ttl + opt.Stale
+            AbsoluteExpirationRelativeToNow = opt.Ttl + opt.Stale,
         });
         return value;
     }
@@ -87,7 +87,7 @@ public static class SwrCacheExtensions
                 box.FreshUntil = now + opt.Ttl;
                 cache.Set(key, box, new MemoryCacheEntryOptions
                 {
-                    AbsoluteExpirationRelativeToNow = opt.Ttl + opt.Stale
+                    AbsoluteExpirationRelativeToNow = opt.Ttl + opt.Stale,
                 });
             }
             catch
