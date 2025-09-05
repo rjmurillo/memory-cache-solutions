@@ -1,0 +1,130 @@
+using System.Diagnostics.Metrics;
+using Microsoft.Extensions.Caching.Memory;
+
+namespace CacheImplementations;
+
+/// <summary>
+/// IMemoryCache decorator that emits OpenTelemetry / .NET metrics for cache hits, misses and evictions.
+/// Instruments:
+///  - cache_hits_total (Counter<long>)
+///  - cache_misses_total (Counter<long>)
+///  - cache_evictions_total (Counter<long>) with tag "reason" = <see cref="PostEvictionReason"/> string
+/// </summary>
+public sealed class MeteredMemoryCache : IMemoryCache
+{
+    private readonly IMemoryCache _inner;
+    private readonly bool _disposeInner;
+    private readonly Counter<long> _hits;
+    private readonly Counter<long> _misses;
+    private readonly Counter<long> _evictions;
+
+    public MeteredMemoryCache(IMemoryCache inner, Meter meter, bool disposeInner = false)
+    {
+        _inner = inner ?? throw new ArgumentNullException(nameof(inner));
+        if (meter is null) throw new ArgumentNullException(nameof(meter));
+        _disposeInner = disposeInner;
+        _hits = meter.CreateCounter<long>("cache_hits_total");
+        _misses = meter.CreateCounter<long>("cache_misses_total");
+        _evictions = meter.CreateCounter<long>("cache_evictions_total");
+    }
+
+    /// <summary>
+    /// Strongly typed convenience method that records hit/miss metrics.
+    /// </summary>
+    public bool TryGet<T>(object key, out T value)
+    {
+        if (key is null) throw new ArgumentNullException(nameof(key));
+        if (_inner.TryGetValue(key, out var obj) && obj is T t)
+        {
+            _hits.Add(1);
+            value = t;
+            return true;
+        }
+        _misses.Add(1);
+        value = default!;
+        return false;
+    }
+
+    /// <summary>
+    /// Set value and register eviction callback to emit eviction metric.
+    /// </summary>
+    public void Set<T>(object key, T value, MemoryCacheEntryOptions? options = null)
+    {
+        if (key is null) throw new ArgumentNullException(nameof(key));
+        options ??= new MemoryCacheEntryOptions();
+        options.RegisterPostEvictionCallback(static (k, v, reason, state) =>
+        {
+            var self = (MeteredMemoryCache)state!;
+            self._evictions.Add(1, new KeyValuePair<string, object?>("reason", reason.ToString()));
+        }, this);
+        _inner.Set(key, value, options);
+    }
+
+    /// <summary>
+    /// Get or create value while emitting hit/miss metrics and registering eviction callback.
+    /// </summary>
+    public T GetOrCreate<T>(object key, Func<ICacheEntry, T> factory)
+    {
+        if (key is null) throw new ArgumentNullException(nameof(key));
+        if (factory is null) throw new ArgumentNullException(nameof(factory));
+
+        if (_inner.TryGetValue(key, out var existing) && existing is T hit)
+        {
+            _hits.Add(1);
+            return hit;
+        }
+
+        _misses.Add(1);
+        var created = _inner.GetOrCreate(key, entry =>
+        {
+            entry.RegisterPostEvictionCallback(static (k, v, reason, state) =>
+            {
+                var self = (MeteredMemoryCache)state!;
+                self._evictions.Add(1, new KeyValuePair<string, object?>("reason", reason.ToString()));
+            }, this);
+            return factory(entry);
+        });
+
+        if (created is null && typeof(T).IsValueType == false)
+        {
+            throw new InvalidOperationException("Factory returned null for a reference type; enable nullable annotations if null values are expected.");
+        }
+        return (T)created!;
+    }
+
+    #region IMemoryCache Implementation (pass-through + instrumentation for hits/misses only on TryGetValue)
+    public bool TryGetValue(object key, out object? value)
+    {
+        if (key is null) throw new ArgumentNullException(nameof(key));
+        var hit = _inner.TryGetValue(key, out value);
+        if (hit) _hits.Add(1); else _misses.Add(1);
+        return hit;
+    }
+
+    public ICacheEntry CreateEntry(object key)
+    {
+        if (key is null) throw new ArgumentNullException(nameof(key));
+        var entry = _inner.CreateEntry(key);
+        entry.RegisterPostEvictionCallback(static (k, v, reason, state) =>
+        {
+            var self = (MeteredMemoryCache)state!;
+            self._evictions.Add(1, new KeyValuePair<string, object?>("reason", reason.ToString()));
+        }, this);
+        return entry;
+    }
+
+    public void Remove(object key)
+    {
+        if (key is null) throw new ArgumentNullException(nameof(key));
+        _inner.Remove(key); // eviction callback (if any) will record eviction metric
+    }
+
+    public void Dispose()
+    {
+        if (_disposeInner)
+        {
+            _inner.Dispose();
+        }
+    }
+    #endregion
+}
