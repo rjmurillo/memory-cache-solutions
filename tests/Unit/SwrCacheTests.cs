@@ -32,7 +32,7 @@ public class SwrCacheTests
 
         async Task<int> Factory(CancellationToken _)
         {
-            await Task.Delay(10);
+            await Task.Delay(10, _);
             calls++;
             return ++produced;
         }
