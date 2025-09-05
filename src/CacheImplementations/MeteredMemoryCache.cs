@@ -20,8 +20,9 @@ public sealed class MeteredMemoryCache : IMemoryCache
 
     public MeteredMemoryCache(IMemoryCache inner, Meter meter, bool disposeInner = false)
     {
-        _inner = inner ?? throw new ArgumentNullException(nameof(inner));
+        ArgumentNullException.ThrowIfNull(inner);
         ArgumentNullException.ThrowIfNull(meter);
+        _inner = inner;
         _disposeInner = disposeInner;
         _hits = meter.CreateCounter<long>("cache_hits_total");
         _misses = meter.CreateCounter<long>("cache_misses_total");
