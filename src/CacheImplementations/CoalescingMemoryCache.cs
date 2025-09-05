@@ -15,6 +15,7 @@ public sealed class CoalescingMemoryCache(IMemoryCache inner, bool disposeInner 
     private readonly ConcurrentDictionary<object, object> _inflight = new();
 
     private readonly IMemoryCache _inner = inner ?? throw new ArgumentNullException(nameof(inner));
+
     /// <summary>
     /// Gets the cached value for <paramref name="key"/> if present; otherwise executes the asynchronous
     /// <paramref name="createAsync"/> exactly once for all concurrent callers, caches its result, and returns it.
@@ -61,8 +62,7 @@ public sealed class CoalescingMemoryCache(IMemoryCache inner, bool disposeInner 
         return value;
     }
 
-    #region IMemoryCache passthrough
-
+    // IMemoryCache passthrough members
     public ICacheEntry CreateEntry(object key) => _inner.CreateEntry(key);
 
     public void Dispose()
@@ -76,5 +76,4 @@ public sealed class CoalescingMemoryCache(IMemoryCache inner, bool disposeInner 
     public void Remove(object key) => _inner.Remove(key);
 
     public bool TryGetValue(object key, out object? value) => _inner.TryGetValue(key, out value);
-    #endregion IMemoryCache passthrough
 }

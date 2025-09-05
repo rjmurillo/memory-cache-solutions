@@ -85,14 +85,13 @@ public sealed class MeteredMemoryCache : IMemoryCache
             return factory(entry);
         });
 
-        if (created is null && typeof(T).IsValueType == false)
+        if (created is null && !typeof(T).IsValueType)
         {
             throw new InvalidOperationException("Factory returned null for a reference type; enable nullable annotations if null values are expected.");
         }
-        return (T)created!;
+        return created!; // safe due to check above or value type
     }
 
-    #region IMemoryCache Implementation (pass-through + instrumentation for hits/misses only on TryGetValue)
     public bool TryGetValue(object key, out object? value)
     {
         if (key is null) throw new ArgumentNullException(nameof(key));
@@ -126,5 +125,4 @@ public sealed class MeteredMemoryCache : IMemoryCache
             _inner.Dispose();
         }
     }
-    #endregion
 }
