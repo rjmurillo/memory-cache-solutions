@@ -1,6 +1,8 @@
 using CacheImplementations;
 using Microsoft.Extensions.Caching.Memory;
 
+namespace Unit;
+
 public class MemoryCacheTests
 {
     [Fact]
