@@ -21,7 +21,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
     public MeteredMemoryCache(IMemoryCache inner, Meter meter, bool disposeInner = false)
     {
         _inner = inner ?? throw new ArgumentNullException(nameof(inner));
-        if (meter is null) throw new ArgumentNullException(nameof(meter));
+        ArgumentNullException.ThrowIfNull(meter);
         _disposeInner = disposeInner;
         _hits = meter.CreateCounter<long>("cache_hits_total");
         _misses = meter.CreateCounter<long>("cache_misses_total");
@@ -33,7 +33,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// </summary>
     public bool TryGet<T>(object key, out T value)
     {
-        if (key is null) throw new ArgumentNullException(nameof(key));
+        ArgumentNullException.ThrowIfNull(key);
         if (_inner.TryGetValue(key, out var obj) && obj is T t)
         {
             _hits.Add(1);
@@ -50,7 +50,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// </summary>
     public void Set<T>(object key, T value, MemoryCacheEntryOptions? options = null)
     {
-        if (key is null) throw new ArgumentNullException(nameof(key));
+        ArgumentNullException.ThrowIfNull(key);
         options ??= new MemoryCacheEntryOptions();
         options.RegisterPostEvictionCallback(static (k, v, reason, state) =>
         {
@@ -65,8 +65,8 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// </summary>
     public T GetOrCreate<T>(object key, Func<ICacheEntry, T> factory)
     {
-        if (key is null) throw new ArgumentNullException(nameof(key));
-        if (factory is null) throw new ArgumentNullException(nameof(factory));
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(factory);
 
         if (_inner.TryGetValue(key, out var existing) && existing is T hit)
         {
@@ -94,7 +94,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
 
     public bool TryGetValue(object key, out object? value)
     {
-        if (key is null) throw new ArgumentNullException(nameof(key));
+        ArgumentNullException.ThrowIfNull(key);
         var hit = _inner.TryGetValue(key, out value);
         if (hit) _hits.Add(1); else _misses.Add(1);
         return hit;
@@ -102,7 +102,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
 
     public ICacheEntry CreateEntry(object key)
     {
-        if (key is null) throw new ArgumentNullException(nameof(key));
+        ArgumentNullException.ThrowIfNull(key);
         var entry = _inner.CreateEntry(key);
         entry.RegisterPostEvictionCallback(static (k, v, reason, state) =>
         {
@@ -114,7 +114,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
 
     public void Remove(object key)
     {
-        if (key is null) throw new ArgumentNullException(nameof(key));
+        ArgumentNullException.ThrowIfNull(key);
         _inner.Remove(key); // eviction callback (if any) will record eviction metric
     }
 

@@ -15,8 +15,12 @@ namespace CacheImplementations;
 /// publication guarantees of <see cref="Lazy{T}"/> with <see cref="LazyThreadSafetyMode.ExecutionAndPublication"/>.
 /// This keeps contention minimal while still preventing duplicate work.
 /// </remarks>
-public sealed class SingleFlightLazyCache(IMemoryCache cache)
+public sealed class SingleFlightLazyCache
 {
+    private readonly IMemoryCache _cache;
+
+    public SingleFlightLazyCache(IMemoryCache cache) => _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+
     /// <summary>
     /// Gets (or creates) a cached value. If the value for <paramref name="key"/> is missing a new
     /// <see cref="Lazy{T}"/> representing the asynchronous factory is created and stored, ensuring only one
@@ -36,12 +40,12 @@ public sealed class SingleFlightLazyCache(IMemoryCache cache)
         Action<ICacheEntry>? configure = null,
         CancellationToken ct = default)
     {
-        if (cache.TryGetValue(key, out Lazy<Task<T>>? existing) && existing is not null)
+        if (_cache.TryGetValue(key, out Lazy<Task<T>>? existing) && existing is not null)
         {
             return await existing.Value.WaitAsync(ct).ConfigureAwait(false);
         }
 
-        var lazy = cache.GetOrCreate<Lazy<Task<T>>>(key, entry =>
+        var lazy = _cache.GetOrCreate<Lazy<Task<T>>>(key, entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = ttl;
             configure?.Invoke(entry);

@@ -9,12 +9,20 @@ namespace CacheImplementations;
 /// asynchronous factory is executed only once per key (single-flight). Implements <see cref="IMemoryCache"/>
 /// for drop-in substitution anywhere an IMemoryCache is used.
 /// </summary>
-public sealed class CoalescingMemoryCache(IMemoryCache inner, bool disposeInner = false) : IMemoryCache
+public sealed class CoalescingMemoryCache : IMemoryCache
 {
     // Tracks in-flight creations per key. Value is a Lazy<Task<object>> boxed as object.
     private readonly ConcurrentDictionary<object, object> _inflight = new();
 
-    private readonly IMemoryCache _inner = inner ?? throw new ArgumentNullException(nameof(inner));
+    private readonly IMemoryCache _inner;
+    private readonly bool _disposeInner;
+
+    public CoalescingMemoryCache(IMemoryCache inner, bool disposeInner = false)
+    {
+        ArgumentNullException.ThrowIfNull(inner);
+        _inner = inner;
+        _disposeInner = disposeInner;
+    }
 
     /// <summary>
     /// Gets the cached value for <paramref name="key"/> if present; otherwise executes the asynchronous
@@ -22,8 +30,8 @@ public sealed class CoalescingMemoryCache(IMemoryCache inner, bool disposeInner 
     /// </summary>
     public async Task<T> GetOrCreateAsync<T>(object key, Func<ICacheEntry, Task<T>> createAsync)
     {
-        if (key is null) throw new ArgumentNullException(nameof(key));
-        if (createAsync is null) throw new ArgumentNullException(nameof(createAsync));
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(createAsync);
 
         // Fast path
         if (_inner.TryGetValue(key, out var existing) && existing is T existingT)
@@ -67,7 +75,7 @@ public sealed class CoalescingMemoryCache(IMemoryCache inner, bool disposeInner 
 
     public void Dispose()
     {
-        if (disposeInner)
+        if (_disposeInner)
         {
             _inner.Dispose();
         }
