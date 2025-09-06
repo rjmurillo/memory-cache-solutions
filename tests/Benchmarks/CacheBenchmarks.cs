@@ -1,11 +1,14 @@
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Jobs;
 using Microsoft.Extensions.Caching.Memory;
 using CacheImplementations;
 
 namespace Benchmarks;
 
 [MemoryDiagnoser]
+[ThreadingDiagnoser]
 [HideColumns("Error", "StdDev", "Median")]
+[SimpleJob(RuntimeMoniker.Net90, id: "ThroughputNet90")]
 public class CacheBenchmarks
 {
     private readonly MemoryCache _raw = new(new MemoryCacheOptions());
@@ -14,12 +17,13 @@ public class CacheBenchmarks
     private readonly SingleFlightCache _singleFlight;
     private readonly SingleFlightLazyCache _singleFlightLazy;
 
-    private const string Key = "key";
-    private const string KeyVT = "keyVT"; // used only for separate key space now
-    private int _counter;
+    private const string HitKey = "hit_key";
+    private const string MissKey = "miss_key";
 
-    private readonly string[] _missKeys;
-    private int _missIdx;
+    private readonly string[] _churnKeys;
+    private int _churnIdx;
+
+    private int _counter;
 
     public CacheBenchmarks()
     {
@@ -27,64 +31,83 @@ public class CacheBenchmarks
         _metered = new MeteredMemoryCache(_raw, new System.Diagnostics.Metrics.Meter("bench.meter"));
         _singleFlight = new SingleFlightCache(_raw);
         _singleFlightLazy = new SingleFlightLazyCache(_raw);
-        // Warm prime values for hit path benchmarks
-        _raw.Set(Key, 42, TimeSpan.FromMinutes(1));
-        _ = _singleFlight.GetOrCreateAsync(KeyVT, TimeSpan.FromMinutes(1), () => Task.FromResult(123)).GetAwaiter().GetResult();
-
-        _missKeys = Enumerable.Range(0, 1024).Select(i => "miss_" + i.ToString()).ToArray();
+        _raw.Set(HitKey, 42, TimeSpan.FromMinutes(5));
+        _churnKeys = Enumerable.Range(0, 4096).Select(i => "k_" + i.ToString()).ToArray();
     }
 
-    // Async baseline to compare with async wrappers
+    // Baselines
     [Benchmark(Baseline = true)]
-    public Task<int> RawMemoryCache_HitAsync()
+    public int RawMemoryCache_Hit()
     {
-        _raw.TryGetValue(Key, out int v);
-        return Task.FromResult(v);
+        _raw.TryGetValue(HitKey, out int v);
+        return v;
     }
 
     [Benchmark]
-    public async Task<int> SingleFlightCache_HitAsync() => await _singleFlight.GetOrCreateAsync(Key, TimeSpan.FromMinutes(1), () => Task.FromResult(Interlocked.Increment(ref _counter)));
-
-    [Benchmark]
-    public async Task<int> SingleFlightCache_SecondKey_HitAsync() => await _singleFlight.GetOrCreateAsync(KeyVT, TimeSpan.FromMinutes(1), () => Task.FromResult(123));
-
-    [Benchmark]
-    public async Task<int> SingleFlightCache_MissAsync()
+    public int RawMemoryCache_Miss()
     {
-        var key = _missKeys[unchecked((uint)Interlocked.Increment(ref _missIdx)) % _missKeys.Length];
-        // Force eviction to simulate periodic misses by clearing the key first
+        _raw.Remove(MissKey);
+        _raw.TryGetValue(MissKey, out int v); // v will be default
+        return v;
+    }
+
+    // HIT PATHS (no artificial Task.Yield)
+    [Benchmark]
+    public async Task<int> SingleFlight_Hit() => await _singleFlight.GetOrCreateAsync(HitKey, TimeSpan.FromMinutes(5), () => Task.FromResult(Interlocked.Increment(ref _counter)));
+
+    [Benchmark]
+    public async Task<int> SingleFlightLazy_Hit() => await _singleFlightLazy.GetOrCreateAsync(HitKey, TimeSpan.FromMinutes(5), () => Task.FromResult(Interlocked.Increment(ref _counter)));
+
+    [Benchmark]
+    public async Task<int> Coalescing_Hit() => await _coalescing.GetOrCreateAsync(HitKey, _ => Task.FromResult(Interlocked.Increment(ref _counter)));
+
+    [Benchmark]
+    public int Metered_Hit() => _metered.GetOrCreate(HitKey, _ => Interlocked.Increment(ref _counter));
+
+    // MISS PATHS (factory returns quickly)
+    [Benchmark]
+    public async Task<int> SingleFlight_Miss()
+    {
+        var key = MissKey;
+        _raw.Remove(key);
+        return await _singleFlight.GetOrCreateAsync(key, TimeSpan.FromMinutes(5), () => Task.FromResult(1));
+    }
+
+    [Benchmark]
+    public async Task<int> SingleFlightLazy_Miss()
+    {
+        var key = MissKey + "_lazy";
+        _raw.Remove(key);
+        return await _singleFlightLazy.GetOrCreateAsync(key, TimeSpan.FromMinutes(5), () => Task.FromResult(1));
+    }
+
+    [Benchmark]
+    public async Task<int> Coalescing_Miss()
+    {
+        var key = MissKey + "_coal";
+        _raw.Remove(key);
+        return await _coalescing.GetOrCreateAsync(key, _ => Task.FromResult(1));
+    }
+
+    // CHURN / HIGH CARDINALITY (semaphore dictionary growth)
+    [Benchmark]
+    public async Task<int> SingleFlight_Churn()
+    {
+        var i = unchecked((uint)Interlocked.Increment(ref _churnIdx)) % (uint)_churnKeys.Length;
+        var key = _churnKeys[i];
         _raw.Remove(key);
         return await _singleFlight.GetOrCreateAsync(key, TimeSpan.FromSeconds(30), () => Task.FromResult(1));
     }
 
-    [Benchmark]
-    public async Task<int> SingleFlightLazyCache_HitAsync() => await _singleFlightLazy.GetOrCreateAsync(Key, TimeSpan.FromMinutes(1), () => Task.FromResult(Interlocked.Increment(ref _counter)));
-
-    [Benchmark]
-    public async Task<int> Coalescing_GetOrCreateAsync()
+    // Simulated heavier work (to compare overhead proportionally)
+    private static Task<int> SimulatedWorkFactory()
     {
-        return await _coalescing.GetOrCreateAsync(Key, async e =>
-        {
-            await Task.Yield();
-            return Interlocked.Increment(ref _counter);
-        });
+        // cheap deterministic pseudo work
+        int sum = 0;
+        for (int i = 0; i < 32; i++) sum += i;
+        return Task.FromResult(sum);
     }
 
     [Benchmark]
-    public int Metered_GetOrCreate()
-    {
-        return _metered.GetOrCreate(Key, _ => Interlocked.Increment(ref _counter));
-    }
-
-    private readonly SwrOptions _swrOpts = new(TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
-
-    [Benchmark]
-    public async Task<int> Swr_GetOrCreateAsync()
-    {
-        return await _raw.GetOrCreateSwrAsync(Key, _swrOpts, async _ =>
-        {
-            await Task.Yield();
-            return Interlocked.Increment(ref _counter);
-        });
-    }
+    public async Task<int> SingleFlight_Hit_SimulatedWork() => await _singleFlight.GetOrCreateAsync(HitKey, TimeSpan.FromMinutes(5), SimulatedWorkFactory);
 }
