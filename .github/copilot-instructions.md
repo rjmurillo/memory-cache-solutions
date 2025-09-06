@@ -20,18 +20,17 @@ This repository uses an automated, performance-focused workflow for cache primit
 | Benchmark infra | chore | `chore(bench): parametrize contention levels` |
 
 ## 3. Standard Implementation Steps
-1. Benchmark (baseline) the specific target(s) you expect to impact.
+1. Benchmark (baseline) the specific target(s) you expect to impact BEFORE editing code.
    - If unsure which, run ALL benchmarks:
      ```bash
      dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *
      ```
-   - To target one family (examples):
+   - Targeted examples:
      ```bash
-     # SingleFlightLazy only
      dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *SingleFlightLazy*
-     # Coalescing contention
      dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *Coalescing_Contention*
      ```
+   - Save the pre-change summary (copy to commit body later).
 2. Make the code change.
 3. Run format & build:
    ```bash
@@ -42,70 +41,78 @@ This repository uses an automated, performance-focused workflow for cache primit
    ```bash
    dotnet test -c Release --no-build
    ```
-5. Re-run the focused benchmarks (or all if uncertain).
-6. Compare Mean, Allocated, Gen0 (and contention metrics if relevant). Ensure NO regressions, unless intentionally trading one metric for a bigger win (document this in commit body).
-7. If the change is a perf improvement, ensure 100% test coverage of the new code paths.
-8. Update any relevant docs or comments.
-9. Commit with a clear Conventional Commit message (see section 2). Include a brief summary of the benchmark delta in the commit body when it's a perf change.
+5. Re-run exactly the SAME benchmark filters as baseline (plus broader set if risk of spillover).
+6. Compare Mean, Allocated, Gen0, contention metrics. If any unrelated core scenario regresses >3% (time) or allocations increase without justification, FIX or ABORT.
+7. If perf change: ensure 100% test coverage of new branches/logic (add tests if necessary).
+8. Update docs / comments impacted.
+9. Craft commit message including before/after table (see template). DO NOT COMMIT perf-affecting change without numbers.
+10. If you accidentally committed without numbers, immediately produce an A/B benchmark and either amend commit or add a corrective docs commit with metrics.
 
 ## 4. Performance Evaluation Notes
-- Prefer reporting absolute Mean delta + percentage and allocation delta.
-- Treat regressions > ~3% as meaningful unless noise is demonstrated.
-- For concurrency benchmarks always inspect allocation growth at higher concurrency settings.
-- If a change regresses critical hot paths (hits) while improving rare miss paths, reject unless justified.
+- Report absolute time BEFORE / AFTER, delta (ns/us) and percentage.
+- Report allocation delta (B) and Gen0/Gen1 collections if meaningful.
+- Use same environment (Release, same filters) for A/B.
+- Treat small micro-changes (<1%) as noise unless repeated runs show stability.
 
 ## 5. Patterns & Guidelines
 ### Caching Patterns
-- SingleFlight* types: goal is to suppress duplicate concurrent factory executions.
-- CoalescingMemoryCache: minimize per-call allocations; hot hit should be near raw MemoryCache.
-- Avoid extra layers (e.g., unnecessary Lazy indirection) unless they measurably reduce contention.
+- SingleFlight*: suppress duplicate concurrent factory executions.
+- CoalescingMemoryCache: hot-hit cost should approach raw MemoryCache.
+- Avoid extra indirection layers unless they demonstrably improve contention.
 
 ### Async Factories
-- Provide sync / ValueTask overloads where factories often complete synchronously to avoid Task allocation/state machine.
-- Fast-path completed Task / ValueTask using `IsCompletedSuccessfully`.
+- Provide sync / ValueTask overloads to avoid Task allocation when completion is synchronous.
+- Fast-path completed Task / ValueTask (`IsCompletedSuccessfully`).
 
 ### Cancellation Semantics
-- Expose tokens that cancel waiting (observation) but never abandon an already running underlying computation unless explicitly designed.
+- User cancellation should cancel waiting only unless explicit abort semantics are documented.
 
 ### Allocation Minimization
-- Use static lambdas / local static functions to avoid closure captures when possible.
-- Avoid boxing (store concrete generic instances where feasible or a single erasure layer only once in a dictionary).
+- Use static lambdas / local static functions to avoid captures.
+- Avoid boxing; centralize type erasure (one layer only) if needed.
 
 ### Error Handling
-- Do not cache transient exceptions by default unless implementing negative caching intentionally.
-- Ensure failed factories remove in-flight markers to permit retries.
+- Do not cache transient exceptions unless implementing negative caching explicitly.
+- Ensure failed factories clear in-flight markers.
 
 ## 6. Benchmark Authoring Conventions
-- Add [Params] for concurrency or key diversity when contention characteristics matter.
-- Isolate contention scenarios in dedicated benchmark classes (e.g., ContentionBenchmarks) so micro benchmarks stay single-threaded.
-- Keep factory work minimal and deterministic for hot-path microbenchmarks.
+- Use `[Params]` for concurrency, key diversity, and workload size where it changes scaling.
+- Keep microbenchmark work minimal and deterministic.
+- Separate contention scenarios into their own benchmark classes.
 
 ## 7. Potential Future Enhancements (Track Separately)
-- Optional compilation symbol (e.g., `CACHE_DIAGNOSTICS`) to include diagnostic tags/counters only when enabled.
-- Benchmark regression gating (compare JSON output of last known good run).
-- Negative caching result wrapper to prevent stampedes on repeated failures.
+- `CACHE_DIAGNOSTICS` conditional diagnostics.
+- Automated regression gate comparing JSON output.
+- Negative caching wrapper type.
 
 ## 8. PR / Review Checklist
 - [ ] Single focused change
-- [ ] Tests pass
-- [ ] Benchmarks before/after captured (attach summary or gist)
-- [ ] No perf regressions on unrelated scenarios
-- [ ] Allocations not increased (or justified)
-- [ ] Concurrency safety preserved
-- [ ] API surface additions justified & documented
+- [ ] All tests pass
+- [ ] Baseline + after benchmarks included
+- [ ] No unintended regressions (hits especially)
+- [ ] Allocation impact acceptable / improved
+- [ ] Concurrency safety intact
+- [ ] API additions documented & justified
+- [ ] Commit message includes metrics (perf changes)
 
 ## 9. Rollback Policy
-If a perf change regresses a core scenario (>5% slowdown or significant allocation increase) and no quick fix is available, revert promptly; resubmit once addressed.
+If a core scenario regresses (>5% time or notable alloc increase) with no quick mitigation, revert immediately & iterate separately.
 
-## 10. Example Commit Body (Perf)
-```text
-perf(coalescing-cache): reduce miss allocation by avoiding double Lazy wrapping
+## 10. Commit Message Perf Template
+```
+perf(area): concise summary
 
-Benchmarks (Concurrency=16):
-Before: Miss 2,180 ns / 3,272 B
-After : Miss 1,950 ns / 2,640 B  (?10.6% time, ?19.3% alloc)
-No change in hit path (1,460 ns �2%).
+Benchmarks (filter: *Example_Filter*)
+Scenario              Before        After        Delta      %Change   Alloc Before  Alloc After  Alloc Δ
+Foo_Hit              105.0 ns      101.8 ns     -3.2 ns    -3.0%      256 B        248 B        -8 B
+Foo_Miss             240.0 ns      239.1 ns     -0.9 ns    -0.4%      264 B        256 B        -8 B
+
+Environment: .NET 9, Windows 11, RyuJIT AVX2
+Notes: (any caveats)
 ```
 
+## 11. Post-Commit Audit
+If a perf commit merged without metrics, open a follow-up PR immediately adding the missing before/after data or revert.
+
 ---
-These instructions are intended for both human contributors and AI assistants to maintain consistent, measurable performance quality across cache components.
+These instructions are binding for both human contributors and AI assistants to maintain consistent, measurable performance quality.
