@@ -43,7 +43,7 @@ public sealed class SingleFlightLazyCache(IMemoryCache cache)
             var existingTask = existingLazy.Value;
             if (existingTask.IsCompletedSuccessfully)
             {
-                return existingTask.Result;
+                return await existingTask.ConfigureAwait(false);
             }
             return await existingTask.WaitAsync(ct).ConfigureAwait(false);
         }
@@ -63,7 +63,7 @@ public sealed class SingleFlightLazyCache(IMemoryCache cache)
         var task = lazy!.Value;
         if (task.IsCompletedSuccessfully)
         {
-            return task.Result;
+            return await task.ConfigureAwait(false);
         }
         return await task.WaitAsync(ct).ConfigureAwait(false);
     }
