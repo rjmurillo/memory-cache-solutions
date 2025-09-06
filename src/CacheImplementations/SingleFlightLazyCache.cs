@@ -47,7 +47,8 @@ public sealed class SingleFlightLazyCache(IMemoryCache cache)
             }
             return await existingTask.WaitAsync(ct).ConfigureAwait(false);
         }
-        else if (boxed is T directHit)
+
+        if (boxed is T directHit)
         {
             // A previously cached concrete value (not via this decorator). Return it directly.
             return directHit;
