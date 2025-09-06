@@ -119,7 +119,7 @@ Failure to include required contention metrics or to update this table when intr
 - Fast-path completed Task / ValueTask (`IsCompletedSuccessfully`).
 
 ### Cancellation Semantics
-- User cancellation should cancel waiting only unless explicit abort semantics are documented.
+- User cancellation should cancel waiting only (the caller stops awaiting) while the in-flight factory/background work continues to completion and its result is cached. Example: caller `A` starts a factory, caller `B` starts and cancels its token mid-flight—`B` gets a canceled task, the factory still runs and populates the cache for later hits. Abort scenario (only when explicitly documented): a cancellation token intended to terminate work (e.g., a user-supplied abort token passed directly into the factory) causes both the awaiter and the underlying operation to stop and clears any in-flight marker. Implement full abort semantics ONLY when: (a) the API surface accepts a token whose contract promises cooperative cancellation of the underlying computation, AND (b) partial results would be invalid or harmful to cache.
 
 ### Allocation Minimization
 - Use static lambdas / local static functions to avoid captures.
