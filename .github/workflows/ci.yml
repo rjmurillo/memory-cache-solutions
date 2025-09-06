@@ -46,16 +46,3 @@ jobs:
           path: |
             **/TestResults/*.trx
             **/coverage.cobertura.xml
-
-      - name: Report coverage summary
-        if: always()
-        run: |
-          echo "Looking for coverage report..."
-          ls -R
-          FILE=$(git ls-files | grep 'coverage.cobertura.xml' || true)
-          if [ -n "$FILE" ]; then
-            echo "Found coverage file: $FILE";
-            head -n 50 $FILE;
-          else
-            echo "No coverage file found.";
-          fi
