@@ -15,9 +15,9 @@ namespace Benchmarks;
 [HideColumns("Error", "StdDev", "Median")]
 public class ContentionBenchmarks
 {
-    private readonly MemoryCache _raw = new(new MemoryCacheOptions());
-    private readonly SingleFlightCache _singleFlight;
-    private readonly CoalescingMemoryCache _coalescing;
+    private MemoryCache _raw = null!; // initialized in GlobalSetup
+    private SingleFlightCache _singleFlight = null!; // initialized in GlobalSetup
+    private CoalescingMemoryCache _coalescing = null!; // initialized in GlobalSetup
 
     private const string HotKey = "hot_key";
     private int _valueCounter;
@@ -28,13 +28,32 @@ public class ContentionBenchmarks
     [Params(1, 4, 16, 64)]
     public int Concurrency { get; set; }
 
-    public ContentionBenchmarks()
+    [GlobalSetup]
+    public void GlobalSetup()
     {
+        _valueCounter = 0;
+        _raw = new MemoryCache(new MemoryCacheOptions());
         _singleFlight = new SingleFlightCache(_raw);
         _coalescing = new CoalescingMemoryCache(_raw);
 
         // Pre-populate to measure pure hit contention separately from miss contention.
         _raw.Set(HotKey, 42, TimeSpan.FromMinutes(5));
+    }
+
+    /// <summary>
+    /// Per-iteration reset so each iteration starts from a known state: ensure hit key present and reset counters.
+    /// Miss benchmarks explicitly remove the key; hit benchmarks rely on presence.
+    /// </summary>
+    [IterationSetup]
+    public void IterationSetup()
+    {
+        // Reset the counter so relative increments remain comparable between iterations.
+        _valueCounter = 0;
+
+        if (!_raw.TryGetValue(HotKey, out _))
+        {
+            _raw.Set(HotKey, 42, TimeSpan.FromMinutes(5));
+        }
     }
 
     private Task<int> SimulatedFactoryAsync()
@@ -104,5 +123,14 @@ public class ContentionBenchmarks
         }
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
         return results[0];
+    }
+
+    /// <summary>
+    /// Cleanup after all benchmarks: dispose underlying MemoryCache to avoid skewing MemoryDiagnoser / GC metrics.
+    /// </summary>
+    [GlobalCleanup]
+    public void GlobalCleanup()
+    {
+        _raw.Dispose();
     }
 }
