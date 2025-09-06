@@ -11,28 +11,43 @@ namespace Benchmarks;
 [SimpleJob(RuntimeMoniker.Net90, id: "ThroughputNet90")]
 public class CacheBenchmarks
 {
-    private readonly MemoryCache _raw = new(new MemoryCacheOptions());
-    private readonly CoalescingMemoryCache _coalescing;
-    private readonly MeteredMemoryCache _metered;
-    private readonly SingleFlightCache _singleFlight;
-    private readonly SingleFlightLazyCache _singleFlightLazy;
+    private MemoryCache _raw = default!; // recreated per iteration
+    private CoalescingMemoryCache _coalescing = default!;
+    private MeteredMemoryCache _metered = default!;
+    private SingleFlightCache _singleFlight = default!;
+    private SingleFlightLazyCache _singleFlightLazy = default!;
 
     private const string HitKey = "hit_key";
     private const string MissKey = "miss_key";
 
     private readonly string[] _churnKeys;
     private int _churnIdx;
-
     private int _counter;
 
     public CacheBenchmarks()
     {
+        // Stable data that does not depend on per-iteration cache instances.
+        _churnKeys = Enumerable.Range(0, 4096).Select(i => "k_" + i.ToString()).ToArray();
+    }
+
+    [IterationSetup]
+    public void IterationSetup()
+    {
+        _raw = new MemoryCache(new MemoryCacheOptions());
         _coalescing = new CoalescingMemoryCache(_raw);
         _metered = new MeteredMemoryCache(_raw, new System.Diagnostics.Metrics.Meter("bench.meter"));
         _singleFlight = new SingleFlightCache(_raw);
         _singleFlightLazy = new SingleFlightLazyCache(_raw);
         _raw.Set(HitKey, 42, TimeSpan.FromMinutes(5));
-        _churnKeys = Enumerable.Range(0, 4096).Select(i => "k_" + i.ToString()).ToArray();
+        _counter = 0;
+        _churnIdx = 0;
+    }
+
+    [IterationCleanup]
+    public void IterationCleanup()
+    {
+        // Dispose the underlying cache to release resources between iterations.
+        _raw.Dispose();
     }
 
     // Baselines
