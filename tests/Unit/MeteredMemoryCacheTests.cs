@@ -10,7 +10,7 @@ public class MeteredMemoryCacheTests
     private sealed class TestListener : IDisposable
     {
         private readonly MeterListener _listener = new();
-        private readonly Dictionary<string, long> _counters = new();
+        private readonly Dictionary<string, long> _counters = [];
         public IReadOnlyDictionary<string, long> Counters => _counters;
 
         public TestListener(params string[] instrumentNames)
@@ -69,11 +69,9 @@ public class MeteredMemoryCacheTests
         options.AddExpirationToken(new CancellationChangeToken(cts.Token));
 
         cache.Set("k", 1, options);
-        // Trigger eviction
         cts.Cancel();
-        // Touch cache to process callbacks if needed
         cache.TryGetValue("k", out _);
-        inner.Compact(0.0); // noop but ensures maintenance
+        inner.Compact(0.0);
 
         Assert.True(listener.Counters.TryGetValue("cache_evictions_total", out var ev) && ev >= 1);
     }
