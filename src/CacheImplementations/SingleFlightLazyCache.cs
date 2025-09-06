@@ -15,11 +15,9 @@ namespace CacheImplementations;
 /// publication guarantees of <see cref="Lazy{T}"/> with <see cref="LazyThreadSafetyMode.ExecutionAndPublication"/>.
 /// This keeps contention minimal while still preventing duplicate work.
 /// </remarks>
-public sealed class SingleFlightLazyCache
+public sealed class SingleFlightLazyCache(IMemoryCache cache)
 {
-    private readonly IMemoryCache _cache;
-
-    public SingleFlightLazyCache(IMemoryCache cache) => _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+    private readonly IMemoryCache _cache = cache ?? throw new ArgumentNullException(nameof(cache));
 
     /// <summary>
     /// Gets (or creates) a cached value. If the value for <paramref name="key"/> is missing a new
@@ -40,9 +38,19 @@ public sealed class SingleFlightLazyCache
         Action<ICacheEntry>? configure = null,
         CancellationToken ct = default)
     {
-        if (_cache.TryGetValue(key, out Lazy<Task<T>>? existing) && existing is not null)
+        if (_cache.TryGetValue(key, out object? boxed) && boxed is Lazy<Task<T>> existingLazy)
         {
-            return await existing.Value.WaitAsync(ct).ConfigureAwait(false);
+            var existingTask = existingLazy.Value;
+            if (existingTask.IsCompletedSuccessfully)
+            {
+                return existingTask.Result;
+            }
+            return await existingTask.WaitAsync(ct).ConfigureAwait(false);
+        }
+        else if (boxed is T directHit)
+        {
+            // A previously cached concrete value (not via this decorator). Return it directly.
+            return directHit;
         }
 
         var lazy = _cache.GetOrCreate<Lazy<Task<T>>>(key, entry =>
@@ -52,6 +60,11 @@ public sealed class SingleFlightLazyCache
             return new Lazy<Task<T>>(() => factory(), LazyThreadSafetyMode.ExecutionAndPublication);
         });
 
-        return await lazy!.Value.WaitAsync(ct).ConfigureAwait(false);
+        var task = lazy!.Value;
+        if (task.IsCompletedSuccessfully)
+        {
+            return task.Result;
+        }
+        return await task.WaitAsync(ct).ConfigureAwait(false);
     }
 }
