@@ -1,6 +1,8 @@
 # Copilot / Automation Workflow Guidance
 
-This repository uses an automated, performance?focused workflow for cache primitives. Follow these steps when proposing or implementing changes (manually or via Copilot / other AI assistants):
+Start every change by opening and reading this file (.github/copilot-instructions.md). Apply it together with .github/instructions/README.md.
+
+This repository uses an automated, performance-focused workflow for cache primitives. Follow these steps when proposing or implementing changes (manually or via Copilot / other AI assistants):
 
 ## 1. Scope & Atomicity
 - Make ONE logical optimization or feature per commit ("atomic").
@@ -40,9 +42,11 @@ This repository uses an automated, performance?focused workflow for cache primit
    ```bash
    dotnet test -c Release --no-build
    ```
-5. Re?run the focused benchmarks (or all if uncertain).
+5. Re-run the focused benchmarks (or all if uncertain).
 6. Compare Mean, Allocated, Gen0 (and contention metrics if relevant). Ensure NO regressions, unless intentionally trading one metric for a bigger win (document this in commit body).
-7. Commit with a clear Conventional Commit message (see section 2). Include a brief summary of the benchmark delta in the commit body when it's a perf change.
+7. If the change is a perf improvement, ensure 100% test coverage of the new code paths.
+8. Update any relevant docs or comments.
+9. Commit with a clear Conventional Commit message (see section 2). Include a brief summary of the benchmark delta in the commit body when it's a perf change.
 
 ## 4. Performance Evaluation Notes
 - Prefer reporting absolute Mean delta + percentage and allocation delta.
@@ -91,16 +95,16 @@ This repository uses an automated, performance?focused workflow for cache primit
 - [ ] API surface additions justified & documented
 
 ## 9. Rollback Policy
-If a perf change regresses a core scenario (>5% slowdown or significant allocation increase) and no quick fix is available, revert promptly; re?submit once addressed.
+If a perf change regresses a core scenario (>5% slowdown or significant allocation increase) and no quick fix is available, revert promptly; resubmit once addressed.
 
 ## 10. Example Commit Body (Perf)
-```
+```text
 perf(coalescing-cache): reduce miss allocation by avoiding double Lazy wrapping
 
 Benchmarks (Concurrency=16):
 Before: Miss 2,180 ns / 3,272 B
 After : Miss 1,950 ns / 2,640 B  (?10.6% time, ?19.3% alloc)
-No change in hit path (1,460 ns ±2%).
+No change in hit path (1,460 ns ï¿½2%).
 ```
 
 ---
