@@ -20,17 +20,11 @@ public sealed class SingleFlightLazyCache(IMemoryCache cache)
     private readonly IMemoryCache _cache = cache ?? throw new ArgumentNullException(nameof(cache));
 
     /// <summary>
-    /// Gets (or creates) a cached value. If the value for <paramref name="key"/> is missing a new
-    /// <see cref="Lazy{T}"/> representing the asynchronous factory is created and stored, ensuring only one
-    /// execution of <paramref name="factory"/> even under high concurrency.
+    /// Gets (or creates) a cached value using an asynchronous factory. Stores the <see cref="Task{TResult}"/>
+    /// directly in the underlying <see cref="IMemoryCache"/> removing one <see cref="Lazy{T}"/> allocation.
+    /// Concurrent callers rely on the internal lock taken by <see cref="IMemoryCache.GetOrCreate"/> ensuring
+    /// the factory executes only once per miss.
     /// </summary>
-    /// <typeparam name="T">Value type.</typeparam>
-    /// <param name="key">Cache key.</param>
-    /// <param name="ttl">Absolute expiration relative to now.</param>
-    /// <param name="factory">Asynchronous factory used to create the value when missing.</param>
-    /// <param name="configure">Optional cache entry configuration callback.</param>
-    /// <param name="ct">Cancellation token (applies to awaiting the task, not to the underlying task once started).</param>
-    /// <returns>The cached (or newly produced) value.</returns>
     public async Task<T> GetOrCreateAsync<T>(
         string key,
         TimeSpan ttl,
@@ -38,34 +32,65 @@ public sealed class SingleFlightLazyCache(IMemoryCache cache)
         Action<ICacheEntry>? configure = null,
         CancellationToken ct = default)
     {
-        if (_cache.TryGetValue(key, out object? boxed) && boxed is Lazy<Task<T>> existingLazy)
+        if (_cache.TryGetValue(key, out object? boxed))
         {
-            var existingTask = existingLazy.Value;
-            if (existingTask.IsCompletedSuccessfully)
+            switch (boxed)
             {
-                return await existingTask.ConfigureAwait(false);
+                case Task<T> existingTask:
+                    if (existingTask.IsCompletedSuccessfully)
+                    {
+                        // Fast path: synchronous result without async state machine
+                        return existingTask.GetAwaiter().GetResult();
+                    }
+                    return await existingTask.WaitAsync(ct).ConfigureAwait(false);
+                case T directValue:
+                    return directValue; // value stored directly (e.g., via sync overload)
+                case Lazy<Task<T>> legacyLazy: // backward compatibility if previously cached by old version
+                    var taskFromLazy = legacyLazy.Value;
+                    if (taskFromLazy.IsCompletedSuccessfully)
+                    {
+                        return taskFromLazy.GetAwaiter().GetResult();
+                    }
+                    return await taskFromLazy.WaitAsync(ct).ConfigureAwait(false);
             }
-            return await existingTask.WaitAsync(ct).ConfigureAwait(false);
         }
 
-        if (boxed is T directHit)
-        {
-            // A previously cached concrete value (not via this decorator). Return it directly.
-            return directHit;
-        }
-
-        var lazy = _cache.GetOrCreate<Lazy<Task<T>>>(key, entry =>
+        // Miss: create or retrieve single-flight task entry
+        var task = _cache.GetOrCreate<Task<T>>(key, entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = ttl;
             configure?.Invoke(entry);
-            return new Lazy<Task<T>>(() => factory(), LazyThreadSafetyMode.ExecutionAndPublication);
-        });
+            return factory();
+        })!;
 
-        var task = lazy!.Value;
         if (task.IsCompletedSuccessfully)
         {
-            return await task.ConfigureAwait(false);
+            return task.GetAwaiter().GetResult();
         }
         return await task.WaitAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Synchronous factory overload avoiding Task machinery when the value can be produced synchronously.
+    /// The produced value is stored directly (not wrapped in a <see cref="Task"/>) and returned to all
+    /// concurrent callers using the single-flight nature of <see cref="IMemoryCache.GetOrCreate"/>.
+    /// </summary>
+    public T GetOrCreate<T>(
+        string key,
+        TimeSpan ttl,
+        Func<T> factory,
+        Action<ICacheEntry>? configure = null)
+    {
+        if (_cache.TryGetValue(key, out object? boxed) && boxed is T existing)
+        {
+            return existing;
+        }
+
+        return _cache.GetOrCreate(key, entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = ttl;
+            configure?.Invoke(entry);
+            return factory();
+        })!;
     }
 }
