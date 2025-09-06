@@ -20,9 +20,6 @@ public class CacheBenchmarks
     private const string HitKey = "hit_key";
     private const string MissKey = "miss_key";
 
-    // Power-of-two to enable mask based wrapping (faster than modulo). Adjust only to another power-of-two.
-    private const int ChurnKeyCount = 1024; // must remain power-of-two
-
     private readonly string[] _churnKeys;
     private int _churnIdx;
     private int _counter;
@@ -30,11 +27,7 @@ public class CacheBenchmarks
     public CacheBenchmarks()
     {
         // Stable data that does not depend on per-iteration cache instances.
-        _churnKeys = new string[ChurnKeyCount];
-        for (int i = 0; i < _churnKeys.Length; i++)
-        {
-            _churnKeys[i] = "k_" + i.ToString();
-        }
+        _churnKeys = Enumerable.Range(0, 4096).Select(i => "k_" + i.ToString()).ToArray();
     }
 
     [IterationSetup]
@@ -115,8 +108,7 @@ public class CacheBenchmarks
     [Benchmark]
     public async Task<int> SingleFlight_Churn()
     {
-        // Bitmask wrap (equivalent to % ChurnKeyCount since count is power-of-two).
-        var i = Interlocked.Increment(ref _churnIdx) & (ChurnKeyCount - 1);
+        var i = unchecked((uint)Interlocked.Increment(ref _churnIdx)) % (uint)_churnKeys.Length;
         var key = _churnKeys[i];
         _raw.Remove(key);
         return await _singleFlight.GetOrCreateAsync(key, TimeSpan.FromSeconds(30), () => Task.FromResult(1));
@@ -125,6 +117,7 @@ public class CacheBenchmarks
     // Simulated heavier work (to compare overhead proportionally)
     private static Task<int> SimulatedWorkFactory()
     {
+        // cheap deterministic pseudo work
         int sum = 0;
         for (int i = 0; i < 32; i++) sum += i;
         return Task.FromResult(sum);
