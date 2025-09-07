@@ -21,7 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\CacheImplementations\CacheImplementations.csproj" />
-  <ProjectReference Include="..\..\tools\BenchGate\BenchGate.csproj" />
+    <ProjectReference Include="..\..\tools\BenchGate\BenchGate.csproj" />
   </ItemGroup>
 
 </Project>

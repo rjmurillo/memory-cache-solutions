@@ -13,7 +13,7 @@ public class BenchGateTests
     public void NoRegression_WhenMeansWithinThreshold()
     {
         var baseline = new[] { Sample("A", 1000) };
-        var current  = new[] { Sample("A", 1025) }; // 2.5% < 3%
+        var current = new[] { Sample("A", 1025) }; // 2.5% < 3%
         var comparer = new GateComparer(0.03, 16, 0.03, 2.0, useSigma: false);
         var (regressions, improvements) = comparer.Compare(baseline, current);
         Assert.Empty(regressions);
@@ -23,9 +23,9 @@ public class BenchGateTests
     [Fact]
     public void DetectsTimeRegression()
     {
-        var baseline = new[] { Sample("A", 1000, stdDev:5) };
-        var current  = new[] { Sample("A", 1100, stdDev:5) }; // 10% > 3%
-        var comparer = new GateComparer(0.03, 16, 0.03, 2.0, useSigma:false);
+        var baseline = new[] { Sample("A", 1000, stdDev: 5) };
+        var current = new[] { Sample("A", 1100, stdDev: 5) }; // 10% > 3%
+        var comparer = new GateComparer(0.03, 16, 0.03, 2.0, useSigma: false);
         var (regressions, _) = comparer.Compare(baseline, current);
         Assert.Single(regressions);
     }
@@ -34,12 +34,12 @@ public class BenchGateTests
     public void AllocationRegressionRequiresBothPercentAndAbsolute()
     {
         var baseline = new[] { Sample("A", 1000, alloc: 100) };
-        var current  = new[] { Sample("A", 1000, alloc: 105) }; // +5B < 16B absolute guard
-        var comparer = new GateComparer(0.03, 16, 0.03, 2.0, useSigma:false);
+        var current = new[] { Sample("A", 1000, alloc: 105) }; // +5B < 16B absolute guard
+        var comparer = new GateComparer(0.03, 16, 0.03, 2.0, useSigma: false);
         var (regressions, _) = comparer.Compare(baseline, current);
         Assert.Empty(regressions);
 
-        current  = new[] { Sample("A", 1000, alloc: 150) }; // +50B > 16B and 50% > 3%
+        current = new[] { Sample("A", 1000, alloc: 150) }; // +50B > 16B and 50% > 3%
         (regressions, _) = comparer.Compare(baseline, current);
         Assert.Single(regressions);
     }
@@ -48,8 +48,8 @@ public class BenchGateTests
     public void ImprovementReported()
     {
         var baseline = new[] { Sample("A", 1000) };
-        var current  = new[] { Sample("A", 900) }; // improvement
-        var comparer = new GateComparer(0.03, 16, 0.03, 2.0, useSigma:false);
+        var current = new[] { Sample("A", 900) }; // improvement
+        var comparer = new GateComparer(0.03, 16, 0.03, 2.0, useSigma: false);
         var (regressions, improvements) = comparer.Compare(baseline, current);
         Assert.Empty(regressions);
         Assert.Single(improvements);
@@ -59,9 +59,9 @@ public class BenchGateTests
     public void SigmaFiltersInsignificantDelta()
     {
         // Means differ by 2% but standard error large enough so not significant
-        var baseline = new[] { Sample("A", 1000, stdDev:200, n:10) };
-        var current  = new[] { Sample("A", 1020, stdDev:200, n:10) };
-        var comparer = new GateComparer(0.03, 16, 0.03, 5.0, useSigma:true); // high sigma multiplier
+        var baseline = new[] { Sample("A", 1000, stdDev: 200, n: 10) };
+        var current = new[] { Sample("A", 1020, stdDev: 200, n: 10) };
+        var comparer = new GateComparer(0.03, 16, 0.03, 5.0, useSigma: true); // high sigma multiplier
         var (regressions, improvements) = comparer.Compare(baseline, current);
         Assert.Empty(regressions);
         Assert.Empty(improvements);
@@ -71,8 +71,8 @@ public class BenchGateTests
     public void NewBenchmarkIgnored()
     {
         var baseline = new[] { Sample("A", 1000) };
-        var current  = new[] { Sample("A", 1000), Sample("B", 500) }; // B is new
-        var comparer = new GateComparer(0.03, 16, 0.03, 2.0, useSigma:false);
+        var current = new[] { Sample("A", 1000), Sample("B", 500) }; // B is new
+        var comparer = new GateComparer(0.03, 16, 0.03, 2.0, useSigma: false);
         var (regressions, improvements) = comparer.Compare(baseline, current);
         Assert.Empty(regressions);
         Assert.Empty(improvements);
