@@ -39,7 +39,7 @@ This repository uses an automated, performance-focused workflow for cache primit
    ```
 4. Run tests:
    ```bash
-   dotnet test -c Release --no-build
+   dotnet test -c Release
    ```
 5. Re-run exactly the SAME benchmark filters as baseline (plus broader set if risk of spillover).
 6. Compare: Mean (ns), Allocated (B), Gen0 (and higher if emitted), and the defined Contention Metrics (see "Contention Metrics Definition" below). If any unrelated core scenario regresses >3% in mean time OR contention metric thresholds are exceeded OR allocations increase without clear justification, FIX or ABORT before committing.
@@ -47,6 +47,34 @@ This repository uses an automated, performance-focused workflow for cache primit
 8. Update docs / comments impacted.
 9. Craft commit message including before/after table (see template). DO NOT COMMIT perf-affecting change without numbers.
 10. If you accidentally committed without numbers, immediately produce an A/B benchmark and either amend commit or add a corrective docs commit with metrics.
+
+### 3.a ABSOLUTE NON-NEGOTIABLE EXECUTION ORDER (AI & Humans)
+For EVERY change (docs-only excluded) you MUST execute, in this EXACT order, before proceeding to any subsequent step, review, or commit claim:
+
+1. Run code formatter:
+   ```bash
+   dotnet format
+   ```
+2. Build (fail = STOP):
+   ```bash
+   dotnet build -c Release
+   ```
+3. Run tests (fail or new failures = STOP & FIX):
+   ```bash
+   dotnet test -c Release --no-build
+   ```
+4. If the change touches ANY implementation that is exercised by a benchmark (directly or indirectly), you MUST:
+   a. Capture a BEFORE benchmark (if not already captured in this working session) using the minimal representative filter(s).  
+   b. Apply the code change.  
+   c. Re-run the SAME benchmark filters for AFTER.  
+   d. Compare and record Mean, Alloc (B), Gen0+ collections, and contention metrics (if applicable).  
+   e. Only proceed if thresholds hold or improvements are justified.
+
+AI Assistant Compliance Clause: The assistant SHALL NOT skip or merely describe these steps; it MUST execute them with tooling available. If tooling is unavailable, it must declare itself BLOCKED and await remediation—not proceed on assumption.
+
+Evidence in Commit / PR: Any perf-impacting commit MUST contain an explicit snippet referencing the BEFORE and AFTER benchmark command(s) and results table (see Section 10 template) plus a PASS indication of format/build/test.
+
+Violation Handling: Any merge or PR lacking this ordered evidence for perf-touching code is subject to immediate reversion.
 
 ### Contention Metrics Definition
 "Contention Metrics" are a fixed, explicitly collected set of concurrency and stall indicators you MUST baseline and re-measure for any change that can alter synchronization, scheduling, or allocation pressure. They are normalized per 1,000 logical benchmark operations (unless already emitted as a cumulative count for the full run). Add new metrics (with name, source, collection command) to the table below whenever a benchmark depends on them.
@@ -170,3 +198,217 @@ If a perf commit merged without metrics, open a follow-up PR immediately adding 
 
 ---
 These instructions are binding for both human contributors and AI assistants to maintain consistent, measurable performance quality.
+
+## 12. Benchmark Regression Gate (BenchGate)
+
+To automatically detect performance regressions, a lightweight gating tool (`tools/BenchGate`) compares the most recent BenchmarkDotNet JSON output against committed baselines under `benchmarks/baseline/`.
+
+### Outputs Enabled
+The benchmark harness (`tests/Benchmarks/Program.cs`) is configured with `GateConfig` to always emit:
+- GitHub Markdown (`*-report-github.md`)
+- HTML (`*-report.html`)
+- Full JSON (`*-report-full.json`)  <-- consumed by the gate
+
+### Baseline Files
+Store suite baselines here:
+```
+benchmarks/baseline/CacheBenchmarks.json
+benchmarks/baseline/ContentionBenchmarks.json (optional)
+```
+You may add per-OS variants if matrix differences are material (e.g., `CacheBenchmarks.windows-latest.json`). The CI currently looks for the unified `CacheBenchmarks.json`.
+
+### Threshold Logic
+For each benchmark (matched by `FullName`):
+- Time regression FAIL when: `currentMean > baselineMean * 1.03` AND absolute delta > 5 ns.
+- Allocation regression FAIL when: `currentAllocated > baselineAllocated` AND (delta > 16 B OR >3%).
+
+Both guards reduce noise of tiny fluctuations. Adjust via CLI switches:
+```
+--time-threshold=0.03           # relative (3%)
+--alloc-threshold-bytes=16       # absolute allocation guard
+```
+
+### Local Workflow
+```
+dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *SingleFlight*
+Copy BenchmarkDotNet.Artifacts/results/Benchmarks.CacheBenchmarks-report-full.json benchmarks/baseline/CacheBenchmarks.json
+git add benchmarks/baseline/CacheBenchmarks.json
+git commit -m "chore(bench): update CacheBenchmarks baseline" -m "Include before/after metrics table"
+```
+Compare without committing baseline first:
+```
+dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *
+Copy BenchmarkDotNet.Artifacts/results/Benchmarks.CacheBenchmarks-report-full.json BenchmarkDotNet.Artifacts/results/current.json
+dotnet run -c Release --project tools/BenchGate/BenchGate.csproj -- benchmarks/baseline/CacheBenchmarks.json BenchmarkDotNet.Artifacts/results/current.json
+```
+
+### CI Integration
+`ci.yml` runs benchmarks on each matrix OS, copies the latest full JSON to a stable `current.json`, and (if a baseline file exists) executes BenchGate. Failures surface in the job logs and fail the build.
+
+Artifacts uploaded:
+- `*.json` (including `*-report-full.json` and `current.json`)
+- `*.md`, `*.html`
+
+### Updating Baselines
+1. Verify improvement locally (no regressions on unrelated scenarios).
+2. Commit the code change (perf or feature) with metrics table referencing BEFORE (previous baseline) vs AFTER.
+3. After merge (or in a follow-up PR), regenerate benchmarks and update the baseline in a distinct commit: `chore(bench): update CacheBenchmarks baseline` with summary.
+4. Never mix baseline file updates with code changes that alter performance.
+
+### Handling Noisy Micro Benchmarks
+If operations are too small (< ~50 ns) and cause frequent false positives:
+- Increase work per operation (e.g., a loop inside the benchmark method) or configure BenchmarkDotNet attributes (`[MinIterationTime]`, `[InvocationCount]`).
+- Optionally raise the absolute time delta guard (e.g., require >20 ns) by editing BenchGate thresholds or passing a custom `--time-threshold` plus modifying the code for a higher absolute filter.
+
+### Adding a New Suite
+1. Create new benchmark class.
+2. Run once to produce full JSON.
+3. Add `<SuiteName>.json` under `benchmarks/baseline/`.
+4. (Optional) Extend CI to enforce that suite (add additional compare step).
+
+### Non-Matching Benchmarks
+Benchmarks present in current run but absent in baseline are ignored (treated as new). After validating them, refresh baseline intentionally.
+
+### Improvements Reporting
+BenchGate lists improvements (time or allocation reductions) so you can decide when to refresh baselines—do not auto-update; keep human review.
+
+---
+
+## 13. Automation & BenchGate Validation Guardrails
+
+To prevent unverified performance infrastructure changes, any modification (code or docs) involving the benchmark harness, BenchGate, thresholds, statistical logic, exporter configuration, CI gating steps, or baseline format MUST follow this explicit validation checklist. AI assistants and human contributors alike are bound by this section. Skipping steps or claiming completion without evidence is a process violation and grounds for rework or revert.
+
+### 13.1 Mandatory Validation Checklist (ALL must be done BEFORE claiming the change is “done”)
+1. Build: `dotnet build -c Release` succeeds (no warnings newly introduced for changed files unless justified and documented).
+2. Tests: `dotnet test -c Release --no-build` green (add/adjust tests if logic changed).
+3. Produce Fresh Benchmark Output:
+   - Run at least ONE representative suite (e.g., `--filter *SingleFlight*` OR full `*`) generating a new `*-report-full.json`.
+4. Local Gate PASS Scenario:
+   - Copy that JSON to a temp baseline path and execute BenchGate against itself (should PASS with zero regressions reported).
+5. Local Gate FAIL Simulation (Proof of Detection):
+   - Create a TEMPORARY mutated copy of the current JSON (e.g., increase one Mean by ≥10% or Allocated by +64 B) and re-run BenchGate pointing baseline→original, current→mutated.
+   - Confirm BenchGate exits with non‑zero code and lists the synthetic regression.
+6. Statistical Branches (when sigma / standard error logic touched):
+   - Also create a mutation BELOW thresholds (e.g., +0.5% mean, +2 ns) and verify it does NOT fail (ensures noise filtering still works).
+7. Capture Evidence:
+   - Include (in commit body or PR comment) a short table:
+     - PASS run: exit code, number of benchmarks compared, regressions=0.
+     - FAIL run: exit code, name(s) of intentionally mutated benchmark(s), reported deltas.
+   - Summarize any new CLI switches & default values.
+8. CI Adaptation (if workflow changed):
+   - Show the diff of `ci.yml` & describe how per-OS / per-suite resolution happens.
+9. Baseline Handling:
+   - NEVER auto-overwrite committed baselines inside the same perf-affecting commit.
+   - If format changes, provide a migration note + one dedicated commit updating baselines (no code in that commit).
+10. Analyzer / Complexity Warnings:
+   - If new complexity or analyzer warnings arise in touched files, address or justify them explicitly.
+
+### 13.2 Required Evidence Template (paste into PR comment or commit body)
+```
+BenchGate Validation
+Build: PASS
+Tests: PASS (X new tests added / updated)
+Benchmark Command: <exact command>
+PASS Run: exit=0, benchmarks compared=N, regressions=0
+FAIL Simulation: exit=1, mutated=<BenchmarkFullName>, ΔMean=+X ns (+Y%), (or) ΔAlloc=+Z B
+Noise Guard Check (small delta): PASS (no false positive)
+New/Changed Flags: --sigma-mult=2.0 (default), added --no-sigma (disables significance filtering)
+Notes: <any deviations>
+```
+
+### 13.3 AI Assistant Specific Rules
+- MUST execute (not just describe) build + test + at least two BenchGate runs (pass + fail) using available tooling before asserting completion.
+- MUST NOT mark a task “complete” in conversation or PR guidance until evidence template lines are populated.
+- MUST refuse to finalize if tool execution results are missing or inconsistent with claims.
+- MUST explicitly call out if workspace lacks a current `*-report-full.json` and generate one instead of assuming.
+
+### 13.4 Common Pitfalls (Do NOT do these)
+- Declaring statistical logic “done” without verifying a regression is actually caught.
+- Relying solely on code inspection for threshold correctness.
+- Mutating production baseline JSON just to force a regression (instead, copy & mutate a temp current file).
+- Bundling baseline file updates with logic changes.
+
+### 13.5 Rapid Sanity Script (Optional)
+If repeated frequently, consider adding a helper script under `scripts/benchgate-validate.ps1` encapsulating steps 3–5; still, evidence output must be included manually.
+
+---
+
+## 14. Incremental Pattern-Oriented Development Hierarchy
+
+A "Maslow's Hierarchy" for changes: progress ONLY when lower layers are satisfied. Every commit should move cleanly at (or up) one layer without skipping evidence at lower layers.
+
+### 14.1 Layers (Bottom → Top)
+1. Testability & Fast Feedback
+   - Write or extend unit/benchmark tests FIRST that would fail without the intended change (red → green → refactor).
+   - Prefer deterministic, allocation-stable tests; isolate flakiness early.
+2. Structural Qualities
+   - Loose coupling: depend on abstractions/interfaces; no hidden singletons.
+   - High cohesion: each class has one focused responsibility (SRP). If a method > ~40 LOC with branching, consider extraction BEFORE adding logic.
+   - Explicit boundaries: internal vs public APIs; internal helpers sealed/internal.
+3. Safety & Evidence
+   - Tests green locally (unit + any new micro-bench harness assertions).
+   - BenchGate PASS (plus synthetic FAIL simulation if infra touched).
+   - Static analysis / complexity thresholds satisfied (justify any suppression inline).
+4. Patterns & Practices
+   - Apply only when justified by concrete forces (e.g., Strategy for pluggable eviction, Decorator for metrics layering). Avoid speculative abstraction.
+   - Prefer composition over inheritance; if inheritance used, assert invariants via tests.
+5. Optimization & Micro-Perf
+   - Optimize only AFTER a repeatable benchmark proves a hotspot (≥5% potential gain) and tests lock correctness.
+   - Show before/after benchmark table in commit body; if <1% improvement, aggregate with other micro-ops or skip.
+6. GoF / Advanced Architectural Moves
+   - Introduce higher-level patterns (e.g., Flyweight, Observer) only when they reduce measured contention or memory footprint with a net positive complexity tradeoff.
+
+### 14.2 Required Commit Structure Per Layer
+| Layer | Mandatory Artifacts |
+|-------|---------------------|
+| 1 | Failing test added (red) → implementation (green); commit includes passing state only (squash intermediate locally). |
+| 2 | Refactor commit with NO behavior change (tests unchanged & green) + note of structural improvement. |
+| 3 | Evidence block: test summary + BenchGate PASS output snippet. |
+| 4 | Rationale: problem forces → chosen pattern → alternative rejected. |
+| 5 | Benchmark table (before/after) + explanation of root cause & technique. |
+| 6 | Risk assessment (complexity delta, extension points) + migration notes if public API surface shifts. |
+
+### 14.3 Enforcement Rules
+- A performance commit without a preceding (or combined) test demonstrating correctness is invalid.
+- Introducing a pattern without a concrete force (contention, duplication, instability) is grounds for revert.
+- BenchGate evidence (Section 13) is REQUIRED for any layer ≥3 that can affect perf or infra.
+- Failure to provide before/after metrics when claiming optimization triggers automatic follow-up or revert.
+
+### 14.4 PR Review Checklist Addendum
+Add to existing Section 8 checklist:
+ - [ ] Layer(s) targeted: ____ (1–6). Lower layers satisfied.
+ - [ ] New/changed tests cover behavior & edge conditions.
+ - [ ] BenchGate evidence included (if layer ≥3).
+ - [ ] Structural changes reduce complexity or improve clarity (not lateral churn).
+ - [ ] Pattern introduction justified by explicit forces.
+ - [ ] Micro-optimizations backed by ≥3% stable improvement or aggregated.
+
+### 14.5 Fast Test Design Guidelines
+- Prefer pure logic extraction into small internal static methods for direct unit testing.
+- For concurrency primitives: add deterministic tests using controlled Task schedulers or manual reset events to avoid timing races.
+- Guard against allocation regressions by asserting `GC.GetAllocatedBytesForCurrentThread()` deltas inside micro-tests where feasible (tolerances ±16 B).
+
+### 14.6 Refactor Workflow (Safe Extraction)
+1. Identify high-complexity method (analyzer warning).
+2. Add characterization tests if coverage sparse.
+3. Extract cohesive helpers (private static or internal sealed types) ensuring no hidden mutable shared state.
+4. Re-run tests + BenchGate (sanity) if extraction touches hot path.
+5. Only then proceed to new feature or optimization atop the cleaner structure.
+
+### 14.7 Anti-Patterns to Reject
+- Premature interface proliferation without multiple concrete strategies.
+- Benchmark-driven changes committed without archived result JSON.
+- Pattern layering increasing indirection on hot paths with <1% gain.
+- Catch-all utility classes housing unrelated helpers.
+
+### 14.8 Minimal Example (Commit Body Snippet)
+```
+refactor(single-flight): extract result awaiter path
+
+Layer: 2 (Structural Qualities)
+Rationale: Reduce cognitive complexity (26→12) in ExecuteAsync by isolating fast-path.
+Tests: Existing SingleFlight* tests all green (no new behaviors).
+BenchGate: PASS (0 regressions, compared=14)
+``` 
+
+---
