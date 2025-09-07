@@ -15,6 +15,21 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Benchmarks", "tests\Benchma
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BenchGate", "tools\BenchGate\BenchGate.csproj", "{A5A9F5A8-9B6E-4F78-8A6B-5FD9F9E2E5C1}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "baselines", "baselines", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+	ProjectSection(SolutionItems) = preProject
+		benchmarks\baseline\current-contention.macos-latest.ARM64.json = benchmarks\baseline\current-contention.macos-latest.ARM64.json
+		benchmarks\baseline\current-contention.ubuntu-24.04-arm.ARM64.json = benchmarks\baseline\current-contention.ubuntu-24.04-arm.ARM64.json
+		benchmarks\baseline\current-contention.ubuntu-latest.X64.json = benchmarks\baseline\current-contention.ubuntu-latest.X64.json
+		benchmarks\baseline\current-contention.windows-11-arm.ARM64.json = benchmarks\baseline\current-contention.windows-11-arm.ARM64.json
+		benchmarks\baseline\current-contention.windows-latest.X64.json = benchmarks\baseline\current-contention.windows-latest.X64.json
+		benchmarks\baseline\current.macos-latest.ARM64.json = benchmarks\baseline\current.macos-latest.ARM64.json
+		benchmarks\baseline\current.ubuntu-24.04-arm.ARM64.json = benchmarks\baseline\current.ubuntu-24.04-arm.ARM64.json
+		benchmarks\baseline\current.ubuntu-latest.X64.json = benchmarks\baseline\current.ubuntu-latest.X64.json
+		benchmarks\baseline\current.windows-11-arm.ARM64.json = benchmarks\baseline\current.windows-11-arm.ARM64.json
+		benchmarks\baseline\current.windows-latest.X64.json = benchmarks\baseline\current.windows-latest.X64.json
+		benchmarks\baseline\README.md = benchmarks\baseline\README.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -82,5 +97,8 @@ Global
 		{2C24A6F8-2FC7-4FF5-8F79-E95625219311} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{BCEA5B0F-B3E7-4ED5-8A6B-9249BABBC416} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{A5A9F5A8-9B6E-4F78-8A6B-5FD9F9E2E5C1} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4AC88EA3-7EA6-4034-B6B0-FD227DD16EF6}
 	EndGlobalSection
 EndGlobal
