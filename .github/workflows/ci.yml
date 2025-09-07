@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -38,6 +39,39 @@ jobs:
         shell: pwsh
         run: dotnet test --configuration Release --no-build --logger 'trx;LogFileName=test-results.trx' --collect 'Xplat Code Coverage'
 
+      - name: Run Benchmarks (all suites for gate)
+        shell: pwsh
+        run: |
+          dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter * --artifacts "BenchmarkDotNet.Artifacts"
+          # Copy a canonical JSON to a stable filename for gate comparison
+          $json = Get-ChildItem -Path BenchmarkDotNet.Artifacts/results -Filter "Benchmarks.CacheBenchmarks-report-full.json" | Select-Object -First 1
+          if (-not $json) { Write-Error 'CacheBenchmarks full JSON not found'; exit 1 }
+          Copy-Item $json.FullName BenchmarkDotNet.Artifacts/results/current.json
+          # Also copy contention suite if produced
+          $contJson = Get-ChildItem -Path BenchmarkDotNet.Artifacts/results -Filter "Benchmarks.ContentionBenchmarks-report-full.json" | Select-Object -First 1
+          if ($contJson) { Copy-Item $contJson.FullName BenchmarkDotNet.Artifacts/results/current-contention.json }
+
+      - name: Bench Gate Compare (CacheBenchmarks)
+        if: always()
+        shell: pwsh
+        run: |
+          $baselineDir = "benchmarks/baseline"
+          if (Test-Path $baselineDir) {
+            # Provide directory; BenchGate resolves per-OS naming
+            dotnet run -c Release --project tools/BenchGate/BenchGate.csproj -- $baselineDir BenchmarkDotNet.Artifacts/results/current.json --suite=CacheBenchmarks
+          } else { Write-Host 'Baseline directory missing; skipping.' }
+
+      - name: Bench Gate Compare (ContentionBenchmarks)
+        if: always()
+        shell: pwsh
+        run: |
+          $baselineDir = "benchmarks/baseline"
+          if (Test-Path BenchmarkDotNet.Artifacts/results/current-contention.json) {
+            if (Test-Path $baselineDir) {
+              dotnet run -c Release --project tools/BenchGate/BenchGate.csproj -- $baselineDir BenchmarkDotNet.Artifacts/results/current-contention.json --suite=ContentionBenchmarks
+            } else { Write-Host 'Baseline directory missing; skipping contention gate.' }
+          } else { Write-Host 'No contention suite JSON produced; skipping.' }
+
       - name: Upload Test Results
         if: always()
         uses: actions/upload-artifact@v4
@@ -46,3 +80,6 @@ jobs:
           path: |
             **/TestResults/*.trx
             **/coverage.cobertura.xml
+            BenchmarkDotNet.Artifacts/results/*.json
+            BenchmarkDotNet.Artifacts/results/*.md
+            BenchmarkDotNet.Artifacts/results/*.html
