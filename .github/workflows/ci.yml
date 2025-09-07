@@ -63,7 +63,8 @@ jobs:
 
 
       - name: Bench Gate Compare (CacheBenchmarks)
-        if: $${{ false }} # Lots of variability run to run; need to have benchmark run real-time
+        if: $${{ false }}
+        continue-on-error: true
         shell: pwsh
         run: |
           $os = "${{ matrix.os }}"
@@ -77,6 +78,7 @@ jobs:
 
       - name: Bench Gate Compare (ContentionBenchmarks)        
         if: $${{ false }}
+        continue-on-error: true
         shell: pwsh
         run: |
           $os = "${{ matrix.os }}"
