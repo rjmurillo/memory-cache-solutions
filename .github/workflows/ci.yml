@@ -55,7 +55,7 @@ jobs:
           $arch = "${{ runner.arch }}"
           dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter '*'' --artifacts "BenchmarkDotNet.Artifacts"
           $json = Get-ChildItem -Path BenchmarkDotNet.Artifacts/results -Filter "Benchmarks.CacheBenchmarks-report.json" | Select-Object -First 1
-          if (-not $json) { Write-Error 'CacheBenchmarks full JSON not found'; exit 1 }
+          if (-not $json) { Write-Error 'CacheBenchmarks full JSON not found'; exit 1; }
           $out = "BenchmarkDotNet.Artifacts/results/current.$os.$arch.json"
           Copy-Item $json.FullName $out
           $contJson = Get-ChildItem -Path BenchmarkDotNet.Artifacts/results -Filter "Benchmarks.ContentionBenchmarks-report.json" | Select-Object -First 1
