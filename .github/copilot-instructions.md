@@ -7,17 +7,48 @@ START OF EVERY SESSION / CHANGE (NON‑NEGOTIABLE):
 
 Start every change by opening and reading this file (.github/copilot-instructions.md).
 
-This repository uses an automated, performance-focused workflow for cache primitives. Follow these steps when proposing or implementing changes (manually or via Copilot / other AI assistants):
+### Baseline Files (Per-OS/Arch Robustness)
+Store suite baselines here, using per-OS/arch naming:
+```
+benchmarks/baseline/CacheBenchmarks.windows-latest.x64.json
+benchmarks/baseline/CacheBenchmarks.ubuntu-latest.x64.json
+benchmarks/baseline/CacheBenchmarks.macos-latest.x64.json
+benchmarks/baseline/ContentionBenchmarks.windows-latest.x64.json (optional)
+```
+Each matrix job in CI and each local run should use its own OS/arch-specific file. Never overwrite another platform's baseline.
 
-## 1. Scope & Atomicity
-- Make ONE logical optimization or feature per commit ("atomic").
-- Do not mix refactors with behavior changes unless required.
-- Use Conventional Commit messages (examples below).
+**Baseline update policy:**
+- Only update a baseline intentionally, after confirming an improvement or accepted tradeoff, and always in a separate commit.
+- Never update baselines automatically in CI.
 
 ## 2. Change Categories (Examples)
-| Type | Prefix | Example |
-|------|--------|---------|
-| Performance improvement | perf | `perf(single-flight-lazy): store Task<T> directly to remove Lazy allocation` |
+
+### CI Integration (Matrix-Safe, Artifact-Rich)
+`ci.yml` runs benchmarks on each matrix OS/arch, writes the result to a unique file (e.g., `current.windows-latest.x64.json`), and compares against the matching baseline (e.g., `CacheBenchmarks.windows-latest.x64.json`).
+
+**Artifacts uploaded for every matrix job:**
+- The current run's JSON (e.g., `current.windows-latest.x64.json`)
+- The resolved baseline JSON (e.g., `CacheBenchmarks.windows-latest.x64.json`)
+- Markdown and HTML reports
+- Test results and coverage
+
+**No baseline is ever overwritten in CI.**
+
+**Debugging/forensics:**
+- You can always download both the current and baseline JSON for any failed job to compare and investigate.
+
+**Example artifact names:**
+```
+bench-artifacts-windows-latest-x64/
+  current.windows-latest.x64.json
+  CacheBenchmarks.windows-latest.x64.json
+  current-contention.windows-latest.x64.json
+  ContentionBenchmarks.windows-latest.x64.json
+  *.md
+  *.html
+  *.trx
+  coverage.cobertura.xml
+```
 | Feature | feat | `feat(coalescing-cache): add TryGetOrCreateAsync with created flag` |
 | Refactor (no behavior change) | refactor | `refactor(metered): extract metric emission helper` |
 | Tests | test | `test(single-flight): add cancellation scenario` |
@@ -25,33 +56,49 @@ This repository uses an automated, performance-focused workflow for cache primit
 | Benchmark infra | chore | `chore(bench): parametrize contention levels` |
 
 ## 3. Standard Implementation Steps
-1. Benchmark (baseline) the specific target(s) you expect to impact BEFORE editing code.
-   - If unsure which, run ALL benchmarks:
-     ```powershell
-     dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *
-     ```
-   - Targeted examples:
-     ```powershell
-     dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *SingleFlightLazy*
-     dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *Coalescing_Contention*
-     ```
-   - Save the pre-change summary (copy to commit body later).
-2. Make the code change.
-3. Run format & build:
+
+### Local Workflow (Per-OS/Arch)
+1. Run benchmarks for your platform:
+   ```powershell
+   dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *
+   # Find the produced JSON (e.g., BenchmarkDotNet.Artifacts/results/Benchmarks.CacheBenchmarks-report-full.json)
+   $os = "windows-latest" # or your platform
+   $arch = "x64" # or your arch
+   Copy-Item BenchmarkDotNet.Artifacts/results/Benchmarks.CacheBenchmarks-report-full.json benchmarks/baseline/CacheBenchmarks.$os.$arch.json
+   git add benchmarks/baseline/CacheBenchmarks.$os.$arch.json
+   git commit -m "chore(bench): update CacheBenchmarks baseline ($os/$arch)" -m "Include before/after metrics table"
+   ```
+2. To compare without committing:
+   ```powershell
+   dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *
+   Copy-Item BenchmarkDotNet.Artifacts/results/Benchmarks.CacheBenchmarks-report-full.json BenchmarkDotNet.Artifacts/results/current.$os.$arch.json
+   dotnet run -c Release --project tools/BenchGate/BenchGate.csproj -- benchmarks/baseline/CacheBenchmarks.$os.$arch.json BenchmarkDotNet.Artifacts/results/current.$os.$arch.json
+   ```
+3. Never overwrite another platform's baseline. Always use your OS/arch-specific file.
    ```powershell
    dotnet format
    dotnet build -c Release
    ```
 4. Run tests:
-   ```powershell
-   dotnet test -c Release
-   ```
-5. Re-run exactly the SAME benchmark filters as baseline (plus broader set if risk of spillover).
-6. Compare: Mean (ns), Allocated (B), Gen0 (and higher if emitted), and the defined Contention Metrics (see "Contention Metrics Definition" below). If any unrelated core scenario regresses >3% in mean time OR contention metric thresholds are exceeded OR allocations increase without clear justification, FIX or ABORT before committing.
+
+### Updating Baselines (Safe, Per-OS/Arch)
+1. Verify improvement locally (no regressions on unrelated scenarios).
+2. Commit the code change (perf or feature) with metrics table referencing BEFORE (previous baseline) vs AFTER.
+3. After merge (or in a follow-up PR), regenerate benchmarks and update only your platform's baseline in a distinct commit: `chore(bench): update CacheBenchmarks.$os.$arch.json baseline` with summary.
+4. Never mix baseline file updates with code changes that alter performance.
+5. Never update baselines in CI jobs—always do it intentionally and review the before/after metrics.
 7. If perf change: ensure 100% test coverage of new branches/logic (add tests if necessary).
 8. Update docs / comments impacted.
-9. Craft commit message including before/after table (see template). DO NOT COMMIT perf-affecting change without numbers.
-10. If you accidentally committed without numbers, immediately produce an A/B benchmark and either amend commit or add a corrective docs commit with metrics.
+
+### Handling Noisy Micro Benchmarks
+If operations are too small (< ~50 ns) and cause frequent false positives:
+- Increase work per operation (e.g., a loop inside the benchmark method) or configure BenchmarkDotNet attributes (`[MinIterationTime]`, `[InvocationCount]`).
+- Optionally raise the absolute time delta guard (e.g., require >20 ns) by editing BenchGate thresholds or passing a custom `--time-threshold` plus modifying the code for a higher absolute filter.
+
+### Artifact Forensics and Debugging
+- Download both the current and baseline JSON artifacts for any failed job to compare and investigate.
+- Use the uploaded Markdown and HTML for human-readable reports.
+- Never trust a single run—always compare across multiple jobs and platforms if investigating a regression.
 
 ### 3.a ABSOLUTE NON-NEGOTIABLE EXECUTION ORDER (AI & Humans)
 For EVERY change (docs-only excluded) you MUST execute, in this EXACT order, before proceeding to any subsequent step, review, or commit claim:
