@@ -75,8 +75,22 @@ internal static class Program
             double mean = stats["Mean"]!.GetValue<double>();
             double stdDev = stats["StandardDeviation"]?.GetValue<double>() ?? 0;
             int n = stats["N"]?.GetValue<int>() ?? 0; // BDN may not expose; fallback 0
-            double alloc = node["Memory"]?["AllocatedBytes"]?.GetValue<double>() ?? 0;
-            return new BenchmarkSample(id, mean, stdDev, n, alloc);
+            double alloc = node["Memory"]?["AllocatedBytes"]?.GetValue<double>() 
+                           ?? node["Memory"]?["BytesAllocatedPerOperation"]?.GetValue<double>()
+                           ?? 0;
+            List<double>? samples = null;
+            if (stats["OriginalValues"]?.AsArray() is { } sampleArr)
+            {
+                samples = new List<double>(sampleArr.Count);
+                foreach (var v in sampleArr)
+                {
+                    if (v is JsonValue jv)
+                    {
+                        try { samples.Add(jv.GetValue<double>()); } catch { /* skip invalid */ }
+                    }
+                }
+            }
+            return new BenchmarkSample(id, mean, stdDev, n, alloc, samples);
         }
 
         var baselineSamples = baselineBenchmarks.Select(Map).ToList();
