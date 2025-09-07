@@ -72,6 +72,8 @@ For EVERY change (docs-only excluded) you MUST execute, in this EXACT order, bef
 
 AI Assistant Compliance Clause: The assistant SHALL NOT skip or merely describe these steps; it MUST execute them with tooling available. If tooling is unavailable, it must declare itself BLOCKED and await remediation—not proceed on assumption.
 
+Command Execution Discipline: ALWAYS wait for each PowerShell command (format, build, test, benchmark, gate) to fully complete and capture its exit code/output before issuing the next command. Do NOT pipeline or overlap steps. Use only PowerShell invocation syntax regardless of host OS in this repository context.
+
 Evidence in Commit / PR: Any perf-impacting commit MUST contain an explicit snippet referencing the BEFORE and AFTER benchmark command(s) and results table (see Section 10 template) plus a PASS indication of format/build/test.
 
 Violation Handling: Any merge or PR lacking this ordered evidence for perf-touching code is subject to immediate reversion.
@@ -279,8 +281,9 @@ BenchGate lists improvements (time or allocation reductions) so you can decide w
 To prevent unverified performance infrastructure changes, any modification (code or docs) involving the benchmark harness, BenchGate, thresholds, statistical logic, exporter configuration, CI gating steps, or baseline format MUST follow this explicit validation checklist. AI assistants and human contributors alike are bound by this section. Skipping steps or claiming completion without evidence is a process violation and grounds for rework or revert.
 
 ### 13.1 Mandatory Validation Checklist (ALL must be done BEFORE claiming the change is “done”)
+0. Format: `dotnet format` succeeds. Note that code may be modified to fit style and analyzer rules.
 1. Build: `dotnet build -c Release` succeeds (no warnings newly introduced for changed files unless justified and documented).
-2. Tests: `dotnet test -c Release --no-build` green (add/adjust tests if logic changed).
+2. Tests: `dotnet test -c Release` green (add/adjust tests if logic changed).
 3. Produce Fresh Benchmark Output:
    - Run at least ONE representative suite (e.g., `--filter *SingleFlight*` OR full `*`) generating a new `*-report-full.json`.
 4. Local Gate PASS Scenario:
