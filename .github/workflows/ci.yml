@@ -68,7 +68,7 @@ jobs:
         run: |
           $os = "${{ matrix.os }}"
           $arch = "${{ runner.arch }}"
-          $baseline = "benchmarks/baseline/CacheBenchmarks.$os.$arch.json"
+          $baseline = "benchmarks/baseline/current.$os.$arch.json"
           $current = "BenchmarkDotNet.Artifacts/results/current.$os.$arch.json"
           if (Test-Path $baseline) {
             dotnet run -c Release --project tools/BenchGate/BenchGate.csproj -- $baseline $current --suite=CacheBenchmarks
@@ -81,7 +81,7 @@ jobs:
         run: |
           $os = "${{ matrix.os }}"
           $arch = "${{ runner.arch }}"
-          $baseline = "benchmarks/baseline/ContentionBenchmarks.$os.$arch.json"
+          $baseline = "benchmarks/baseline/current-contention.$os.$arch.json"
           $current = "BenchmarkDotNet.Artifacts/results/current-contention.$os.$arch.json"
           if (Test-Path $current) {
             if (Test-Path $baseline) {
