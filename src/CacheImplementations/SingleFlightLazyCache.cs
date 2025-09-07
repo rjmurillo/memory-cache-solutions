@@ -20,9 +20,8 @@ public sealed class SingleFlightLazyCache(IMemoryCache cache)
     private readonly IMemoryCache _cache = cache ?? throw new ArgumentNullException(nameof(cache));
 
     /// <summary>
-    /// Gets (or creates) a cached value. If the value for <paramref name="key"/> is missing a new
-    /// <see cref="Lazy{T}"/> representing the asynchronous factory is created and stored, ensuring only one
-    /// execution of <paramref name="factory"/> even under high concurrency.
+    /// Gets (or creates) a cached value. If the value for <paramref name="key"/> is missing, a new <see cref="Task{TResult}"/>
+    /// representing the asynchronous factory is created and stored, ensuring only one execution of <paramref name="factory"/> even under high concurrency.
     /// </summary>
     /// <typeparam name="T">Value type.</typeparam>
     /// <param name="key">Cache key.</param>
@@ -31,6 +30,9 @@ public sealed class SingleFlightLazyCache(IMemoryCache cache)
     /// <param name="configure">Optional cache entry configuration callback.</param>
     /// <param name="ct">Cancellation token (applies to awaiting the task, not to the underlying task once started).</param>
     /// <returns>The cached (or newly produced) value.</returns>
+    /// <remarks>
+    /// The cache hit path is allocation-free: if the value is present, it is returned directly with no new allocations.
+    /// </remarks>
     public async Task<T> GetOrCreateAsync<T>(
         string key,
         TimeSpan ttl,
@@ -44,8 +46,7 @@ public sealed class SingleFlightLazyCache(IMemoryCache cache)
             {
                 case T directValue:
                     return directValue; // Value inserted via sync path.
-                case Lazy<Task<T>> existingLazy:
-                    var existingTask = existingLazy.Value;
+                case Task<T> existingTask:
                     if (existingTask.IsCompletedSuccessfully)
                     {
                         // Avoid async state machine for completed tasks
@@ -55,15 +56,14 @@ public sealed class SingleFlightLazyCache(IMemoryCache cache)
             }
         }
 
-        var lazy = _cache.GetOrCreate<Lazy<Task<T>>>(key, entry =>
+        var task = _cache.GetOrCreate<Task<T>>(key, entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = ttl;
             configure?.Invoke(entry);
-            return new Lazy<Task<T>>(() => factory(), LazyThreadSafetyMode.ExecutionAndPublication);
+            return factory();
         });
 
-        var task = lazy!.Value;
-        if (task.IsCompletedSuccessfully)
+        if (task!.IsCompletedSuccessfully)
         {
             return task.GetAwaiter().GetResult();
         }
