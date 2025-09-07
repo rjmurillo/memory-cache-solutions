@@ -1,0 +1,242 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
+namespace BenchGateApp;
+
+public sealed record BenchmarkSample(string Id, double Mean, double StdDev, int N, double AllocBytes);
+
+public sealed class GateComparer
+{
+    private readonly double _timeThresholdPct;
+    private readonly int _allocThresholdBytes;
+    private readonly double _allocThresholdPct;
+    private readonly double _sigmaMult;
+    private readonly bool _useSigma;
+
+    public GateComparer(double timeThresholdPct, int allocThresholdBytes, double allocThresholdPct, double sigmaMult, bool useSigma)
+    {
+        _timeThresholdPct = timeThresholdPct;
+        _allocThresholdBytes = allocThresholdBytes;
+        _allocThresholdPct = allocThresholdPct;
+        _sigmaMult = sigmaMult;
+        _useSigma = useSigma;
+    }
+
+    public (List<string> regressions, List<string> improvements) Compare(IEnumerable<BenchmarkSample> baseline, IEnumerable<BenchmarkSample> current)
+    {
+        var baseMap = baseline.ToDictionary(b => b.Id, b => b);
+        List<string> regressions = new();
+        List<string> improvements = new();
+
+        foreach (var cur in current)
+        {
+            if (!baseMap.TryGetValue(cur.Id, out var b)) continue; // new -> ignore
+
+            double meanDelta = cur.Mean - b.Mean;
+            double meanPct = meanDelta / b.Mean;
+
+            bool significant = true;
+            if (_useSigma)
+            {
+                // Standard error approximation: StdDev / sqrt(N). If N unavailable (0) fallback to stddev.
+                double seBase = b.N > 0 ? b.StdDev / Math.Sqrt(b.N) : b.StdDev;
+                double seCur = cur.N > 0 ? cur.StdDev / Math.Sqrt(cur.N) : cur.StdDev;
+                double combinedSe = Math.Sqrt(seBase * seBase + seCur * seCur);
+                if (combinedSe > 0)
+                {
+                    significant = Math.Abs(meanDelta) > _sigmaMult * combinedSe;
+                }
+            }
+
+            double allocDelta = cur.AllocBytes - b.AllocBytes;
+            double allocPct = b.AllocBytes <= 0 ? 0 : allocDelta / b.AllocBytes;
+
+            bool timeRegression = significant && meanPct > _timeThresholdPct && meanDelta > 5.0;
+            bool allocRegression = allocDelta > _allocThresholdBytes && allocPct > _allocThresholdPct;
+
+            if (timeRegression || allocRegression)
+            {
+                regressions.Add($"{cur.Id}: mean {b.Mean:F2}ns -> {cur.Mean:F2}ns ({meanPct*100:F2}%), alloc {b.AllocBytes}B -> {cur.AllocBytes}B (Δ {allocDelta}B)");
+            }
+            else if (meanDelta < 0 || allocDelta < 0)
+            {
+                improvements.Add($"{cur.Id}: mean {b.Mean:F2}ns -> {cur.Mean:F2}ns ({meanPct*100:F2}%), alloc {b.AllocBytes}B -> {cur.AllocBytes}B (Δ {allocDelta}B)");
+            }
+        }
+
+        return (regressions, improvements);
+    }
+}
+
+internal static class Program
+{
+    private static int Fail(string msg)
+    {
+        Console.Error.WriteLine("BENCH GATE FAILURE: " + msg);
+        return 1;
+    }
+
+    public static int Main(string[] args)
+    {
+        if (args.Length < 2)
+        {
+            Console.WriteLine("Usage: BenchGate <baseline.json|baselineDir> <current.json> [--suite=<SuiteName>] [--time-threshold=0.03] [--alloc-threshold-bytes=16] [--alloc-threshold-pct=0.03] [--sigma-mult=2.0] [--no-sigma]");
+            Console.WriteLine("If a directory is supplied for baseline, BenchGate will attempt per-OS resolution: <suite>.<os>.<arch>.json -> <suite>.<os>.json -> <suite>.json");
+            return 2;
+        }
+
+        string baselineArg = args[0];
+        string currentPath = args[1];
+
+    double timeThreshold = 0.03; // 3%
+    int allocThresholdBytes = 16; // 16 bytes absolute guard
+    double allocThresholdPct = 0.03; // 3%
+    double sigmaMult = 2.0; // default ~95% confidence heuristic
+    bool useSigma = true;
+
+        string? suiteName = null;
+
+        foreach (var a in args.Skip(2))
+        {
+            if (a.StartsWith("--time-threshold=", StringComparison.OrdinalIgnoreCase))
+                timeThreshold = double.Parse(a.AsSpan("--time-threshold=".Length));
+            else if (a.StartsWith("--alloc-threshold-bytes=", StringComparison.OrdinalIgnoreCase))
+                allocThresholdBytes = int.Parse(a.AsSpan("--alloc-threshold-bytes=".Length));
+            else if (a.StartsWith("--alloc-threshold-pct=", StringComparison.OrdinalIgnoreCase))
+                allocThresholdPct = double.Parse(a.AsSpan("--alloc-threshold-pct=".Length));
+            else if (a.StartsWith("--sigma-mult=", StringComparison.OrdinalIgnoreCase))
+                sigmaMult = double.Parse(a.AsSpan("--sigma-mult=".Length));
+            else if (string.Equals(a, "--no-sigma", StringComparison.OrdinalIgnoreCase))
+                useSigma = false;
+            else if (a.StartsWith("--suite=", StringComparison.OrdinalIgnoreCase))
+                suiteName = a.Substring("--suite=".Length);
+        }
+
+        if (!File.Exists(currentPath))
+            return Fail($"Current results not found: {currentPath}");
+
+        // Load current first (may need to infer suite name for directory baseline resolution)
+        JsonNode currentRoot  = JsonNode.Parse(File.ReadAllText(currentPath ))!;
+        suiteName ??= InferSuiteName(currentRoot) ?? "UnknownSuite";
+
+        string? resolvedBaseline = ResolveBaselinePath(baselineArg, suiteName);
+        if (resolvedBaseline is null)
+            return Fail($"Could not resolve baseline file from '{baselineArg}' for suite '{suiteName}'.");
+        if (!File.Exists(resolvedBaseline))
+            return Fail($"Baseline not found after resolution: {resolvedBaseline}");
+
+        JsonNode baselineRoot = JsonNode.Parse(File.ReadAllText(resolvedBaseline))!;
+
+        var baselineBenchmarks = baselineRoot["Benchmarks"]!.AsArray();
+        var currentBenchmarks  = currentRoot ["Benchmarks"]!.AsArray();
+
+        static BenchmarkSample Map(JsonNode? node)
+        {
+            if (node is null) return new BenchmarkSample("<null>", 0, 0, 0, 0);
+            string id = node["FullName"]!.GetValue<string>();
+            var stats = node["Statistics"]!;
+            double mean = stats["Mean"]!.GetValue<double>();
+            double stdDev = stats["StandardDeviation"]?.GetValue<double>() ?? 0;
+            int n = stats["N"]?.GetValue<int>() ?? 0; // BDN may not expose; fallback 0
+            double alloc = node["Memory"]?["AllocatedBytes"]?.GetValue<double>() ?? 0;
+            return new BenchmarkSample(id, mean, stdDev, n, alloc);
+        }
+
+        var baselineSamples = baselineBenchmarks.Select(Map).ToList();
+        var currentSamples  = currentBenchmarks.Select(Map).ToList();
+
+        var comparer = new GateComparer(timeThreshold, allocThresholdBytes, allocThresholdPct, sigmaMult, useSigma);
+        var (regressions, improvements) = comparer.Compare(baselineSamples, currentSamples);
+
+        if (regressions.Count > 0)
+        {
+            Console.Error.WriteLine("Detected performance regressions vs baseline:");
+            foreach (var r in regressions) Console.Error.WriteLine("  " + r);
+            return 1;
+        }
+
+        Console.WriteLine("Benchmark gate passed (no regressions).");
+        if (improvements.Count > 0)
+        {
+            Console.WriteLine("Notable improvements (consider updating baseline):");
+            foreach (var i in improvements) Console.WriteLine("  " + i);
+        }
+        return 0;
+    }
+
+    private static string? ResolveBaselinePath(string baselineArg, string suiteName)
+    {
+        if (File.Exists(baselineArg)) return baselineArg; // explicit file
+        if (!Directory.Exists(baselineArg)) return baselineArg; // non-existent path -> will fail later
+
+        string osId = GetOsId();
+        string arch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
+        // Candidate priority
+        string[] candidates = new[]
+        {
+            Path.Combine(baselineArg, $"{suiteName}.{osId}.{arch}.json"),
+            Path.Combine(baselineArg, $"{suiteName}.{osId}.json"),
+            Path.Combine(baselineArg, $"{suiteName}.json")
+        };
+        foreach (var c in candidates)
+        {
+            if (File.Exists(c))
+            {
+                Console.WriteLine($"Resolved baseline: {c}");
+                return c;
+            }
+        }
+        // Return last candidate for clearer error message (expected location)
+        return candidates.LastOrDefault();
+    }
+
+    private static string GetOsId()
+    {
+        if (OperatingSystem.IsWindows()) return "windows-latest"; // Matches CI label
+        if (OperatingSystem.IsMacOS()) return "macos-latest";
+        if (OperatingSystem.IsLinux())
+        {
+            // Distinguish arm matrix variant heuristically via architecture
+            var arch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture;
+            return arch is System.Runtime.InteropServices.Architecture.Arm64 or System.Runtime.InteropServices.Architecture.Arm
+                ? "ubuntu-24.04-arm" // matches matrix custom label
+                : "ubuntu-latest";
+        }
+        return "unknown-os";
+    }
+
+    private static string? InferSuiteName(JsonNode currentRoot)
+    {
+        try
+        {
+            // Prefer Title: e.g., "Benchmarks.CacheBenchmarks-20250906-171704"
+            var title = currentRoot["Title"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                // Strip prefix up to first '.', then take token until next '-' (timestamp separator)
+                int dot = title.IndexOf('.');
+                if (dot >= 0 && dot + 1 < title.Length)
+                {
+                    string after = title[(dot + 1)..];
+                    int dash = after.IndexOf('-');
+                    if (dash > 0)
+                        return after.Substring(0, dash);
+                }
+            }
+            // Fallback: look at first benchmark FullName: Benchmarks.CacheBenchmarks.Method -> take type segment
+            var firstBench = currentRoot["Benchmarks"]?.AsArray().FirstOrDefault();
+            var fullName = firstBench?["FullName"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(fullName))
+            {
+                // Split by '.' and take second element if exists
+                var parts = fullName.Split('.');
+                if (parts.Length >= 2) return parts[1];
+            }
+        }
+        catch
+        {
+            // ignore heuristics errors
+        }
+        return null;
+    }
+}
