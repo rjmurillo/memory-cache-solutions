@@ -77,16 +77,46 @@ For EVERY change (docs-only excluded) you MUST execute, in this EXACT order, bef
 
 AI Assistant Compliance Clause: The assistant SHALL NOT skip or merely describe these steps; it MUST execute them with tooling available. If tooling is unavailable, it must declare itself BLOCKED and await remediation—not proceed on assumption.
 
+### 3.b PowerShell Guarded Command Pattern (Standardized Invocation)
+All automation MUST use a guarded invocation pattern to guarantee synchronous completion, surface success/failure explicitly, and produce a unique, parse-friendly marker. This prevents race conditions or partial output assumptions.
+
+Preferred pattern template (one command at a time):
+```powershell
+try { <COMMAND> } finally { if ($?) { echo "CMD_<GUID>=0" } else { echo "CMD_<GUID>=$LASTEXITCODE" } }
+```
+
+Example (build):
+```powershell
+try { dotnet build -c Release } finally { if ($?) { echo "BUILD_38e3f3e930144ed7b95b0e608218d0fe=0" } else { echo "BUILD_38e3f3e930144ed7b95b0e608218d0fe=$LASTEXITCODE" } }
+```
+Minimal variant currently in use (echoes PowerShell success boolean):
+```powershell
+try { dotnet build -c Release } finally { if ($?) { echo "38e3f3e930144ed7b95b0e608218d0fe=$?" } else { echo "38e3f3e930144ed7b95b0e608218d0fe=$?" } }
+```
+Guidelines:
+- Use a new GUID (or unique token) per command so logs can be machine-parsed.
+- Prefer reporting numeric exit codes (0 / non-zero) via `$LASTEXITCODE` for reliability versus `$?` when disambiguating failure types.
+- NEVER chain multiple critical commands inside one `try {}` block—each must have its own guard.
+- If output truncates or marker line missing, re-run the command; do not proceed.
+- Benchmarks should add a BENCH marker, e.g. `BENCH_<GUID>=0`.
+
+Rationale:
+- Ensures deterministic detection of completion and exit status across AI and CI contexts.
+- Disambiguates partial vs full execution when tools buffer output.
+- Provides a stable parsing anchor for future automated gate scripts.
+
+Violation: Executing dotnet/benchmark commands without this pattern is a process breach and subject to correction or revert.
+
 Command Execution Discipline: ALWAYS wait for each PowerShell command (format, build, test, benchmark, gate) to fully complete and capture its exit code/output before issuing the next command. Do NOT pipeline or overlap steps. Use only PowerShell invocation syntax regardless of host OS in this repository context.
 
 Reliable Waiting (PowerShell Core):
 1. Invoke each command on its own line (no background `Start-Job`, no trailing `&`).
-2. Immediately echo and record `$LASTEXITCODE` (e.g., `dotnet build -c Release; echo BUILD_EXIT=$LASTEXITCODE`).
+2. Immediately echo and record an identifiable marker line using the guarded pattern.
 3. Treat any non‑zero exit code as a hard STOP—investigate and resolve before continuing.
-4. Never chain multiple critical dotnet operations with `;` unless you still emit and validate the prior `$LASTEXITCODE` before executing the next. Preferred form is separate tool invocations in this order: `dotnet format` → `dotnet build -c Release` → `dotnet test -c Release --no-build` → (benchmarks) → gating.
-5. Benchmarks and gate runs must also surface exit code the same way: `dotnet run ...; echo BENCH_EXIT=$LASTEXITCODE`.
+4. Never chain multiple critical dotnet operations with `;` unless you still emit and validate the prior marker before executing the next.
+5. Benchmarks and gate runs must also surface exit code using the pattern.
 6. If output appears truncated or missing expected footer lines, re-run the command; do not proceed on partial output.
-7. The AI assistant MUST show the captured exit code in conversation before proceeding.
+7. The AI assistant MUST show the captured marker line in conversation before proceeding.
 
 Evidence in Commit / PR: Any perf-impacting commit MUST contain an explicit snippet referencing the BEFORE and AFTER benchmark command(s) and results table (see Section 10 template) plus a PASS indication of format/build/test.
 
