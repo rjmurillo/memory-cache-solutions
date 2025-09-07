@@ -30,11 +30,14 @@ public class CacheBenchmarks
     private readonly Func<object, Task<int>> _incrementWithStateTaskFactory;
     private readonly Func<ICacheEntry, int> _incrementSyncFactory;
 
+    // Reuse a single process-wide Meter to avoid repeated registrations
+    private static readonly System.Diagnostics.Metrics.Meter BenchMeter = new("bench.meter");
+
     public CacheBenchmarks()
     {
         // Stable data that does not depend on per-iteration cache instances.
         _churnKeys = Enumerable.Range(0, ChurnKeyCount).Select(i => $"k_{i}").ToArray();
-        
+
         // Initialize cached delegates to avoid per-call lambda allocations while preserving the work
         _incrementTaskFactory = () => Task.FromResult(Interlocked.Increment(ref _counter));
         _incrementWithStateTaskFactory = _ => Task.FromResult(Interlocked.Increment(ref _counter));
@@ -46,7 +49,7 @@ public class CacheBenchmarks
     {
         _raw = new MemoryCache(new MemoryCacheOptions());
         _coalescing = new CoalescingMemoryCache(_raw);
-        _metered = new MeteredMemoryCache(_raw, new System.Diagnostics.Metrics.Meter("bench.meter"));
+        _metered = new MeteredMemoryCache(_raw, BenchMeter);
         _singleFlight = new SingleFlightCache(_raw);
         _singleFlightLazy = new SingleFlightLazyCache(_raw);
         _raw.Set(HitKey, 42, TimeSpan.FromMinutes(5));
