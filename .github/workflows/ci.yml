@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -15,7 +15,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-11-arm, ubuntu-24.04-arm, ubuntu-latest, windows-latest, macos-latest] 
+        os:
+          [
+            windows-11-arm,
+            ubuntu-24.04-arm,
+            ubuntu-latest,
+            windows-latest,
+            macos-latest,
+          ]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -24,7 +31,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: "9.0.x"
           global-json-file: global.json
 
       - name: Restore
@@ -61,7 +68,6 @@ jobs:
           $contJson = Get-ChildItem -Path BenchmarkDotNet.Artifacts/results -Filter "Benchmarks.ContentionBenchmarks-report.json" | Select-Object -First 1
           if ($contJson) { Copy-Item $contJson.FullName "BenchmarkDotNet.Artifacts/results/current-contention.$os.$arch.json" }
 
-
       - name: Bench Gate Compare (CacheBenchmarks)
         if: $${{ false }}
         continue-on-error: true
@@ -75,8 +81,7 @@ jobs:
             dotnet run -c Release --project tools/BenchGate/BenchGate.csproj -- $baseline $current --suite=CacheBenchmarks
           } else { Write-Host "Baseline $baseline missing; skipping." }
 
-
-      - name: Bench Gate Compare (ContentionBenchmarks)        
+      - name: Bench Gate Compare (ContentionBenchmarks)
         if: $${{ false }}
         continue-on-error: true
         shell: pwsh
