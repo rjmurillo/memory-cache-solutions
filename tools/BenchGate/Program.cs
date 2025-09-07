@@ -17,6 +17,7 @@ internal static class Program
         {
             Console.WriteLine("Usage: BenchGate <baseline.json|baselineDir> <current.json> [--suite=<SuiteName>] [--time-threshold=0.03] [--alloc-threshold-bytes=16] [--alloc-threshold-pct=0.03] [--sigma-mult=2.0] [--no-sigma]");
             Console.WriteLine("If a directory is supplied for baseline, BenchGate will attempt per-OS resolution: <suite>.<os>.<arch>.json -> <suite>.<os>.json -> <suite>.json");
+            Console.WriteLine("If no baseline file is found after resolution the gate is SKIPPED (exit 0) so initial baselines can be captured.");
             return 2;
         }
 
@@ -55,10 +56,11 @@ internal static class Program
         suiteName ??= InferSuiteName(currentRoot) ?? "UnknownSuite";
 
         string? resolvedBaseline = ResolveBaselinePath(baselineArg, suiteName);
-        if (resolvedBaseline is null)
-            return Fail($"Could not resolve baseline file from '{baselineArg}' for suite '{suiteName}'.");
-        if (!File.Exists(resolvedBaseline))
-            return Fail($"Baseline not found after resolution: {resolvedBaseline}");
+        if (resolvedBaseline is null || !File.Exists(resolvedBaseline))
+        {
+            Console.WriteLine($"No baseline found for suite '{suiteName}'. Gate SKIPPED. (Expected at: {resolvedBaseline})");
+            return 0; // skip so first CI run can establish baseline
+        }
 
         JsonNode baselineRoot = JsonNode.Parse(File.ReadAllText(resolvedBaseline))!;
 
@@ -102,7 +104,7 @@ internal static class Program
     private static string? ResolveBaselinePath(string baselineArg, string suiteName)
     {
         if (File.Exists(baselineArg)) return baselineArg; // explicit file
-        if (!Directory.Exists(baselineArg)) return baselineArg; // non-existent path -> will fail later
+        if (!Directory.Exists(baselineArg)) return baselineArg; // non-existent path -> returned path will be tested by caller
 
         string osId = GetOsId();
         string arch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
@@ -121,7 +123,7 @@ internal static class Program
                 return c;
             }
         }
-        // Return last candidate for clearer error message (expected location)
+        // Return last candidate (expected final path even if missing so caller can display)
         return candidates.LastOrDefault();
     }
 
@@ -131,10 +133,9 @@ internal static class Program
         if (OperatingSystem.IsMacOS()) return "macos-latest";
         if (OperatingSystem.IsLinux())
         {
-            // Distinguish arm matrix variant heuristically via architecture
             var arch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture;
             return arch is System.Runtime.InteropServices.Architecture.Arm64 or System.Runtime.InteropServices.Architecture.Arm
-                ? "ubuntu-24.04-arm" // matches matrix custom label
+                ? "ubuntu-24.04-arm"
                 : "ubuntu-latest";
         }
         return "unknown-os";
@@ -144,11 +145,9 @@ internal static class Program
     {
         try
         {
-            // Prefer Title: e.g., "Benchmarks.CacheBenchmarks-20250906-171704"
             var title = currentRoot["Title"]?.GetValue<string>();
             if (!string.IsNullOrWhiteSpace(title))
             {
-                // Strip prefix up to first '.', then take token until next '-' (timestamp separator)
                 int dot = title.IndexOf('.');
                 if (dot >= 0 && dot + 1 < title.Length)
                 {
@@ -158,20 +157,15 @@ internal static class Program
                         return after.Substring(0, dash);
                 }
             }
-            // Fallback: look at first benchmark FullName: Benchmarks.CacheBenchmarks.Method -> take type segment
             var firstBench = currentRoot["Benchmarks"]?.AsArray().FirstOrDefault();
             var fullName = firstBench?["FullName"]?.GetValue<string>();
             if (!string.IsNullOrWhiteSpace(fullName))
             {
-                // Split by '.' and take second element if exists
                 var parts = fullName.Split('.');
                 if (parts.Length >= 2) return parts[1];
             }
         }
-        catch
-        {
-            // ignore heuristics errors
-        }
+        catch { }
         return null;
     }
 }
