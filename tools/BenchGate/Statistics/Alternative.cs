@@ -20,19 +20,19 @@ namespace BenchGate.Statistics;
 public enum Alternative
 {
     /// <summary>
-    /// Two?sided alternative: the distributions differ (shift in either direction).
-    /// The reported p-value is 2 * min(Pr(U &lt;= observed), Pr(U &gt;= observed)).
+    /// Two-sided alternative: the distributions differ (shift in either direction).
+    /// The reported p-value is approximately 2 * min(Pr(U &lt;= observed), Pr(U &gt;= observed)) under the normal approximation.
     /// </summary>
     TwoSided,
 
     /// <summary>
-    /// One?sided alternative: the first sample tends to produce larger observations than the second.
+    /// One-sided alternative: the first sample tends to produce larger observations than the second.
     /// Interpreted as H1: distribution(x) is stochastically greater than distribution(y).
     /// </summary>
     Greater,
 
     /// <summary>
-    /// One?sided alternative: the first sample tends to produce smaller observations than the second.
+    /// One-sided alternative: the first sample tends to produce smaller observations than the second.
     /// Interpreted as H1: distribution(x) is stochastically less than distribution(y).
     /// </summary>
     Less

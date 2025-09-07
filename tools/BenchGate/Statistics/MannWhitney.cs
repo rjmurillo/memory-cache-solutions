@@ -43,9 +43,19 @@ public static class MannWhitney
         if (y.Length > 10_000_000) throw new ArgumentOutOfRangeException(nameof(y), "Sample too large.");
 
         int n1 = x.Length, n2 = y.Length, n = n1 + n2;
+        if ((long)n > 10_000_000)
+            throw new ArgumentOutOfRangeException(nameof(x), "Total sample size too large.");
         var combined = new (double v, int g)[n]; // g: 0 for x, 1 for y
-        for (int i = 0; i < n1; i++) combined[i] = (x[i], 0);
-        for (int i = 0; i < n2; i++) combined[n1 + i] = (y[i], 1);
+        for (int i = 0; i < n1; i++)
+        {
+            if (!double.IsFinite(x[i])) throw new ArgumentException("x contains non-finite values.", nameof(x));
+            combined[i] = (x[i], 0);
+        }
+        for (int i = 0; i < n2; i++)
+        {
+            if (!double.IsFinite(y[i])) throw new ArgumentException("y contains non-finite values.", nameof(y));
+            combined[n1 + i] = (y[i], 1);
+        }
 
         Array.Sort(combined, static (a, b) => a.v.CompareTo(b.v));
 
@@ -59,7 +69,11 @@ public static class MannWhitney
             while (j < n && combined[j].v == combined[iIndex].v) j++;
             double rankAvg = 0.5 * (iIndex + 1 + j); // average rank over [iIndex, j)
             int tieLen = j - iIndex;
-            if (tieLen > 1) tieSum += (tieLen * (long)tieLen * (long)tieLen - tieLen);
+            if (tieLen > 1)
+            {
+                double t = tieLen;
+                tieSum += t * t * t - t;
+            }
             for (int k = iIndex; k < j; k++) if (combined[k].g == 0) r1 += rankAvg;
             iIndex = j;
         }
@@ -104,10 +118,12 @@ public static class MannWhitney
         return new(u1, u2, u, z, p, n1, n2, UsedNormalApprox: true);
     }
 
+    private const double Sqrt2 = 1.4142135623730951;
+
     // Stable p-values via complementary error function
-    private static double TwoSidedP(double zAbs) => Erfc(zAbs / Math.Sqrt(2.0));
-    private static double UpperTailP(double z) => 0.5 * Erfc(z / Math.Sqrt(2.0));
-    private static double LowerTailP(double z) => 0.5 * Erfc(-z / Math.Sqrt(2.0));
+    private static double TwoSidedP(double zAbs) => Erfc(zAbs / Sqrt2);
+    private static double UpperTailP(double z) => 0.5 * Erfc(z / Sqrt2);
+    private static double LowerTailP(double z) => 0.5 * Erfc(-z / Sqrt2);
 
     // Stable complementary error function (Hastings, as in Numerical Recipes).
     // Max abs error ~1e-7 for erf; tails are very stable for |x| up to ~10+.

@@ -79,7 +79,7 @@ internal static class Program
                            ?? node["Memory"]?["BytesAllocatedPerOperation"]?.GetValue<double>()
                            ?? 0;
             List<double>? samples = null;
-            if (stats["OriginalValues"]?.AsArray() is { } sampleArr)
+            if (((stats["OriginalValues"]) ?? stats["Values"])?.AsArray() is { } sampleArr)
             {
                 samples = new List<double>(sampleArr.Count);
                 foreach (var v in sampleArr)
