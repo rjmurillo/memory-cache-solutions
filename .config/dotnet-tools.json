@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "packedprettier": {
+      "version": "3.2.5.13",
+      "commands": [
+        "pprettier"
+      ],
+      "rollForward": false
+    }
+  }
+}

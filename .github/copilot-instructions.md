@@ -59,6 +59,7 @@ bench-artifacts-windows-latest-x64/
 
 ### Local Workflow (Per-OS/Arch)
 1. Run benchmarks for your platform:
+
    ```powershell
    dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *
    # Find the produced JSON (e.g., BenchmarkDotNet.Artifacts/results/Benchmarks.CacheBenchmarks-report-full.json)
@@ -68,18 +69,26 @@ bench-artifacts-windows-latest-x64/
    git add benchmarks/baseline/CacheBenchmarks.$os.$arch.json
    git commit -m "chore(bench): update CacheBenchmarks baseline ($os/$arch)" -m "Include before/after metrics table"
    ```
+
 2. To compare without committing:
+
    ```powershell
    dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *
    Copy-Item BenchmarkDotNet.Artifacts/results/Benchmarks.CacheBenchmarks-report-full.json BenchmarkDotNet.Artifacts/results/current.$os.$arch.json
    dotnet run -c Release --project tools/BenchGate/BenchGate.csproj -- benchmarks/baseline/CacheBenchmarks.$os.$arch.json BenchmarkDotNet.Artifacts/results/current.$os.$arch.json
    ```
+
 3. Never overwrite another platform's baseline. Always use your OS/arch-specific file.
+
    ```powershell
    dotnet format
    dotnet build -c Release
    ```
 4. Run tests:
+
+   ```powershell
+   dotnet test -c Release
+   ```
 
 ### Updating Baselines (Safe, Per-OS/Arch)
 1. Verify improvement locally (no regressions on unrelated scenarios).
@@ -104,14 +113,19 @@ If operations are too small (< ~50 ns) and cause frequent false positives:
 For EVERY change (docs-only excluded) you MUST execute, in this EXACT order, before proceeding to any subsequent step, review, or commit claim:
 
 1. Run code formatter:
+
    ```powershell
    dotnet format
    ```
+
 2. Build (fail = STOP):
+
    ```powershell
    dotnet build -c Release
    ```
+
 3. Run tests (fail or new failures = STOP & FIX):
+
    ```powershell
    dotnet test -c Release
    ```
@@ -128,19 +142,25 @@ AI Assistant Compliance Clause: The assistant SHALL NOT skip or merely describe 
 All automation MUST use a guarded invocation pattern to guarantee synchronous completion, surface success/failure explicitly, and produce a unique, parse-friendly marker. This prevents race conditions or partial output assumptions.
 
 Preferred pattern template (one command at a time):
+
 ```powershell
 try { <COMMAND> } finally { if ($?) { echo "CMD_<GUID>=0" } else { echo "CMD_<GUID>=$LASTEXITCODE" } }
 ```
 
 Example (build):
+
 ```powershell
 try { dotnet build -c Release } finally { if ($?) { echo "BUILD_38e3f3e930144ed7b95b0e608218d0fe=0" } else { echo "BUILD_38e3f3e930144ed7b95b0e608218d0fe=$LASTEXITCODE" } }
 ```
+
 Minimal variant currently in use (echoes PowerShell success boolean):
+
 ```powershell
 try { dotnet build -c Release } finally { if ($?) { echo "38e3f3e930144ed7b95b0e608218d0fe=$?" } else { echo "38e3f3e930144ed7b95b0e608218d0fe=$?" } }
 ```
+
 Guidelines:
+
 - Use a new GUID (or unique token) per command so logs can be machine-parsed.
 - Prefer reporting numeric exit codes (0 / non-zero) via `$LASTEXITCODE` for reliability versus `$?` when disambiguating failure types.
 - NEVER chain multiple critical commands inside one `try {}` block—each must have its own guard.
@@ -184,15 +204,20 @@ Violation Handling: Any merge or PR lacking this ordered evidence for perf-touch
 | AllocationRateBps (optional) | Allocation bytes per second (indirect contention via GC pressure) | `dotnet-counters` (`alloc-rate`) | Bytes/sec | > +3% with no functional justification |
 
 Collection Procedure:
-1. Baseline Run: Execute benchmarks with required diagnosers enabled (ensure affected benchmark classes have `[ThreadingDiagnoser]`). Save the HTML/CSV output plus any trace (`.nettrace`) or counters log (
+1. Baseline Run: Execute benchmarks with required diagnosers enabled (ensure affected benchmark classes have `[ThreadingDiagnoser]`). Save the HTML/CSV output plus any trace (`.nettrace`) or counters log:
+
    ```powershell
-   dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter <FILTERS> -- -f *
+   dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter <FILTERS>
    ```
+
    If additional traces needed for lock wait timing:
+
    ```powershell
    dotnet-trace collect --process-id <PID_FROM_BENCHMARK> --providers System.Runtime:0x4:5 --duration <seconds>
    ```
+
    Or live counters snapshot (second window = benchmark duration or representative subset):
+
    ```powershell
    dotnet-counters monitor --refresh-interval 1 --counters System.Runtime <PID>
    ```
@@ -274,7 +299,8 @@ Failure to include required contention metrics or to update this table when intr
 If a core scenario regresses (>5% time or notable alloc increase) with no quick mitigation, revert immediately & iterate separately.
 
 ## 10. Commit Message Perf Template
-```
+
+```text
 perf(area): concise summary
 
 Benchmarks (filter: *Example_Filter*)
