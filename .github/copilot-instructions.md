@@ -129,25 +129,37 @@ If operations are too small (< ~50 ns) and cause frequent false positives:
 
 For EVERY change (docs-only excluded) you MUST execute, in this EXACT order, before proceeding to any subsequent step, review, or commit claim:
 
+0. Ensure local tools are available:
+
+   ```powershell
+   dotnet tool restore
+   ```
+
 1. Run code formatter:
 
    ```powershell
    dotnet format
    ```
 
-2. Build (fail = STOP):
+2. Format Markdown and JSON files (after editing any _.md or _.json files):
+
+   ```powershell
+   dotnet tool run pprettier --write .
+   ```
+
+3. Build (fail = STOP):
 
    ```powershell
    dotnet build -c Release
    ```
 
-3. Run tests (fail or new failures = STOP & FIX):
+4. Run tests (fail or new failures = STOP & FIX):
 
    ```powershell
    dotnet test -c Release
    ```
 
-4. If the change touches ANY implementation that is exercised by a benchmark (directly or indirectly), you MUST:
+5. If the change touches ANY implementation that is exercised by a benchmark (directly or indirectly), you MUST:
    a. Capture a BEFORE benchmark (if not already captured in this working session) using the minimal representative filter(s).  
    b. Apply the code change.  
    c. Re-run the SAME benchmark filters for AFTER.  
@@ -459,29 +471,45 @@ To prevent unverified performance infrastructure changes, any modification (code
 
 ### 13.1 Mandatory Validation Checklist (ALL must be done BEFORE claiming the change is “done”)
 
-0. Format: `dotnet format` succeeds. Note that code may be modified to fit style and analyzer rules.
-1. Build: `dotnet build -c Release` succeeds (no warnings newly introduced for changed files unless justified and documented).
-2. Tests: `dotnet test -c Release` green (add/adjust tests if logic changed).
-3. Produce Fresh Benchmark Output:
+0. Ensure local tools are available:
+
+   ```powershell
+   dotnet tool restore
+   ```
+
+1. Format: `dotnet format` succeeds. Note that code may be modified to fit style and analyzer rules.
+2. Format Markdown and JSON files (after editing any _.md or _.json files):
+
+   ```powershell
+   dotnet tool run pprettier --write .
+   ```
+
+3. Build: `dotnet build -c Release` succeeds (no warnings newly introduced for changed files unless justified and documented).
+4. Tests: `dotnet test -c Release` green (add/adjust tests if logic changed).
+5. Produce Fresh Benchmark Output:
    - Run at least ONE representative suite (e.g., `--filter *SingleFlight*` OR full `*`) generating a new `*-report-full.json`.
-4. Local Gate PASS Scenario:
+6. Local Gate PASS Scenario:
    - Copy that JSON to a temp baseline path and execute BenchGate against itself (should PASS with zero regressions reported).
-5. Local Gate FAIL Simulation (Proof of Detection):
+7. Local Gate FAIL Simulation (Proof of Detection):
    - Create a TEMPORARY mutated copy of the current JSON (e.g., increase one Mean by ≥10% or Allocated by +64 B) and re-run BenchGate pointing baseline→original, current→mutated.
    - Confirm BenchGate exits with non‑zero code and lists the synthetic regression.
-6. Statistical Branches (when sigma / standard error logic touched):
+8. Statistical Branches (when sigma / standard error logic touched):
    - Also create a mutation BELOW thresholds (e.g., +0.5% mean, +2 ns) and verify it does NOT fail (ensures noise filtering still works).
-7. Capture Evidence:
+9. Capture Evidence:
    - Include (in commit body or PR comment) a short table:
      - PASS run: exit code, number of benchmarks compared, regressions=0.
      - FAIL run: exit code, name(s) of intentionally mutated benchmark(s), reported deltas.
    - Summarize any new CLI switches & default values.
-8. CI Adaptation (if workflow changed):
-   - Show the diff of `ci.yml` & describe how per-OS / per-suite resolution happens.
-9. Baseline Handling:
-   - NEVER auto-overwrite committed baselines inside the same perf-affecting commit.
-   - If format changes, provide a migration note + one dedicated commit updating baselines (no code in that commit).
-10. Analyzer / Complexity Warnings:
+10. CI Adaptation (if workflow changed):
+
+- Show the diff of `ci.yml` & describe how per-OS / per-suite resolution happens.
+
+11. Baseline Handling:
+
+- NEVER auto-overwrite committed baselines inside the same perf-affecting commit.
+- If format changes, provide a migration note + one dedicated commit updating baselines (no code in that commit).
+
+12. Analyzer / Complexity Warnings:
 
 - If new complexity or analyzer warnings arise in touched files, address or justify them explicitly.
 
