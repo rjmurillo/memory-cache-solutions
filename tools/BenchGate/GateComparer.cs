@@ -1,6 +1,8 @@
+using System.Linq;
+using BenchGate.Statistics;
 namespace BenchGateApp;
 
-public sealed record BenchmarkSample(string Id, double Mean, double StdDev, int N, double AllocBytes);
+public sealed record BenchmarkSample(string Id, double Mean, double StdDev, int N, double AllocBytes, List<double>? Samples = null);
 
 public sealed class GateComparer
 {
@@ -37,22 +39,59 @@ public sealed class GateComparer
     {
         double meanDelta = current.Mean - baseline.Mean;
         double meanPct = meanDelta / baseline.Mean;
-        bool significant = IsSignificant(baseline, current, meanDelta);
-
         double allocDelta = current.AllocBytes - baseline.AllocBytes;
         double allocPct = baseline.AllocBytes <= 0 ? 0 : allocDelta / baseline.AllocBytes;
 
-        bool timeRegression = significant && meanPct > _timeThresholdPct && meanDelta > 5.0;
-        bool allocRegression = allocDelta > _allocThresholdBytes && allocPct > _allocThresholdPct;
+        bool regression = false;
+        bool improvement = false;
+        string? statDetail = null;
 
-        if (timeRegression || allocRegression)
+        // Use internal Mann–Whitney U test if both have samples (two‑sided for symmetry)
+        if (baseline.Samples != null && baseline.Samples.Count > 3 && current.Samples != null && current.Samples.Count > 3)
         {
-            regressions.Add(FormatLine(baseline, current, meanPct, allocDelta));
+            var baseArr = baseline.Samples.ToArray();
+            var curArr = current.Samples.ToArray();
+            var test = MannWhitney.Test(baseArr, curArr, Alternative.TwoSided);
+            double pValue = test.PValue;
+            double medianBase = GetMedian(baseline.Samples);
+            double medianCur = GetMedian(current.Samples);
+            double medianDelta = medianCur - medianBase;
+            double medianPct = medianDelta / medianBase;
+            statDetail = $"[MWU p={pValue:F4}, median {medianBase:F2}ns -> {medianCur:F2}ns ({medianPct * 100:F2}%)]";
+            // Treat as regression if p indicates a significant shift and median increased past thresholds
+            regression = pValue < 0.05 && medianPct > _timeThresholdPct && medianDelta > 5.0;
+            improvement = pValue < 0.05 && medianDelta < 0;
         }
-        else if (meanDelta < 0 || allocDelta < 0)
+        else
         {
-            improvements.Add(FormatLine(baseline, current, meanPct, allocDelta));
+            // Fallback to mean/sigma logic
+            bool significant = IsSignificant(baseline, current, meanDelta);
+            regression = significant && meanPct > _timeThresholdPct && meanDelta > 5.0;
+            improvement = meanDelta < 0;
         }
+
+        bool allocRegression = allocDelta > _allocThresholdBytes && allocPct > _allocThresholdPct;
+        bool allocImprovement = allocDelta < 0;
+
+        if (regression || allocRegression)
+        {
+            regressions.Add(FormatLine(baseline, current, meanPct, allocDelta) + (statDetail != null ? " " + statDetail : ""));
+        }
+        else if (improvement || allocImprovement)
+        {
+            improvements.Add(FormatLine(baseline, current, meanPct, allocDelta) + (statDetail != null ? " " + statDetail : ""));
+        }
+    }
+
+    private static double GetMedian(List<double> values)
+    {
+        if (values == null || values.Count == 0) return 0;
+        var sorted = values.OrderBy(x => x).ToList();
+        int n = sorted.Count;
+        if (n % 2 == 1)
+            return sorted[n / 2];
+        else
+            return (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0;
     }
 
     private bool IsSignificant(BenchmarkSample baseline, BenchmarkSample current, double meanDelta)
