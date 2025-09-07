@@ -165,6 +165,60 @@ Interpretation guidance:
 
 ---
 
+## Benchmark Regression Gate (BenchGate)
+
+The repository includes a lightweight regression gate comparing the latest BenchmarkDotNet run against committed baselines.
+
+Quick local workflow:
+
+```powershell
+dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *SingleFlight*
+Copy-Item BenchmarkDotNet.Artifacts/results/Benchmarks.CacheBenchmarks-report-full.json BenchmarkDotNet.Artifacts/results/current.json
+dotnet run -c Release --project tools/BenchGate/BenchGate.csproj -- benchmarks/baseline/CacheBenchmarks.json BenchmarkDotNet.Artifacts/results/current.json
+```
+
+Thresholds (defaults):
+
+* Time regression: >3% AND >5 ns absolute
+* Allocation regression: increase >16 B AND >3%
+
+Update baseline only after a verified improvement:
+
+```powershell
+Copy-Item BenchmarkDotNet.Artifacts/results/Benchmarks.CacheBenchmarks-report-full.json benchmarks/baseline/CacheBenchmarks.json
+git add benchmarks/baseline/CacheBenchmarks.json
+git commit -m "chore(bench): update CacheBenchmarks baseline" -m "Include before/after metrics table"
+```
+
+CI runs the gate automatically (see `.github/workflows/ci.yml`).
+
+### BenchGate Regression Gating
+
+BenchGate compares the latest BenchmarkDotNet full JSON output(s) against committed baselines under `benchmarks/baseline/`.
+
+Supported CLI flags:
+- `--suite=<SuiteName>`: Explicit suite name if not inferrable.
+- `--time-threshold=<double>`: Relative mean time regression guard (default 0.03).
+- `--alloc-threshold-bytes=<int>`: Absolute allocation regression guard (default 16).
+- `--alloc-threshold-pct=<double>`: Relative allocation regression guard (default 0.03).
+- `--sigma-mult=<double>`: Sigma multiplier for statistical significance (default 2.0).
+- `--no-sigma`: Disable significance filtering (treat all deltas as significant subject to thresholds).
+
+Per‑OS baseline resolution order when first argument is a directory:
+1. `<Suite>.<os>.<arch>.json`
+2. `<Suite>.<os>.json`
+3. `<Suite>.json`
+
+Current baselines (Windows):
+- `CacheBenchmarks.windows-latest.json`
+- `ContentionBenchmarks.windows-latest.json`
+
+Add additional OS baselines by copying the corresponding `*-report-full.json` into the baseline directory using the naming convention above.
+
+Evidence & Process requirements are described in `.github/copilot-instructions.md` Sections 12–14.
+
+---
+
 ## Extensibility Ideas
 
 * Add jitter to SWR refresh scheduling to avoid synchronized refresh bursts across processes.
