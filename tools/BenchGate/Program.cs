@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 
 namespace BenchGate;
@@ -34,13 +35,13 @@ internal static class Program
         foreach (var a in args.Skip(2))
         {
             if (a.StartsWith("--time-threshold=", StringComparison.OrdinalIgnoreCase))
-                timeThreshold = double.Parse(a.AsSpan("--time-threshold=".Length));
+                timeThreshold = double.Parse(a.Substring("--time-threshold=".Length), CultureInfo.InvariantCulture);
             else if (a.StartsWith("--alloc-threshold-bytes=", StringComparison.OrdinalIgnoreCase))
                 allocThresholdBytes = int.Parse(a.AsSpan("--alloc-threshold-bytes=".Length));
             else if (a.StartsWith("--alloc-threshold-pct=", StringComparison.OrdinalIgnoreCase))
-                allocThresholdPct = double.Parse(a.AsSpan("--alloc-threshold-pct=".Length));
+                allocThresholdPct = double.Parse(a.Substring("--alloc-threshold-pct=".Length), CultureInfo.InvariantCulture);
             else if (a.StartsWith("--sigma-mult=", StringComparison.OrdinalIgnoreCase))
-                sigmaMult = double.Parse(a.AsSpan("--sigma-mult=".Length));
+                sigmaMult = double.Parse(a.Substring("--sigma-mult=".Length), CultureInfo.InvariantCulture);
             else if (string.Equals(a, "--no-sigma", StringComparison.OrdinalIgnoreCase))
                 useSigma = false;
             else if (a.StartsWith("--suite=", StringComparison.OrdinalIgnoreCase))

@@ -46,8 +46,9 @@ public sealed class GateComparer(
             double medianBase = GetMedian(baseline.Samples);
             double medianCur = GetMedian(current.Samples);
             double medianDelta = medianCur - medianBase;
-            double medianPct = medianDelta / medianBase;
-            statDetail = $"[MWU p={pValue:F4}, median {medianBase:F2}ns -> {medianCur:F2}ns ({medianPct * 100:F2}%)]";
+            double medianPct = medianBase <= 0 ? 0 : medianDelta / medianBase;
+            statDetail = string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                $"[MWU p={pValue:F4}, median {medianBase:F2}ns -> {medianCur:F2}ns ({medianPct * 100:F2}%)]");
             // Treat as regression if p indicates a significant shift and median increased past thresholds
             regression = pValue < 0.05 && medianPct > timeThresholdPct && medianDelta > 5.0;
             improvement = pValue < 0.05 && medianDelta < 0;
@@ -95,5 +96,8 @@ public sealed class GateComparer(
     }
 
     private static string FormatLine(BenchmarkSample baseline, BenchmarkSample current, double meanPct, double allocDelta)
-        => $"{current.Id}: mean {baseline.Mean:F2}ns -> {current.Mean:F2}ns ({meanPct * 100:F2}%), alloc {baseline.AllocBytes}B -> {current.AllocBytes}B (Δ {allocDelta}B)";
+        => string.Format(System.Globalization.CultureInfo.InvariantCulture,
+            "{0}: mean {1:F2}ns -> {2:F2}ns ({3:F2}%), alloc {4}B -> {5}B (Δ {6}B)",
+            current.Id, baseline.Mean, current.Mean, meanPct * 100,
+            baseline.AllocBytes, current.AllocBytes, allocDelta);
 }
