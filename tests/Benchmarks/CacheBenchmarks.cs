@@ -7,8 +7,8 @@ namespace Benchmarks;
 
 [MemoryDiagnoser]
 [ThreadingDiagnoser]
-[HideColumns("Error", "StdDev", "Median")]
 [SimpleJob(RuntimeMoniker.Net90, id: "ThroughputNet90")]
+[JsonExporter]
 public class CacheBenchmarks
 {
     private MemoryCache _raw = default!; // recreated per iteration

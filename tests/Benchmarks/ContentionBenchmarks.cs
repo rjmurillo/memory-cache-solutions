@@ -12,7 +12,7 @@ namespace Benchmarks;
 /// </summary>
 [MemoryDiagnoser]
 [ThreadingDiagnoser]
-[HideColumns("Error", "StdDev", "Median")]
+[JsonExporter]
 public class ContentionBenchmarks
 {
     private MemoryCache _raw = null!; // initialized in GlobalSetup
