@@ -1,5 +1,10 @@
 # Copilot / Automation Workflow Guidance
 
+START OF EVERY SESSION / CHANGE (NON‑NEGOTIABLE):
+1. OPEN and READ this file (`.github/copilot-instructions.md`) in full before performing ANY action (search, edit, build, test, benchmark, or commit). 
+2. The AI assistant must explicitly confirm in its first response after user intent that it has re-read these instructions. If it cannot access the file, it must STOP and request access—never proceed on memory alone.
+3. Any action taken without this confirmation is a process violation and subject to immediate correction.
+
 Start every change by opening and reading this file (.github/copilot-instructions.md).
 
 This repository uses an automated, performance-focused workflow for cache primitives. Follow these steps when proposing or implementing changes (manually or via Copilot / other AI assistants):
@@ -61,7 +66,7 @@ For EVERY change (docs-only excluded) you MUST execute, in this EXACT order, bef
    ```
 3. Run tests (fail or new failures = STOP & FIX):
    ```bash
-   dotnet test -c Release --no-build
+   dotnet test -c Release
    ```
 4. If the change touches ANY implementation that is exercised by a benchmark (directly or indirectly), you MUST:
    a. Capture a BEFORE benchmark (if not already captured in this working session) using the minimal representative filter(s).  
