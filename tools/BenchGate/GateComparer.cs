@@ -28,38 +28,43 @@ public sealed class GateComparer
         foreach (var cur in current)
         {
             if (!baseMap.TryGetValue(cur.Id, out var b)) continue; // new -> ignore
-
-            double meanDelta = cur.Mean - b.Mean;
-            double meanPct = meanDelta / b.Mean;
-
-            bool significant = true;
-            if (_useSigma)
-            {
-                double seBase = b.N > 0 ? b.StdDev / Math.Sqrt(b.N) : b.StdDev;
-                double seCur = cur.N > 0 ? cur.StdDev / Math.Sqrt(cur.N) : cur.StdDev;
-                double combinedSe = Math.Sqrt(seBase * seBase + seCur * seCur);
-                if (combinedSe > 0)
-                {
-                    significant = Math.Abs(meanDelta) > _sigmaMult * combinedSe;
-                }
-            }
-
-            double allocDelta = cur.AllocBytes - b.AllocBytes;
-            double allocPct = b.AllocBytes <= 0 ? 0 : allocDelta / b.AllocBytes;
-
-            bool timeRegression = significant && meanPct > _timeThresholdPct && meanDelta > 5.0;
-            bool allocRegression = allocDelta > _allocThresholdBytes && allocPct > _allocThresholdPct;
-
-            if (timeRegression || allocRegression)
-            {
-                regressions.Add($"{cur.Id}: mean {b.Mean:F2}ns -> {cur.Mean:F2}ns ({meanPct*100:F2}%), alloc {b.AllocBytes}B -> {cur.AllocBytes}B (Δ {allocDelta}B)");
-            }
-            else if (meanDelta < 0 || allocDelta < 0)
-            {
-                improvements.Add($"{cur.Id}: mean {b.Mean:F2}ns -> {cur.Mean:F2}ns ({meanPct*100:F2}%), alloc {b.AllocBytes}B -> {cur.AllocBytes}B (Δ {allocDelta}B)");
-            }
+            EvaluatePair(b, cur, regressions, improvements);
         }
-
         return (regressions, improvements);
     }
+
+    private void EvaluatePair(BenchmarkSample baseline, BenchmarkSample current, List<string> regressions, List<string> improvements)
+    {
+        double meanDelta = current.Mean - baseline.Mean;
+        double meanPct = meanDelta / baseline.Mean;
+        bool significant = IsSignificant(baseline, current, meanDelta);
+
+        double allocDelta = current.AllocBytes - baseline.AllocBytes;
+        double allocPct = baseline.AllocBytes <= 0 ? 0 : allocDelta / baseline.AllocBytes;
+
+        bool timeRegression = significant && meanPct > _timeThresholdPct && meanDelta > 5.0;
+        bool allocRegression = allocDelta > _allocThresholdBytes && allocPct > _allocThresholdPct;
+
+        if (timeRegression || allocRegression)
+        {
+            regressions.Add(FormatLine(baseline, current, meanPct, allocDelta));
+        }
+        else if (meanDelta < 0 || allocDelta < 0)
+        {
+            improvements.Add(FormatLine(baseline, current, meanPct, allocDelta));
+        }
+    }
+
+    private bool IsSignificant(BenchmarkSample baseline, BenchmarkSample current, double meanDelta)
+    {
+        if (!_useSigma) return true;
+        double seBase = baseline.N > 0 ? baseline.StdDev / Math.Sqrt(baseline.N) : baseline.StdDev;
+        double seCur = current.N > 0 ? current.StdDev / Math.Sqrt(current.N) : current.StdDev;
+        double combinedSe = Math.Sqrt(seBase * seBase + seCur * seCur);
+        if (combinedSe <= 0) return true; // can't evaluate; treat as significant to avoid masking real regression
+        return Math.Abs(meanDelta) > _sigmaMult * combinedSe;
+    }
+
+    private static string FormatLine(BenchmarkSample baseline, BenchmarkSample current, double meanPct, double allocDelta)
+        => $"{current.Id}: mean {baseline.Mean:F2}ns -> {current.Mean:F2}ns ({meanPct * 100:F2}%), alloc {baseline.AllocBytes}B -> {current.AllocBytes}B (Δ {allocDelta}B)";
 }
