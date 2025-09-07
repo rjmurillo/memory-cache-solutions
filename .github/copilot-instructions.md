@@ -27,23 +27,23 @@ This repository uses an automated, performance-focused workflow for cache primit
 ## 3. Standard Implementation Steps
 1. Benchmark (baseline) the specific target(s) you expect to impact BEFORE editing code.
    - If unsure which, run ALL benchmarks:
-     ```bash
+     ```powershell
      dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *
      ```
    - Targeted examples:
-     ```bash
+     ```powershell
      dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *SingleFlightLazy*
      dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *Coalescing_Contention*
      ```
    - Save the pre-change summary (copy to commit body later).
 2. Make the code change.
 3. Run format & build:
-   ```bash
+   ```powershell
    dotnet format
    dotnet build -c Release
    ```
 4. Run tests:
-   ```bash
+   ```powershell
    dotnet test -c Release
    ```
 5. Re-run exactly the SAME benchmark filters as baseline (plus broader set if risk of spillover).
@@ -57,15 +57,15 @@ This repository uses an automated, performance-focused workflow for cache primit
 For EVERY change (docs-only excluded) you MUST execute, in this EXACT order, before proceeding to any subsequent step, review, or commit claim:
 
 1. Run code formatter:
-   ```bash
+   ```powershell
    dotnet format
    ```
 2. Build (fail = STOP):
-   ```bash
+   ```powershell
    dotnet build -c Release
    ```
 3. Run tests (fail or new failures = STOP & FIX):
-   ```bash
+   ```powershell
    dotnet test -c Release
    ```
 4. If the change touches ANY implementation that is exercised by a benchmark (directly or indirectly), you MUST:
@@ -99,15 +99,15 @@ Violation Handling: Any merge or PR lacking this ordered evidence for perf-touch
 
 Collection Procedure:
 1. Baseline Run: Execute benchmarks with required diagnosers enabled (ensure affected benchmark classes have `[ThreadingDiagnoser]`). Save the HTML/CSV output plus any trace (`.nettrace`) or counters log (
-   ```bash
+   ```powershell
    dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter <FILTERS> -- -f *
    ```
    If additional traces needed for lock wait timing:
-   ```bash
+   ```powershell
    dotnet-trace collect --process-id <PID_FROM_BENCHMARK> --providers System.Runtime:0x4:5 --duration <seconds>
    ```
    Or live counters snapshot (second window = benchmark duration or representative subset):
-   ```bash
+   ```powershell
    dotnet-counters monitor --refresh-interval 1 --counters System.Runtime <PID>
    ```
 2. Extract Metrics: Use BenchmarkDotNet output for LockContentionCount & MonitorWaitCount. For EventPipe trace, post-process with PerfView or `traceprocessor` to sum contention wait durations. Document any script used (add under `scripts/` if new).
