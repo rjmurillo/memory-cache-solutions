@@ -19,15 +19,22 @@ public class CacheBenchmarks
 
     private const string HitKey = "hit_key";
     private const string MissKey = "miss_key";
+    private const int ChurnKeyCount = 4096; // power-of-two for bitmasking
 
     private readonly string[] _churnKeys;
-    private int _churnIdx;
-    private int _counter;
+    private int _churnIdx = -1; // first Interlocked.Increment -> 0
+
+    // Cached delegates to avoid per-call lambda allocations
+    private static readonly Func<Task<int>> CachedZeroTask = static () => Task.FromResult(0);
+    private static readonly Func<Task<int>> CachedOneTask = static () => Task.FromResult(1);
+    private static readonly Func<object, Task<int>> CachedZeroWithStateTask = static _ => Task.FromResult(0);
+    private static readonly Func<object, Task<int>> CachedOneWithStateTask = static _ => Task.FromResult(1);
+    private static readonly Func<ICacheEntry, int> CachedReturnZero = static _ => 0;
 
     public CacheBenchmarks()
     {
         // Stable data that does not depend on per-iteration cache instances.
-        _churnKeys = Enumerable.Range(0, 4096).Select(i => "k_" + i).ToArray();
+        _churnKeys = Enumerable.Range(0, ChurnKeyCount).Select(i => $"k_{i}").ToArray();
     }
 
     [IterationSetup]
@@ -39,8 +46,7 @@ public class CacheBenchmarks
         _singleFlight = new SingleFlightCache(_raw);
         _singleFlightLazy = new SingleFlightLazyCache(_raw);
         _raw.Set(HitKey, 42, TimeSpan.FromMinutes(5));
-        _counter = 0;
-        _churnIdx = 0;
+        _churnIdx = -1; // first Interlocked.Increment -> 0
     }
 
     [IterationCleanup]
@@ -54,30 +60,30 @@ public class CacheBenchmarks
     [Benchmark(Baseline = true)]
     public int RawMemoryCache_Hit()
     {
-        _raw.TryGetValue(HitKey, out int v);
-        return v;
+        _raw.TryGetValue(HitKey, out var obj);
+        return obj is int v ? v : 0;
     }
 
     [Benchmark]
     public int RawMemoryCache_Miss()
     {
         _raw.Remove(MissKey);
-        _raw.TryGetValue(MissKey, out int v); // v will be default
-        return v;
+        _raw.TryGetValue(MissKey, out var obj); // obj will be null/default
+        return obj is int v ? v : 0;
     }
 
     // HIT PATHS (no artificial Task.Yield)
     [Benchmark]
-    public async Task<int> SingleFlight_Hit() => await _singleFlight.GetOrCreateAsync(HitKey, TimeSpan.FromMinutes(5), () => Task.FromResult(Interlocked.Increment(ref _counter)));
+    public async Task<int> SingleFlight_Hit() => await _singleFlight.GetOrCreateAsync(HitKey, TimeSpan.FromMinutes(5), CachedZeroTask);
 
     [Benchmark]
-    public async Task<int> SingleFlightLazy_Hit() => await _singleFlightLazy.GetOrCreateAsync(HitKey, TimeSpan.FromMinutes(5), () => Task.FromResult(Interlocked.Increment(ref _counter)));
+    public async Task<int> SingleFlightLazy_Hit() => await _singleFlightLazy.GetOrCreateAsync(HitKey, TimeSpan.FromMinutes(5), CachedZeroTask);
 
     [Benchmark]
-    public async Task<int> Coalescing_Hit() => await _coalescing.GetOrCreateAsync(HitKey, _ => Task.FromResult(Interlocked.Increment(ref _counter)));
+    public async Task<int> Coalescing_Hit() => await _coalescing.GetOrCreateAsync(HitKey, CachedZeroWithStateTask);
 
     [Benchmark]
-    public int Metered_Hit() => _metered.GetOrCreate(HitKey, _ => Interlocked.Increment(ref _counter));
+    public int Metered_Hit() => _metered.GetOrCreate(HitKey, CachedReturnZero);
 
     // MISS PATHS (factory returns quickly)
     [Benchmark]
@@ -85,7 +91,7 @@ public class CacheBenchmarks
     {
         var key = MissKey;
         _raw.Remove(key);
-        return await _singleFlight.GetOrCreateAsync(key, TimeSpan.FromMinutes(5), () => Task.FromResult(1));
+        return await _singleFlight.GetOrCreateAsync(key, TimeSpan.FromMinutes(5), CachedOneTask);
     }
 
     [Benchmark]
@@ -93,7 +99,7 @@ public class CacheBenchmarks
     {
         var key = MissKey + "_lazy";
         _raw.Remove(key);
-        return await _singleFlightLazy.GetOrCreateAsync(key, TimeSpan.FromMinutes(5), () => Task.FromResult(1));
+        return await _singleFlightLazy.GetOrCreateAsync(key, TimeSpan.FromMinutes(5), CachedOneTask);
     }
 
     [Benchmark]
@@ -101,17 +107,17 @@ public class CacheBenchmarks
     {
         var key = MissKey + "_coal";
         _raw.Remove(key);
-        return await _coalescing.GetOrCreateAsync(key, _ => Task.FromResult(1));
+        return await _coalescing.GetOrCreateAsync(key, CachedOneWithStateTask);
     }
 
     // CHURN / HIGH CARDINALITY (semaphore dictionary growth)
     [Benchmark]
     public async Task<int> SingleFlight_Churn()
     {
-        var i = unchecked((uint)Interlocked.Increment(ref _churnIdx)) % (uint)_churnKeys.Length;
-        var key = _churnKeys[i];
+        var idx = Interlocked.Increment(ref _churnIdx) & (ChurnKeyCount - 1); // 0..ChurnKeyCount-1
+        var key = _churnKeys[idx];
         _raw.Remove(key);
-        return await _singleFlight.GetOrCreateAsync(key, TimeSpan.FromSeconds(30), () => Task.FromResult(1));
+        return await _singleFlight.GetOrCreateAsync(key, TimeSpan.FromSeconds(30), CachedOneTask);
     }
 
     // Simulated heavier work (to compare overhead proportionally)
