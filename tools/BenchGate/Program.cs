@@ -1,7 +1,6 @@
-using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace BenchGateApp;
+namespace BenchGate;
 
 internal static class Program
 {
@@ -45,7 +44,7 @@ internal static class Program
             else if (string.Equals(a, "--no-sigma", StringComparison.OrdinalIgnoreCase))
                 useSigma = false;
             else if (a.StartsWith("--suite=", StringComparison.OrdinalIgnoreCase))
-                suiteName = a.Substring("--suite=".Length);
+                suiteName = a["--suite=".Length..];
         }
 
         if (!File.Exists(currentPath))
@@ -75,7 +74,7 @@ internal static class Program
             double mean = stats["Mean"]!.GetValue<double>();
             double stdDev = stats["StandardDeviation"]?.GetValue<double>() ?? 0;
             int n = stats["N"]?.GetValue<int>() ?? 0; // BDN may not expose; fallback 0
-            double alloc = node["Memory"]?["AllocatedBytes"]?.GetValue<double>() 
+            double alloc = node["Memory"]?["AllocatedBytes"]?.GetValue<double>()
                            ?? node["Memory"]?["BytesAllocatedPerOperation"]?.GetValue<double>()
                            ?? 0;
             List<double>? samples = null;
@@ -123,12 +122,12 @@ internal static class Program
         string osId = GetOsId();
         string arch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
         // Candidate priority
-        string[] candidates = new[]
-        {
+        string[] candidates =
+        [
             Path.Combine(baselineArg, $"{suiteName}.{osId}.{arch}.json"),
             Path.Combine(baselineArg, $"{suiteName}.{osId}.json"),
             Path.Combine(baselineArg, $"{suiteName}.json")
-        };
+        ];
         foreach (var c in candidates)
         {
             if (File.Exists(c))
@@ -168,7 +167,7 @@ internal static class Program
                     string after = title[(dot + 1)..];
                     int dash = after.IndexOf('-');
                     if (dash > 0)
-                        return after.Substring(0, dash);
+                        return after[..dash];
                 }
             }
             var firstBench = currentRoot["Benchmarks"]?.AsArray().FirstOrDefault();

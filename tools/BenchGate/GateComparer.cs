@@ -1,31 +1,21 @@
-using System.Linq;
 using BenchGate.Statistics;
-namespace BenchGateApp;
+
+namespace BenchGate;
 
 public sealed record BenchmarkSample(string Id, double Mean, double StdDev, int N, double AllocBytes, List<double>? Samples = null);
 
-public sealed class GateComparer
+public sealed class GateComparer(
+    double timeThresholdPct,
+    int allocThresholdBytes,
+    double allocThresholdPct,
+    double sigmaMult,
+    bool useSigma)
 {
-    private readonly double _timeThresholdPct;
-    private readonly int _allocThresholdBytes;
-    private readonly double _allocThresholdPct;
-    private readonly double _sigmaMult;
-    private readonly bool _useSigma;
-
-    public GateComparer(double timeThresholdPct, int allocThresholdBytes, double allocThresholdPct, double sigmaMult, bool useSigma)
-    {
-        _timeThresholdPct = timeThresholdPct;
-        _allocThresholdBytes = allocThresholdBytes;
-        _allocThresholdPct = allocThresholdPct;
-        _sigmaMult = sigmaMult;
-        _useSigma = useSigma;
-    }
-
     public (List<string> regressions, List<string> improvements) Compare(IEnumerable<BenchmarkSample> baseline, IEnumerable<BenchmarkSample> current)
     {
         var baseMap = baseline.ToDictionary(b => b.Id, b => b);
-        List<string> regressions = new();
-        List<string> improvements = new();
+        List<string> regressions = [];
+        List<string> improvements = [];
 
         foreach (var cur in current)
         {
@@ -42,8 +32,8 @@ public sealed class GateComparer
         double allocDelta = current.AllocBytes - baseline.AllocBytes;
         double allocPct = baseline.AllocBytes <= 0 ? 0 : allocDelta / baseline.AllocBytes;
 
-        bool regression = false;
-        bool improvement = false;
+        var regression = false;
+        var improvement = false;
         string? statDetail = null;
 
         // Use internal Mann–Whitney U test if both have samples (two‑sided for symmetry)
@@ -59,18 +49,18 @@ public sealed class GateComparer
             double medianPct = medianDelta / medianBase;
             statDetail = $"[MWU p={pValue:F4}, median {medianBase:F2}ns -> {medianCur:F2}ns ({medianPct * 100:F2}%)]";
             // Treat as regression if p indicates a significant shift and median increased past thresholds
-            regression = pValue < 0.05 && medianPct > _timeThresholdPct && medianDelta > 5.0;
+            regression = pValue < 0.05 && medianPct > timeThresholdPct && medianDelta > 5.0;
             improvement = pValue < 0.05 && medianDelta < 0;
         }
         else
         {
             // Fallback to mean/sigma logic
             bool significant = IsSignificant(baseline, current, meanDelta);
-            regression = significant && meanPct > _timeThresholdPct && meanDelta > 5.0;
+            regression = significant && meanPct > timeThresholdPct && meanDelta > 5.0;
             improvement = meanDelta < 0;
         }
 
-        bool allocRegression = allocDelta > _allocThresholdBytes && allocPct > _allocThresholdPct;
+        bool allocRegression = allocDelta > allocThresholdBytes && allocPct > allocThresholdPct;
         bool allocImprovement = allocDelta < 0;
 
         if (regression || allocRegression)
@@ -96,12 +86,12 @@ public sealed class GateComparer
 
     private bool IsSignificant(BenchmarkSample baseline, BenchmarkSample current, double meanDelta)
     {
-        if (!_useSigma) return true;
+        if (!useSigma) return true;
         double seBase = baseline.N > 0 ? baseline.StdDev / Math.Sqrt(baseline.N) : baseline.StdDev;
         double seCur = current.N > 0 ? current.StdDev / Math.Sqrt(current.N) : current.StdDev;
         double combinedSe = Math.Sqrt(seBase * seBase + seCur * seCur);
         if (combinedSe <= 0) return true; // can't evaluate; treat as significant to avoid masking real regression
-        return Math.Abs(meanDelta) > _sigmaMult * combinedSe;
+        return Math.Abs(meanDelta) > sigmaMult * combinedSe;
     }
 
     private static string FormatLine(BenchmarkSample baseline, BenchmarkSample current, double meanPct, double allocDelta)

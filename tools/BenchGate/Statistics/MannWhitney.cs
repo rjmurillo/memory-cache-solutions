@@ -109,8 +109,6 @@ public static class MannWhitney
     private static double UpperTailP(double z) => 0.5 * Erfc(z / Math.Sqrt(2.0));
     private static double LowerTailP(double z) => 0.5 * Erfc(-z / Math.Sqrt(2.0));
 
-    private const double Sqrt2 = 1.4142135623730951;
-
     // Stable complementary error function (Hastings, as in Numerical Recipes).
     // Max abs error ~1e-7 for erf; tails are very stable for |x| up to ~10+.
     private static double Erfc(double x)
@@ -128,23 +126,5 @@ public static class MannWhitney
 
         double tau = t * Math.Exp(-ax * ax - 1.26551223 + t * poly);
         return x >= 0 ? tau : 2.0 - tau;
-    }
-
-    // Standard normal CDF approximation (Abramowitz & Stegun 26.2.17 variant) to avoid dependency on Math.Erf for older targets.
-    private static double Phi(double z)
-    {
-        // constants
-        const double p = 0.2316419;
-        const double b1 = 0.319381530;
-        const double b2 = -0.356563782;
-        const double b3 = 1.781477937;
-        const double b4 = -1.821255978;
-        const double b5 = 1.330274429;
-        double a = Math.Abs(z);
-        double t = 1.0 / (1.0 + p * a);
-        double d = 0.3989422804014327 * Math.Exp(-0.5 * a * a); // 1/sqrt(2pi) * exp(-z^2/2)
-        double poly = b1 + t * (b2 + t * (b3 + t * (b4 + t * b5)));
-        double cdf = 1.0 - d * t * poly;
-        return z >= 0 ? cdf : 1.0 - cdf;
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
-using BenchGateApp; // reference tools project namespace
+using BenchGate;
+// reference tools project namespace
 using Xunit;
 
 namespace Unit;
@@ -39,7 +40,7 @@ public class BenchGateTests
         var (regressions, _) = comparer.Compare(baseline, current);
         Assert.Empty(regressions);
 
-        current = new[] { Sample("A", 1000, alloc: 150) }; // +50B > 16B and 50% > 3%
+        current = [Sample("A", 1000, alloc: 150)]; // +50B > 16B and 50% > 3%
         (regressions, _) = comparer.Compare(baseline, current);
         Assert.Single(regressions);
     }

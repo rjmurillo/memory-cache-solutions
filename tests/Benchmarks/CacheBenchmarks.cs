@@ -11,11 +11,11 @@ namespace Benchmarks;
 [JsonExporter]
 public class CacheBenchmarks
 {
-    private MemoryCache _raw = default!; // recreated per iteration
-    private CoalescingMemoryCache _coalescing = default!;
-    private MeteredMemoryCache _metered = default!;
-    private SingleFlightCache _singleFlight = default!;
-    private SingleFlightLazyCache _singleFlightLazy = default!;
+    private MemoryCache _raw = null!; // recreated per iteration
+    private CoalescingMemoryCache _coalescing = null!;
+    private MeteredMemoryCache _metered = null!;
+    private SingleFlightCache _singleFlight = null!;
+    private SingleFlightLazyCache _singleFlightLazy = null!;
 
     private const string HitKey = "hit_key";
     private const string MissKey = "miss_key";
@@ -27,7 +27,7 @@ public class CacheBenchmarks
     public CacheBenchmarks()
     {
         // Stable data that does not depend on per-iteration cache instances.
-        _churnKeys = Enumerable.Range(0, 4096).Select(i => "k_" + i.ToString()).ToArray();
+        _churnKeys = Enumerable.Range(0, 4096).Select(i => "k_" + i).ToArray();
     }
 
     [IterationSetup]
