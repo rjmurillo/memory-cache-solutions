@@ -39,47 +39,63 @@ jobs:
         shell: pwsh
         run: dotnet test --configuration Release --no-build --logger 'trx;LogFileName=test-results.trx' --collect 'Xplat Code Coverage'
 
+      - name: Upload Test Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts-${{ matrix.os }}-${{ runner.arch }}
+          path: |
+            **/TestResults/*.trx
+            **/coverage.cobertura.xml
+
       - name: Run Benchmarks (all suites for gate)
         shell: pwsh
         run: |
+          $os = "${{ matrix.os }}"
+          $arch = "${{ runner.arch }}"
           dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter * --artifacts "BenchmarkDotNet.Artifacts"
-          # Copy a canonical JSON to a stable filename for gate comparison
           $json = Get-ChildItem -Path BenchmarkDotNet.Artifacts/results -Filter "Benchmarks.CacheBenchmarks-report-full.json" | Select-Object -First 1
           if (-not $json) { Write-Error 'CacheBenchmarks full JSON not found'; exit 1 }
-          Copy-Item $json.FullName BenchmarkDotNet.Artifacts/results/current.json
-          # Also copy contention suite if produced
+          $out = "BenchmarkDotNet.Artifacts/results/current.$os.$arch.json"
+          Copy-Item $json.FullName $out
           $contJson = Get-ChildItem -Path BenchmarkDotNet.Artifacts/results -Filter "Benchmarks.ContentionBenchmarks-report-full.json" | Select-Object -First 1
-          if ($contJson) { Copy-Item $contJson.FullName BenchmarkDotNet.Artifacts/results/current-contention.json }
+          if ($contJson) { Copy-Item $contJson.FullName "BenchmarkDotNet.Artifacts/results/current-contention.$os.$arch.json" }
+
 
       - name: Bench Gate Compare (CacheBenchmarks)
         if: always()
         shell: pwsh
         run: |
-          $baselineDir = "benchmarks/baseline"
-          if (Test-Path $baselineDir) {
-            # Provide directory; BenchGate resolves per-OS naming
-            dotnet run -c Release --project tools/BenchGate/BenchGate.csproj -- $baselineDir BenchmarkDotNet.Artifacts/results/current.json --suite=CacheBenchmarks
-          } else { Write-Host 'Baseline directory missing; skipping.' }
+          $os = "${{ matrix.os }}"
+          $arch = "${{ runner.arch }}"
+          $baseline = "benchmarks/baseline/CacheBenchmarks.$os.$arch.json"
+          $current = "BenchmarkDotNet.Artifacts/results/current.$os.$arch.json"
+          if (Test-Path $baseline) {
+            dotnet run -c Release --project tools/BenchGate/BenchGate.csproj -- $baseline $current --suite=CacheBenchmarks
+          } else { Write-Host "Baseline $baseline missing; skipping." }
+
 
       - name: Bench Gate Compare (ContentionBenchmarks)
         if: always()
         shell: pwsh
         run: |
-          $baselineDir = "benchmarks/baseline"
-          if (Test-Path BenchmarkDotNet.Artifacts/results/current-contention.json) {
-            if (Test-Path $baselineDir) {
-              dotnet run -c Release --project tools/BenchGate/BenchGate.csproj -- $baselineDir BenchmarkDotNet.Artifacts/results/current-contention.json --suite=ContentionBenchmarks
-            } else { Write-Host 'Baseline directory missing; skipping contention gate.' }
+          $os = "${{ matrix.os }}"
+          $arch = "${{ runner.arch }}"
+          $baseline = "benchmarks/baseline/ContentionBenchmarks.$os.$arch.json"
+          $current = "BenchmarkDotNet.Artifacts/results/current-contention.$os.$arch.json"
+          if (Test-Path $current) {
+            if (Test-Path $baseline) {
+              dotnet run -c Release --project tools/BenchGate/BenchGate.csproj -- $baseline $current --suite=ContentionBenchmarks
+            } else { Write-Host "Baseline $baseline missing; skipping contention gate." }
           } else { Write-Host 'No contention suite JSON produced; skipping.' }
 
-      - name: Upload Test Results
+      - name: Upload Benchmark Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.os }}
+          name: benchmark-artifacts-${{ matrix.os }}-${{ runner.arch }}
           path: |
-            **/TestResults/*.trx
-            **/coverage.cobertura.xml
-            BenchmarkDotNet.Artifacts/results/*.json
             BenchmarkDotNet.Artifacts/results/*.md
             BenchmarkDotNet.Artifacts/results/*.html
+            BenchmarkDotNet.Artifacts/results/*.json
+            benchmarks/baseline/*.json
