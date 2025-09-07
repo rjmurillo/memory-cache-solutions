@@ -3,71 +3,6 @@ using System.Text.Json.Nodes;
 
 namespace BenchGateApp;
 
-public sealed record BenchmarkSample(string Id, double Mean, double StdDev, int N, double AllocBytes);
-
-public sealed class GateComparer
-{
-    private readonly double _timeThresholdPct;
-    private readonly int _allocThresholdBytes;
-    private readonly double _allocThresholdPct;
-    private readonly double _sigmaMult;
-    private readonly bool _useSigma;
-
-    public GateComparer(double timeThresholdPct, int allocThresholdBytes, double allocThresholdPct, double sigmaMult, bool useSigma)
-    {
-        _timeThresholdPct = timeThresholdPct;
-        _allocThresholdBytes = allocThresholdBytes;
-        _allocThresholdPct = allocThresholdPct;
-        _sigmaMult = sigmaMult;
-        _useSigma = useSigma;
-    }
-
-    public (List<string> regressions, List<string> improvements) Compare(IEnumerable<BenchmarkSample> baseline, IEnumerable<BenchmarkSample> current)
-    {
-        var baseMap = baseline.ToDictionary(b => b.Id, b => b);
-        List<string> regressions = new();
-        List<string> improvements = new();
-
-        foreach (var cur in current)
-        {
-            if (!baseMap.TryGetValue(cur.Id, out var b)) continue; // new -> ignore
-
-            double meanDelta = cur.Mean - b.Mean;
-            double meanPct = meanDelta / b.Mean;
-
-            bool significant = true;
-            if (_useSigma)
-            {
-                // Standard error approximation: StdDev / sqrt(N). If N unavailable (0) fallback to stddev.
-                double seBase = b.N > 0 ? b.StdDev / Math.Sqrt(b.N) : b.StdDev;
-                double seCur = cur.N > 0 ? cur.StdDev / Math.Sqrt(cur.N) : cur.StdDev;
-                double combinedSe = Math.Sqrt(seBase * seBase + seCur * seCur);
-                if (combinedSe > 0)
-                {
-                    significant = Math.Abs(meanDelta) > _sigmaMult * combinedSe;
-                }
-            }
-
-            double allocDelta = cur.AllocBytes - b.AllocBytes;
-            double allocPct = b.AllocBytes <= 0 ? 0 : allocDelta / b.AllocBytes;
-
-            bool timeRegression = significant && meanPct > _timeThresholdPct && meanDelta > 5.0;
-            bool allocRegression = allocDelta > _allocThresholdBytes && allocPct > _allocThresholdPct;
-
-            if (timeRegression || allocRegression)
-            {
-                regressions.Add($"{cur.Id}: mean {b.Mean:F2}ns -> {cur.Mean:F2}ns ({meanPct*100:F2}%), alloc {b.AllocBytes}B -> {cur.AllocBytes}B (Δ {allocDelta}B)");
-            }
-            else if (meanDelta < 0 || allocDelta < 0)
-            {
-                improvements.Add($"{cur.Id}: mean {b.Mean:F2}ns -> {cur.Mean:F2}ns ({meanPct*100:F2}%), alloc {b.AllocBytes}B -> {cur.AllocBytes}B (Δ {allocDelta}B)");
-            }
-        }
-
-        return (regressions, improvements);
-    }
-}
-
 internal static class Program
 {
     private static int Fail(string msg)
@@ -88,11 +23,11 @@ internal static class Program
         string baselineArg = args[0];
         string currentPath = args[1];
 
-    double timeThreshold = 0.03; // 3%
-    int allocThresholdBytes = 16; // 16 bytes absolute guard
-    double allocThresholdPct = 0.03; // 3%
-    double sigmaMult = 2.0; // default ~95% confidence heuristic
-    bool useSigma = true;
+        double timeThreshold = 0.03; // 3%
+        int allocThresholdBytes = 16; // 16 bytes absolute guard
+        double allocThresholdPct = 0.03; // 3%
+        double sigmaMult = 2.0; // default ~95% confidence heuristic
+        bool useSigma = true;
 
         string? suiteName = null;
 
@@ -116,7 +51,7 @@ internal static class Program
             return Fail($"Current results not found: {currentPath}");
 
         // Load current first (may need to infer suite name for directory baseline resolution)
-        JsonNode currentRoot  = JsonNode.Parse(File.ReadAllText(currentPath ))!;
+        JsonNode currentRoot = JsonNode.Parse(File.ReadAllText(currentPath))!;
         suiteName ??= InferSuiteName(currentRoot) ?? "UnknownSuite";
 
         string? resolvedBaseline = ResolveBaselinePath(baselineArg, suiteName);
@@ -128,7 +63,7 @@ internal static class Program
         JsonNode baselineRoot = JsonNode.Parse(File.ReadAllText(resolvedBaseline))!;
 
         var baselineBenchmarks = baselineRoot["Benchmarks"]!.AsArray();
-        var currentBenchmarks  = currentRoot ["Benchmarks"]!.AsArray();
+        var currentBenchmarks = currentRoot["Benchmarks"]!.AsArray();
 
         static BenchmarkSample Map(JsonNode? node)
         {
@@ -143,7 +78,7 @@ internal static class Program
         }
 
         var baselineSamples = baselineBenchmarks.Select(Map).ToList();
-        var currentSamples  = currentBenchmarks.Select(Map).ToList();
+        var currentSamples = currentBenchmarks.Select(Map).ToList();
 
         var comparer = new GateComparer(timeThreshold, allocThresholdBytes, allocThresholdPct, sigmaMult, useSigma);
         var (regressions, improvements) = comparer.Compare(baselineSamples, currentSamples);
