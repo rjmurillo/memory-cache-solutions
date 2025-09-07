@@ -79,6 +79,15 @@ AI Assistant Compliance Clause: The assistant SHALL NOT skip or merely describe 
 
 Command Execution Discipline: ALWAYS wait for each PowerShell command (format, build, test, benchmark, gate) to fully complete and capture its exit code/output before issuing the next command. Do NOT pipeline or overlap steps. Use only PowerShell invocation syntax regardless of host OS in this repository context.
 
+Reliable Waiting (PowerShell Core):
+1. Invoke each command on its own line (no background `Start-Job`, no trailing `&`).
+2. Immediately echo and record `$LASTEXITCODE` (e.g., `dotnet build -c Release; echo BUILD_EXIT=$LASTEXITCODE`).
+3. Treat any non‑zero exit code as a hard STOP—investigate and resolve before continuing.
+4. Never chain multiple critical dotnet operations with `;` unless you still emit and validate the prior `$LASTEXITCODE` before executing the next. Preferred form is separate tool invocations in this order: `dotnet format` → `dotnet build -c Release` → `dotnet test -c Release --no-build` → (benchmarks) → gating.
+5. Benchmarks and gate runs must also surface exit code the same way: `dotnet run ...; echo BENCH_EXIT=$LASTEXITCODE`.
+6. If output appears truncated or missing expected footer lines, re-run the command; do not proceed on partial output.
+7. The AI assistant MUST show the captured exit code in conversation before proceeding.
+
 Evidence in Commit / PR: Any perf-impacting commit MUST contain an explicit snippet referencing the BEFORE and AFTER benchmark command(s) and results table (see Section 10 template) plus a PASS indication of format/build/test.
 
 Violation Handling: Any merge or PR lacking this ordered evidence for perf-touching code is subject to immediate reversion.
