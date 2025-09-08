@@ -4,7 +4,6 @@
     "config:best-practices",
     ":assignAndReview(rjmurillo)"
   ],
-  "assignees": ["rjmurillo"],
   "additionalReviewers": ["team:copilot"],
   "automerge": true,
   "automergeType": "pr",
