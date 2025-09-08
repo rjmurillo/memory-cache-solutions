@@ -12,7 +12,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Centralized package versions -->
-    <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="Meziantou.Analyzer" Version="2.0.215" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="4.14.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="4.14.0" />
@@ -22,9 +22,10 @@
     <PackageVersion Include="Roslynator.CodeAnalysis.Analyzers" Version="4.14.0" />
     <PackageVersion Include="Roslynator.Formatting.Analyzers" Version="4.14.0" />
     <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.15.0.120848" />
-    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="9.0.8" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
+    <PackageVersion Include="BenchmarkDotNet.Diagnostics.Windows" Version="0.14.0" />
   </ItemGroup>
 </Project>

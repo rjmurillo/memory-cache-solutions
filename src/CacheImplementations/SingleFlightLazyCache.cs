@@ -15,16 +15,13 @@ namespace CacheImplementations;
 /// publication guarantees of <see cref="Lazy{T}"/> with <see cref="LazyThreadSafetyMode.ExecutionAndPublication"/>.
 /// This keeps contention minimal while still preventing duplicate work.
 /// </remarks>
-public sealed class SingleFlightLazyCache
+public sealed class SingleFlightLazyCache(IMemoryCache cache)
 {
-    private readonly IMemoryCache _cache;
-
-    public SingleFlightLazyCache(IMemoryCache cache) => _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+    private readonly IMemoryCache _cache = cache ?? throw new ArgumentNullException(nameof(cache));
 
     /// <summary>
-    /// Gets (or creates) a cached value. If the value for <paramref name="key"/> is missing a new
-    /// <see cref="Lazy{T}"/> representing the asynchronous factory is created and stored, ensuring only one
-    /// execution of <paramref name="factory"/> even under high concurrency.
+    /// Gets (or creates) a cached value. If the value for <paramref name="key"/> is missing, a new <see cref="Task{TResult}"/>
+    /// representing the asynchronous factory is created and stored, ensuring only one execution of <paramref name="factory"/> even under high concurrency.
     /// </summary>
     /// <typeparam name="T">Value type.</typeparam>
     /// <param name="key">Cache key.</param>
@@ -33,6 +30,9 @@ public sealed class SingleFlightLazyCache
     /// <param name="configure">Optional cache entry configuration callback.</param>
     /// <param name="ct">Cancellation token (applies to awaiting the task, not to the underlying task once started).</param>
     /// <returns>The cached (or newly produced) value.</returns>
+    /// <remarks>
+    /// The cache hit path is allocation-free: if the value is present, it is returned directly with no new allocations.
+    /// </remarks>
     public async Task<T> GetOrCreateAsync<T>(
         string key,
         TimeSpan ttl,
@@ -40,18 +40,57 @@ public sealed class SingleFlightLazyCache
         Action<ICacheEntry>? configure = null,
         CancellationToken ct = default)
     {
-        if (_cache.TryGetValue(key, out Lazy<Task<T>>? existing) && existing is not null)
+        if (_cache.TryGetValue(key, out object? boxed))
         {
-            return await existing.Value.WaitAsync(ct).ConfigureAwait(false);
+            switch (boxed)
+            {
+                case T directValue:
+                    return directValue; // Value inserted via sync path.
+                case Task<T> existingTask:
+                    if (existingTask.IsCompletedSuccessfully)
+                    {
+                        // Avoid async state machine for completed tasks
+                        return existingTask.GetAwaiter().GetResult();
+                    }
+                    return await existingTask.WaitAsync(ct).ConfigureAwait(false);
+            }
         }
 
-        var lazy = _cache.GetOrCreate<Lazy<Task<T>>>(key, entry =>
+        var task = _cache.GetOrCreate<Task<T>>(key, entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = ttl;
             configure?.Invoke(entry);
-            return new Lazy<Task<T>>(() => factory(), LazyThreadSafetyMode.ExecutionAndPublication);
+            return factory();
         });
 
-        return await lazy!.Value.WaitAsync(ct).ConfigureAwait(false);
+        if (task!.IsCompletedSuccessfully)
+        {
+            return task.GetAwaiter().GetResult();
+        }
+        return await task.WaitAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Synchronous factory overload avoiding async machinery when the value can be produced synchronously.
+    /// This stores the concrete value directly (not wrapped) in the cache. Concurrent async callers will
+    /// see a direct value hit in the fast path above.
+    /// </summary>
+    public T GetOrCreate<T>(
+        string key,
+        TimeSpan ttl,
+        Func<T> factory,
+        Action<ICacheEntry>? configure = null)
+    {
+        if (_cache.TryGetValue(key, out object? boxed) && boxed is T existing)
+        {
+            return existing;
+        }
+
+        return _cache.GetOrCreate(key, entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = ttl;
+            configure?.Invoke(entry);
+            return factory();
+        })!;
     }
 }

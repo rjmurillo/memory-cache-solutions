@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "BenchGate": {
+      "commandName": "Project",
+      "commandLineArgs": ".\\benchmarks\\baseline\\current-contention.windows-latest.X64.json .\\BenchmarkDotNet.Artifacts\\results\\Benchmarks.ContentionBenchmarks-report.json --suite=ContentionBenchmarks",
+      "workingDirectory": "C:\\Projects\\GitHub\\rjmurillo\\memory-cache-solutions"
+    }
+  }
+}

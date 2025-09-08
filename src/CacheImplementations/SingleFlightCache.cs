@@ -33,6 +33,9 @@ public sealed class SingleFlightCache(IMemoryCache cache)
     /// <param name="ct">Cancellation token observed while waiting for the per-key lock and during factory execution.</param>
     /// <returns>The cached or newly created value.</returns>
     /// <exception cref="OperationCanceledException">Thrown if the operation is canceled while waiting on the lock or running the factory.</exception>
+    /// <remarks>
+    /// The cache hit path is allocation-free: if the value is present, it is returned directly with no new allocations.
+    /// </remarks>
     public async Task<T> GetOrCreateAsync<T>(
         string key,
         TimeSpan ttl,
