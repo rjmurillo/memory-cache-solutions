@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -17,8 +18,9 @@ public sealed class MeteredMemoryCache : IMemoryCache
     private readonly Counter<long> _hits;
     private readonly Counter<long> _misses;
     private readonly Counter<long> _evictions;
+    private readonly TagList _tags;
 
-    public MeteredMemoryCache(IMemoryCache inner, Meter meter, bool disposeInner = false)
+    public MeteredMemoryCache(IMemoryCache inner, Meter meter, string? cacheName = null, bool disposeInner = false)
     {
         ArgumentNullException.ThrowIfNull(inner);
         ArgumentNullException.ThrowIfNull(meter);
@@ -27,7 +29,14 @@ public sealed class MeteredMemoryCache : IMemoryCache
         _hits = meter.CreateCounter<long>("cache_hits_total");
         _misses = meter.CreateCounter<long>("cache_misses_total");
         _evictions = meter.CreateCounter<long>("cache_evictions_total");
+        _tags = new TagList();
+        if (!string.IsNullOrEmpty(cacheName))
+        {
+            _tags.Add("cache.name", cacheName);
+        }
     }
+
+    // No backward compatibility constructor needed; use named parameters for clarity.
 
     /// <summary>
     /// Strongly typed convenience method that records hit/miss metrics.
@@ -37,11 +46,11 @@ public sealed class MeteredMemoryCache : IMemoryCache
         ArgumentNullException.ThrowIfNull(key);
         if (_inner.TryGetValue(key, out var obj) && obj is T t)
         {
-            _hits.Add(1);
+            _hits.Add(1, _tags);
             value = t;
             return true;
         }
-        _misses.Add(1);
+        _misses.Add(1, _tags);
         value = default!;
         return false;
     }
@@ -56,7 +65,10 @@ public sealed class MeteredMemoryCache : IMemoryCache
         options.RegisterPostEvictionCallback(static (_, _, reason, state) =>
         {
             var self = (MeteredMemoryCache)state!;
-            self._evictions.Add(1, new KeyValuePair<string, object?>("reason", reason.ToString()));
+            var tags = self._tags;
+            tags.Add("reason", reason.ToString());
+            self._evictions.Add(1, tags);
+            tags.RemoveAt(tags.Count - 1);
         }, this);
         _inner.Set(key, value, options);
     }
@@ -71,17 +83,20 @@ public sealed class MeteredMemoryCache : IMemoryCache
 
         if (_inner.TryGetValue(key, out var existing) && existing is T hit)
         {
-            _hits.Add(1);
+            _hits.Add(1, _tags);
             return hit;
         }
 
-        _misses.Add(1);
+        _misses.Add(1, _tags);
         var created = _inner.GetOrCreate(key, entry =>
         {
             entry.RegisterPostEvictionCallback(static (_, _, reason, state) =>
             {
                 var self = (MeteredMemoryCache)state!;
-                self._evictions.Add(1, new KeyValuePair<string, object?>("reason", reason.ToString()));
+                var tags = self._tags;
+            tags.Add("reason", reason.ToString());
+                self._evictions.Add(1, tags);
+                tags.RemoveAt(tags.Count - 1);
             }, this);
             return factory(entry);
         });
@@ -97,7 +112,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
     {
         ArgumentNullException.ThrowIfNull(key);
         var hit = _inner.TryGetValue(key, out value);
-        if (hit) _hits.Add(1); else _misses.Add(1);
+        if (hit) _hits.Add(1, _tags); else _misses.Add(1, _tags);
         return hit;
     }
 
@@ -108,7 +123,10 @@ public sealed class MeteredMemoryCache : IMemoryCache
         entry.RegisterPostEvictionCallback(static (_, _, reason, state) =>
         {
             var self = (MeteredMemoryCache)state!;
-            self._evictions.Add(1, new KeyValuePair<string, object?>("reason", reason.ToString()));
+            var tags = self._tags;
+            tags.Add("reason", reason.ToString());
+            self._evictions.Add(1, tags);
+            tags.RemoveAt(tags.Count - 1);
         }, this);
         return entry;
     }

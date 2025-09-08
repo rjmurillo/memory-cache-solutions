@@ -2,6 +2,8 @@ using System.Diagnostics.Metrics;
 using CacheImplementations;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Primitives;
+using System.Collections.Generic;
+using Xunit;
 
 namespace Unit;
 
@@ -10,8 +12,10 @@ public class MeteredMemoryCacheTests
     private sealed class TestListener : IDisposable
     {
         private readonly MeterListener _listener = new();
+        private readonly List<(string Name, long Value, IEnumerable<KeyValuePair<string, object?>> Tags)> _measurements = new();
         private readonly Dictionary<string, long> _counters = [];
         public IReadOnlyDictionary<string, long> Counters => _counters;
+        public IReadOnlyList<(string Name, long Value, IEnumerable<KeyValuePair<string, object?>> Tags)> Measurements => _measurements;
 
         public TestListener(params string[] instrumentNames)
         {
@@ -24,6 +28,7 @@ public class MeteredMemoryCacheTests
             };
             _listener.SetMeasurementEventCallback<long>((inst, measurement, tags, state) =>
             {
+                _measurements.Add((inst.Name, measurement, tags.ToArray()));
                 if (_counters.TryGetValue(inst.Name, out var cur))
                 {
                     _counters[inst.Name] = cur + measurement;
@@ -46,7 +51,7 @@ public class MeteredMemoryCacheTests
         var meter = new Meter("test.metered.cache");
         using var listener = new TestListener("cache_hits_total", "cache_misses_total");
 
-        var cache = new MeteredMemoryCache(inner, meter);
+        var cache = new MeteredMemoryCache(inner, meter, cacheName: null);
 
         cache.TryGetValue("k", out _); // miss
         cache.Set("k", 10);            // set
@@ -62,7 +67,7 @@ public class MeteredMemoryCacheTests
         using var inner = new MemoryCache(new MemoryCacheOptions());
         var meter = new Meter("test.metered.cache2");
         using var listener = new TestListener("cache_evictions_total");
-        var cache = new MeteredMemoryCache(inner, meter);
+        var cache = new MeteredMemoryCache(inner, meter, cacheName: null);
 
         using var cts = new CancellationTokenSource();
         var options = new MemoryCacheEntryOptions();
@@ -74,5 +79,23 @@ public class MeteredMemoryCacheTests
         inner.Compact(0.0);
 
         Assert.True(listener.Counters.TryGetValue("cache_evictions_total", out var ev) && ev >= 1);
+    }
+
+    [Fact]
+    public void EmitsCacheNameTagOnMetrics()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        var meter = new Meter("test.metered.cache3");
+        using var listener = new TestListener("cache_hits_total", "cache_misses_total");
+
+        var cache = new MeteredMemoryCache(inner, meter, cacheName: "test-cache-name");
+
+        cache.TryGetValue("k", out _); // miss
+        cache.Set("k", 42);
+        cache.TryGetValue("k", out _); // hit
+
+        // At least one measurement should have the cache.name tag
+        Assert.Contains(true, listener.Measurements.Select(m =>
+            m.Tags.Any(tag => tag.Key == "cache.name" && (string?)tag.Value == "test-cache-name")));
     }
 }
