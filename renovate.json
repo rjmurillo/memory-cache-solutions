@@ -7,6 +7,6 @@
   "additionalReviewers": ["team:copilot"],
   "automerge": true,
   "automergeType": "pr",
-  "automergeStrategy": "merge",
+  "automergeStrategy": "squash",
   "platformAutomerge": true
 }
