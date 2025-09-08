@@ -1,9 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:best-practices",
-    ":assignAndReview(rjmurillo)"
-  ],
+  "extends": ["config:best-practices", ":assignAndReview(rjmurillo)"],
   "additionalReviewers": ["team:copilot"],
   "automerge": true,
   "automergeType": "pr",
