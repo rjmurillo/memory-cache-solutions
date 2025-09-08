@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Primitives;
 using System.Collections.Generic;
 using Xunit;
+using System.Diagnostics;
 
 namespace Unit;
 
@@ -42,6 +43,31 @@ public class MeteredMemoryCacheTests
         }
 
         public void Dispose() => _listener.Dispose();
+    }
+
+    [Fact]
+    public void TagListCopyIsThreadSafeForConcurrentAdd()
+    {
+        var baseTags = new TagList();
+        baseTags.Add("cache.name", "concurrent-cache");
+
+        Exception? error = null;
+        Parallel.For(0, 1000, i =>
+        {
+            try
+            {
+                var tags = new TagList();
+                foreach (var tag in baseTags)
+                    tags.Add(tag.Key, tag.Value);
+                tags.Add("reason", i.ToString());
+            }
+            catch (Exception ex)
+            {
+                error = ex;
+            }
+        });
+
+        Assert.Null(error);
     }
 
     [Fact]

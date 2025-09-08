@@ -1,0 +1,152 @@
+# MeteredMemoryCache Implementation Tasks
+
+## Project Overview
+Implementation of MeteredMemoryCache decorator pattern with OpenTelemetry integration for cache metrics, following the specifications in MeteredMemoryCache-PRD.md.
+
+## Current State Assessment
+- **Existing**: Basic MeteredMemoryCache implementation with hit/miss/eviction metrics
+- **Missing**: Cache naming support, service collection extensions, comprehensive testing, documentation
+- **Infrastructure**: BenchmarkDotNet setup exists, BenchGate validation tool available
+
+## High-Level Tasks
+
+### Task 1: Enhance MeteredMemoryCache with Named Cache Support
+**Type**: Feature Enhancement  
+**Priority**: High  
+**Dependencies**: None  
+
+Extend the existing MeteredMemoryCache to support cache naming for multi-cache scenarios with dimensional metrics (cache.name tag).
+
+#### Sub-tasks:
+- [x] Add TagList field to MeteredMemoryCache class for dimensional metrics
+- [x] Create constructor overload accepting optional cache name parameter
+- [x] Implement cache name tag application to all counter operations (hits, misses, evictions)
+- [x] Ensure backward compatibility with existing parameterless cache name usage
+- [x] Add null/empty cache name validation and handling
+- [x] Update XML documentation to reflect cache naming capabilities
+- [x] Validate thread-safety of TagList usage across concurrent operations
+
+### Task 2: Create Service Collection Extensions
+**Type**: New Feature  
+**Priority**: High  
+**Dependencies**: Task 1  
+
+Implement dependency injection registration helpers for easy MeteredMemoryCache integration following .NET patterns.
+
+#### Sub-tasks:
+- [ ] Create ServiceCollectionExtensions class in CacheImplementations namespace
+- [ ] Implement AddNamedMeteredMemoryCache extension method with MemoryCacheOptions support
+- [ ] Implement DecorateMemoryCacheWithMetrics extension method for existing cache decoration
+- [ ] Add Meter registration with configurable meter name parameter
+- [ ] Support multiple named cache registrations in single service collection
+- [ ] Add validation for duplicate cache names and meter conflicts
+- [ ] Include proper disposal handling for created cache instances
+- [ ] Follow .NET options pattern conventions for configuration
+
+### Task 3: Implement MeteredMemoryCache Options Pattern
+**Type**: New Feature  
+**Priority**: Medium  
+**Dependencies**: Task 1  
+
+Create options class for extensible configuration of MeteredMemoryCache behavior and tags.
+
+#### Sub-tasks:
+- [ ] Create MeteredMemoryCacheOptions class with cache name property
+- [ ] Add DisposeInner boolean option for disposal behavior control
+- [ ] Implement AdditionalTags dictionary for custom dimensional metrics
+- [ ] Create constructor overload accepting MeteredMemoryCacheOptions
+- [ ] Add options validation with appropriate error messages
+- [ ] Support IOptionsMonitor integration for dynamic configuration changes
+- [ ] Implement options builder pattern for fluent configuration
+- [ ] Add default options factory with sensible defaults
+
+### Task 4: Comprehensive Testing & Validation
+**Type**: Testing  
+**Priority**: High  
+**Dependencies**: Tasks 1-3  
+
+Develop complete test coverage including unit tests, integration tests, and benchmark validation with BenchGate.
+
+#### Sub-tasks:
+- [ ] Create MeteredMemoryCacheOptionsTests for options class validation
+- [ ] Create ServiceCollectionExtensionsTests for DI registration scenarios
+- [ ] Expand MeteredMemoryCacheTests to cover named cache scenarios
+- [ ] Add integration tests for OpenTelemetry metrics collection and validation
+- [ ] Create multi-cache scenario tests with different names and tags
+- [ ] Add concurrency tests for thread-safety validation of tag operations
+- [ ] Implement BenchGate validation tests for performance regression detection
+- [ ] Add benchmark tests comparing named vs unnamed cache performance overhead
+- [ ] Create negative test cases for invalid configurations and error scenarios
+- [ ] Validate metric emission accuracy with custom metric collection harness
+
+### Task 5: Documentation & Integration Guides
+**Type**: Documentation  
+**Priority**: Medium  
+**Dependencies**: Tasks 1-4  
+
+Create comprehensive documentation for usage patterns, integration guides, and OpenTelemetry setup.
+
+#### Sub-tasks:
+- [ ] Create MeteredMemoryCache.md usage documentation with code examples
+- [ ] Create OpenTelemetryIntegration.md setup guide with various OTel exporters
+- [ ] Document multi-cache scenarios and naming conventions
+- [ ] Add performance characteristics documentation with benchmark results
+- [ ] Create migration guide from existing custom metrics solutions
+- [ ] Document troubleshooting common configuration issues
+- [ ] Add API reference documentation for all public methods and options
+- [ ] Create sample applications demonstrating various usage patterns
+- [ ] Update repository README with MeteredMemoryCache overview
+- [ ] Add inline code documentation for complex metric emission logic
+
+---
+
+## Relevant Files
+
+### New Files to Create
+- `src/CacheImplementations/MeteredMemoryCacheOptions.cs` - Options pattern for configuration
+- `src/CacheImplementations/ServiceCollectionExtensions.cs` - DI registration helpers
+- `tests/Unit/MeteredMemoryCacheOptionsTests.cs` - Options class tests
+- `tests/Unit/ServiceCollectionExtensionsTests.cs` - DI extension tests
+- `tests/Integration/OpenTelemetryIntegrationTests.cs` - OTel integration tests
+- `tests/Integration/MultiCacheScenarioTests.cs` - Multi-cache integration tests
+- `docs/MeteredMemoryCache.md` - Usage documentation
+- `docs/OpenTelemetryIntegration.md` - OTel setup guide
+- `examples/BasicUsage/Program.cs` - Basic usage example
+- `examples/MultiCache/Program.cs` - Multi-cache example
+- `examples/AspNetCore/Program.cs` - ASP.NET Core integration example
+
+### Existing Files to Modify
+- `src/CacheImplementations/MeteredMemoryCache.cs` - Add cache naming support and options constructor
+- `tests/Unit/MeteredMemoryCacheTests.cs` - Expand test coverage for new functionality
+- `tests/Benchmarks/CacheBenchmarks.cs` - Add named cache benchmarks
+- `src/CacheImplementations/CacheImplementations.csproj` - Add Microsoft.Extensions.DependencyInjection reference
+- `tests/Unit/Unit.csproj` - Add Microsoft.Extensions.Hosting.Testing reference
+- `tests/Integration/Integration.csproj` - Create if needed, add OTel testing packages
+- `benchmarks/baseline/CacheBenchmarks.windows-latest.x64.json` - Update baseline after changes
+- `README.md` - Add MeteredMemoryCache overview section
+
+### Notes
+- Follow the `.github/copilot-instructions.md` validation workflow strictly
+- All performance changes must include BenchGate validation with PASS/FAIL simulation
+- Use the incremental development hierarchy from Section 14
+- Maintain backward compatibility throughout implementation
+- Each commit must include appropriate test coverage and evidence per layer requirements
+- BenchGate validation required for any changes affecting benchmark infrastructure
+- Follow PowerShell guarded command pattern for all automation steps
+
+### Implementation Order (Following Incremental Development Hierarchy)
+1. **Layer 1 (Testability)**: Create failing tests for cache naming functionality
+2. **Layer 2 (Structural)**: Implement TagList support and constructor overloads
+3. **Layer 3 (Safety)**: Validate with BenchGate and comprehensive test coverage
+4. **Layer 2 (Structural)**: Create service collection extensions with tests
+5. **Layer 3 (Safety)**: Integration testing and OpenTelemetry validation
+6. **Layer 4 (Patterns)**: Implement options pattern with validation
+7. **Layer 5 (Documentation)**: Complete documentation and examples
+
+### Evidence Requirements
+Each task completion must include:
+- Build: `dotnet build -c Release` PASS
+- Tests: `dotnet test -c Release` PASS with new/updated test coverage
+- BenchGate: PASS validation plus synthetic FAIL simulation
+- Performance: Before/after metrics table for any performance-affecting changes
+- Format: `dotnet format` and `dotnet tool run prettier --write .` applied

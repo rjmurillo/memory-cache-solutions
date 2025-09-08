@@ -65,10 +65,11 @@ public sealed class MeteredMemoryCache : IMemoryCache
         options.RegisterPostEvictionCallback(static (_, _, reason, state) =>
         {
             var self = (MeteredMemoryCache)state!;
-            var tags = self._tags;
+            var tags = new TagList();
+            foreach (var tag in self._tags)
+                tags.Add(tag.Key, tag.Value);
             tags.Add("reason", reason.ToString());
             self._evictions.Add(1, tags);
-            tags.RemoveAt(tags.Count - 1);
         }, this);
         _inner.Set(key, value, options);
     }
@@ -93,10 +94,11 @@ public sealed class MeteredMemoryCache : IMemoryCache
             entry.RegisterPostEvictionCallback(static (_, _, reason, state) =>
             {
                 var self = (MeteredMemoryCache)state!;
-                var tags = self._tags;
-            tags.Add("reason", reason.ToString());
+                var tags = new TagList();
+                foreach (var tag in self._tags)
+                    tags.Add(tag.Key, tag.Value);
+                tags.Add("reason", reason.ToString());
                 self._evictions.Add(1, tags);
-                tags.RemoveAt(tags.Count - 1);
             }, this);
             return factory(entry);
         });
@@ -123,10 +125,11 @@ public sealed class MeteredMemoryCache : IMemoryCache
         entry.RegisterPostEvictionCallback(static (_, _, reason, state) =>
         {
             var self = (MeteredMemoryCache)state!;
-            var tags = self._tags;
+            var tags = new TagList();
+            foreach (var tag in self._tags)
+                tags.Add(tag.Key, tag.Value);
             tags.Add("reason", reason.ToString());
             self._evictions.Add(1, tags);
-            tags.RemoveAt(tags.Count - 1);
         }, this);
         return entry;
     }
