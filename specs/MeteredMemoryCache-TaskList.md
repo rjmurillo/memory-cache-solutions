@@ -72,10 +72,10 @@ Develop complete test coverage including unit tests, integration tests, and benc
 - [x] Create MeteredMemoryCacheOptionsTests for options class validation
 - [x] Create ServiceCollectionExtensionsTests for DI registration scenarios
 - [x] Expand MeteredMemoryCacheTests to cover named cache scenarios
-- [ ] Add integration tests for OpenTelemetry metrics collection and validation
-- [ ] Create multi-cache scenario tests with different names and tags
-- [ ] Add concurrency tests for thread-safety validation of tag operations
-- [ ] Implement BenchGate validation tests for performance regression detection
+- [x] Add integration tests for OpenTelemetry metrics collection and validation
+- [x] Create multi-cache scenario tests with different names and tags
+- [x] Add concurrency tests for thread-safety validation of tag operations
+- [x] Implement BenchGate validation tests for performance regression detection
 - [ ] Add benchmark tests comparing named vs unnamed cache performance overhead
 - [ ] Create negative test cases for invalid configurations and error scenarios
 - [ ] Validate metric emission accuracy with custom metric collection harness
