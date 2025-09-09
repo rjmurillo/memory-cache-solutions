@@ -12,7 +12,7 @@ public class ServiceCollectionExtensionsTests
     public void AddNamedMeteredMemoryCache_RegistersNamedCacheAndMetrics()
     {
         IServiceCollection services = new ServiceCollection();
-        services.AddNamedMeteredMemoryCache("my-cache", options => options.SizeLimit = 123, meterName: "custom-meter");
+        services.AddNamedMeteredMemoryCache("my-cache", options => options.DisposeInner = true, meterName: "custom-meter");
 
         var provider = services.BuildServiceProvider();
         // var namedCache = provider.GetRequiredService<INamedMemoryCache>();
