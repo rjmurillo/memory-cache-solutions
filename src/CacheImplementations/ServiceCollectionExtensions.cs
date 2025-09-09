@@ -1,5 +1,4 @@
 // Copyright (c) 2025, MeteredMemoryCache contributors
-using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +29,8 @@ public static class ServiceCollectionExtensions
         if (string.IsNullOrWhiteSpace(cacheName))
             throw new ArgumentException("Cache name must be non-empty", nameof(cacheName));
 
+        var effectiveMeterName = meterName ?? "MeteredMemoryCache";
+
         // Register options with validation
         services.AddOptions<MeteredMemoryCacheOptions>(cacheName)
             .Configure(opts =>
@@ -44,17 +45,22 @@ public static class ServiceCollectionExtensions
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<MeteredMemoryCacheOptions>, MeteredMemoryCacheOptionsValidator>());
 
-        services.TryAddSingleton<NamedMemoryCacheRegistry>();
+        // Register the meter if not already registered
+        services.TryAddSingleton<Meter>(sp => new Meter(effectiveMeterName));
 
-        services.PostConfigure<NamedMemoryCacheRegistry>(reg =>
+        // Register the keyed cache service
+        services.AddKeyedSingleton<IMemoryCache>(cacheName, (sp, key) =>
         {
-            reg.TryAdd(cacheName, () =>
-            {
-                var meter = new Meter(meterName ?? "MeteredMemoryCache");
-                var options = reg.ServiceProvider.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>().Get(cacheName);
-                return new MeteredMemoryCache(new MemoryCache(new MemoryCacheOptions()), meter, options);
-            }, meterName);
+            var keyString = (string)key!;
+            var innerCache = new MemoryCache(new MemoryCacheOptions());
+            var meter = sp.GetRequiredService<Meter>();
+            var options = sp.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>().Get(keyString);
+            return new MeteredMemoryCache(innerCache, meter, options);
         });
+
+        // Try to register as singleton for cases where there's only one named cache
+        // Use TryAddSingleton to avoid concurrency issues
+        services.TryAddSingleton<IMemoryCache>(sp => sp.GetRequiredKeyedService<IMemoryCache>(cacheName));
 
         return services;
     }
@@ -73,15 +79,23 @@ public static class ServiceCollectionExtensions
         string? meterName = null,
         Action<MeteredMemoryCacheOptions>? configureOptions = null)
     {
-        services.TryAddSingleton<Meter>(sp =>
-            new Meter(meterName ?? "MeteredMemoryCache"));
+        var effectiveMeterName = meterName ?? "MeteredMemoryCache";
 
+        // Register the meter if not already registered
+        services.TryAddSingleton<Meter>(sp => new Meter(effectiveMeterName));
+
+        // Configure options
         services.Configure<MeteredMemoryCacheOptions>(opts =>
         {
             opts.CacheName = cacheName;
             configureOptions?.Invoke(opts);
         });
 
+        // Register the options validator
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<MeteredMemoryCacheOptions>, MeteredMemoryCacheOptionsValidator>());
+
+        // Decorate the existing IMemoryCache registration
         services.Decorate<IMemoryCache>((inner, sp) =>
         {
             var meter = sp.GetRequiredService<Meter>();
@@ -90,19 +104,5 @@ public static class ServiceCollectionExtensions
         });
 
         return services;
-    }
-
-    // Registry for named caches and meters
-    private sealed class NamedMemoryCacheRegistry
-    {
-        private readonly ConcurrentDictionary<string, (Func<IMemoryCache> Factory, string? MeterName)> _caches = new(StringComparer.Ordinal);
-
-        public void TryAdd(string name, Func<IMemoryCache> factory, string? meterName)
-        {
-            _caches.TryAdd(name, (factory, meterName));
-        }
-
-        // For options-based resolution
-        public IServiceProvider ServiceProvider { get; set; } = default!;
     }
 }

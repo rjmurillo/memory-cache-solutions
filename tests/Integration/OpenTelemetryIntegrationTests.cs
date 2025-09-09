@@ -276,7 +276,7 @@ public class OpenTelemetryIntegrationTests
         // Add OpenTelemetry with InMemory exporter
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("CacheImplementations.MeteredMemoryCache")
+                .AddMeter("MeteredMemoryCache")
                 .AddInMemoryExporter(exportedItems));
 
         // Decorate the cache with metrics
@@ -292,7 +292,7 @@ public class OpenTelemetryIntegrationTests
         // Add OpenTelemetry with InMemory exporter
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("CacheImplementations.MeteredMemoryCache")
+                .AddMeter("MeteredMemoryCache")
                 .AddInMemoryExporter(exportedItems));
 
         // Add named cache with metrics
@@ -308,7 +308,7 @@ public class OpenTelemetryIntegrationTests
         // Add OpenTelemetry with InMemory exporter
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("CacheImplementations.MeteredMemoryCache")
+                .AddMeter("MeteredMemoryCache")
                 .AddInMemoryExporter(exportedItems));
 
         // Add multiple named caches
@@ -325,7 +325,7 @@ public class OpenTelemetryIntegrationTests
         // Add OpenTelemetry with InMemory exporter
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("CacheImplementations.MeteredMemoryCache")
+                .AddMeter("MeteredMemoryCache")
                 .AddInMemoryExporter(exportedItems));
 
         // Add cache with additional tags
