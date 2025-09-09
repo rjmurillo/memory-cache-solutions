@@ -30,12 +30,6 @@ public static class ServiceCollectionExtensions
         if (string.IsNullOrWhiteSpace(cacheName))
             throw new ArgumentException("Cache name must be non-empty", nameof(cacheName));
 
-        // Static sets for duplicate validation
-        if (!s_cacheNames.Add(cacheName))
-            throw new InvalidOperationException($"A cache with the name '{cacheName}' is already registered.");
-        if (!string.IsNullOrEmpty(meterName) && !s_meterNames.Add(meterName))
-            throw new InvalidOperationException($"A meter with the name '{meterName}' is already registered.");
-
         // Register options with validation
         services.AddOptions<MeteredMemoryCacheOptions>(cacheName)
             .Configure(opts =>
@@ -97,10 +91,6 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
-
-    // Static sets for duplicate validation
-    private static readonly HashSet<string> s_cacheNames = new(StringComparer.Ordinal);
-    private static readonly HashSet<string> s_meterNames = new(StringComparer.Ordinal);
 
     // Registry for named caches and meters
     private sealed class NamedMemoryCacheRegistry
