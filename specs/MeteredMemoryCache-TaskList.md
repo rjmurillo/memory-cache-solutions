@@ -70,7 +70,7 @@ Develop complete test coverage including unit tests, integration tests, and benc
 
 #### Sub-tasks:
 - [x] Create MeteredMemoryCacheOptionsTests for options class validation
-- [ ] Create ServiceCollectionExtensionsTests for DI registration scenarios
+- [x] Create ServiceCollectionExtensionsTests for DI registration scenarios
 - [ ] Expand MeteredMemoryCacheTests to cover named cache scenarios
 - [ ] Add integration tests for OpenTelemetry metrics collection and validation
 - [ ] Create multi-cache scenario tests with different names and tags
