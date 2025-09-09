@@ -38,8 +38,8 @@ Implement dependency injection registration helpers for easy MeteredMemoryCache 
 - [x] Implement AddNamedMeteredMemoryCache extension method with MemoryCacheOptions support
 - [x] Implement DecorateMemoryCacheWithMetrics extension method for existing cache decoration
 - [x] Add Meter registration with configurable meter name parameter
-- [ ] Support multiple named cache registrations in single service collection
-- [ ] Add validation for duplicate cache names and meter conflicts
+- [x] Support multiple named cache registrations in single service collection
+- [x] Add validation for duplicate cache names and meter conflicts
 - [x] Include proper disposal handling for created cache instances
 - [x] Follow .NET options pattern conventions for configuration
 

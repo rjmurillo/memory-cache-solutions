@@ -20,6 +20,11 @@ public sealed class MeteredMemoryCache : IMemoryCache
     private readonly Counter<long> _evictions;
     private readonly TagList _tags;
 
+    /// <summary>
+    /// Gets the logical name of this cache instance, if provided.
+    /// </summary>
+    public string? Name { get; }
+
     public MeteredMemoryCache(IMemoryCache inner, Meter meter, string? cacheName = null, bool disposeInner = false)
     {
         ArgumentNullException.ThrowIfNull(inner);
@@ -33,10 +38,9 @@ public sealed class MeteredMemoryCache : IMemoryCache
         if (!string.IsNullOrEmpty(cacheName))
         {
             _tags.Add("cache.name", cacheName);
+            Name = cacheName;
         }
     }
-
-    // No backward compatibility constructor needed; use named parameters for clarity.
 
     /// <summary>
     /// Strongly typed convenience method that records hit/miss metrics.

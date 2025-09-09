@@ -1,9 +1,11 @@
+using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace CacheImplementations;
+
 
 /// <summary>
 /// Extension methods for registering MeteredMemoryCache in DI.
@@ -27,23 +29,24 @@ public static class ServiceCollectionExtensions
         if (string.IsNullOrWhiteSpace(cacheName))
             throw new ArgumentException("Cache name must be non-empty", nameof(cacheName));
 
-        // Register the Meter as a singleton if not already present
-        services.TryAddSingleton<Meter>(sp =>
-            new Meter(meterName ?? "MeteredMemoryCache"));
+        // Static sets for duplicate validation
+        if (!s_cacheNames.Add(cacheName))
+            throw new InvalidOperationException($"A cache with the name '{cacheName}' is already registered.");
+        if (!string.IsNullOrEmpty(meterName) && !s_meterNames.Add(meterName))
+            throw new InvalidOperationException($"A meter with the name '{meterName}' is already registered.");
 
-        // Register the IMemoryCache for this name
-        services.AddSingleton<IMemoryCache>(sp =>
-        {
-            var options = new MemoryCacheOptions();
-            configureOptions?.Invoke(options);
-            return new MemoryCache(options);
-        });
+        services.TryAddSingleton<NamedMemoryCacheRegistry>();
 
-        // Decorate with MeteredMemoryCache
-        services.Decorate<IMemoryCache>((inner, sp) =>
+        services.PostConfigure<NamedMemoryCacheRegistry>(reg =>
         {
-            var meter = sp.GetRequiredService<Meter>();
-            return new MeteredMemoryCache(inner, meter, cacheName, disposeInner: true);
+            reg.TryAdd(cacheName, () =>
+            {
+                var meter = new Meter(meterName ?? "MeteredMemoryCache");
+                var options = new MemoryCacheOptions();
+                configureOptions?.Invoke(options);
+                var inner = new MemoryCache(options);
+                return new MeteredMemoryCache(inner, meter, cacheName, disposeInner: true);
+            }, meterName);
         });
 
         return services;
@@ -72,4 +75,21 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+
+    // Static sets for duplicate validation
+    private static readonly HashSet<string> s_cacheNames = new(StringComparer.Ordinal);
+    private static readonly HashSet<string> s_meterNames = new(StringComparer.Ordinal);
+
+    // Registry for named caches and meters
+    private sealed class NamedMemoryCacheRegistry
+    {
+        private readonly ConcurrentDictionary<string, (Func<IMemoryCache> Factory, string? MeterName)> _caches = new(StringComparer.Ordinal);
+
+        public void TryAdd(string name, Func<IMemoryCache> factory, string? meterName)
+        {
+            _caches.TryAdd(name, (factory, meterName));
+        }
+
+    }
+
 }
