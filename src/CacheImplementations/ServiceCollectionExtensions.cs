@@ -1,11 +1,12 @@
+// Copyright (c) 2025, MeteredMemoryCache contributors
 using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace CacheImplementations;
-
 
 /// <summary>
 /// Extension methods for registering MeteredMemoryCache in DI.
@@ -13,17 +14,17 @@ namespace CacheImplementations;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers a named MeteredMemoryCache with metrics in the service collection.
+    /// Registers a named MeteredMemoryCache with metrics in the service collection using options.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="cacheName">The logical cache name (for metrics tag).</param>
-    /// <param name="configureOptions">Optional MemoryCacheOptions configuration.</param>
+    /// <param name="configureOptions">Optional MeteredMemoryCacheOptions configuration.</param>
     /// <param name="meterName">Optional meter name (defaults to "MeteredMemoryCache").</param>
     /// <returns>The service collection.</returns>
     public static IServiceCollection AddNamedMeteredMemoryCache(
         this IServiceCollection services,
         string cacheName,
-        Action<MemoryCacheOptions>? configureOptions = null,
+        Action<MeteredMemoryCacheOptions>? configureOptions = null,
         string? meterName = null)
     {
         if (string.IsNullOrWhiteSpace(cacheName))
@@ -35,6 +36,20 @@ public static class ServiceCollectionExtensions
         if (!string.IsNullOrEmpty(meterName) && !s_meterNames.Add(meterName))
             throw new InvalidOperationException($"A meter with the name '{meterName}' is already registered.");
 
+        // Register options with validation
+        services.AddOptions<MeteredMemoryCacheOptions>(cacheName)
+            .Configure(opts =>
+            {
+                opts.CacheName = cacheName;
+                configureOptions?.Invoke(opts);
+            })
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        // Register the options validator
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<MeteredMemoryCacheOptions>, MeteredMemoryCacheOptionsValidator>());
+
         services.TryAddSingleton<NamedMemoryCacheRegistry>();
 
         services.PostConfigure<NamedMemoryCacheRegistry>(reg =>
@@ -42,10 +57,8 @@ public static class ServiceCollectionExtensions
             reg.TryAdd(cacheName, () =>
             {
                 var meter = new Meter(meterName ?? "MeteredMemoryCache");
-                var options = new MemoryCacheOptions();
-                configureOptions?.Invoke(options);
-                var inner = new MemoryCache(options);
-                return new MeteredMemoryCache(inner, meter, cacheName, disposeInner: true);
+                var options = reg.ServiceProvider.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>().Get(cacheName);
+                return new MeteredMemoryCache(new MemoryCache(new MemoryCacheOptions()), meter, options);
             }, meterName);
         });
 
@@ -53,24 +66,33 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Decorates an existing IMemoryCache registration with MeteredMemoryCache for metrics.
+    /// Decorates an existing IMemoryCache registration with MeteredMemoryCache for metrics using options.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="cacheName">Optional cache name for metrics tag.</param>
     /// <param name="meterName">Optional meter name.</param>
+    /// <param name="configureOptions">Optional MeteredMemoryCacheOptions configuration.</param>
     /// <returns>The service collection.</returns>
     public static IServiceCollection DecorateMemoryCacheWithMetrics(
         this IServiceCollection services,
         string? cacheName = null,
-        string? meterName = null)
+        string? meterName = null,
+        Action<MeteredMemoryCacheOptions>? configureOptions = null)
     {
         services.TryAddSingleton<Meter>(sp =>
             new Meter(meterName ?? "MeteredMemoryCache"));
 
+        services.Configure<MeteredMemoryCacheOptions>(opts =>
+        {
+            opts.CacheName = cacheName;
+            configureOptions?.Invoke(opts);
+        });
+
         services.Decorate<IMemoryCache>((inner, sp) =>
         {
             var meter = sp.GetRequiredService<Meter>();
-            return new MeteredMemoryCache(inner, meter, cacheName, disposeInner: false);
+            var options = sp.GetRequiredService<IOptions<MeteredMemoryCacheOptions>>().Value;
+            return new MeteredMemoryCache(inner, meter, options);
         });
 
         return services;
@@ -90,6 +112,7 @@ public static class ServiceCollectionExtensions
             _caches.TryAdd(name, (factory, meterName));
         }
 
+        // For options-based resolution
+        public IServiceProvider ServiceProvider { get; set; } = default!;
     }
-
 }

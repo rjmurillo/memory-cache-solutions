@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Caching.Memory;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace CacheImplementations;
 
@@ -39,6 +41,31 @@ public sealed class MeteredMemoryCache : IMemoryCache
         {
             _tags.Add("cache.name", cacheName);
             Name = cacheName;
+        }
+    }
+
+    /// <summary>
+    /// Options-based constructor for advanced configuration.
+    /// </summary>
+    public MeteredMemoryCache(IMemoryCache inner, Meter meter, MeteredMemoryCacheOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(inner);
+        ArgumentNullException.ThrowIfNull(meter);
+        ArgumentNullException.ThrowIfNull(options);
+        _inner = inner;
+        _disposeInner = options.DisposeInner;
+        _hits = meter.CreateCounter<long>("cache_hits_total");
+        _misses = meter.CreateCounter<long>("cache_misses_total");
+        _evictions = meter.CreateCounter<long>("cache_evictions_total");
+        _tags = new TagList();
+        if (!string.IsNullOrEmpty(options.CacheName))
+        {
+            _tags.Add("cache.name", options.CacheName);
+            Name = options.CacheName;
+        }
+        foreach (var kvp in options.AdditionalTags.Where(kvp => !string.Equals(kvp.Key, "cache.name", System.StringComparison.Ordinal)))
+        {
+            _tags.Add(kvp.Key, kvp.Value);
         }
     }
 

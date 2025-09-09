@@ -51,14 +51,15 @@ Implement dependency injection registration helpers for easy MeteredMemoryCache 
 Create options class for extensible configuration of MeteredMemoryCache behavior and tags.
 
 #### Sub-tasks:
-- [ ] Create MeteredMemoryCacheOptions class with cache name property
-- [ ] Add DisposeInner boolean option for disposal behavior control
-- [ ] Implement AdditionalTags dictionary for custom dimensional metrics
-- [ ] Create constructor overload accepting MeteredMemoryCacheOptions
-- [ ] Add options validation with appropriate error messages
-- [ ] Support IOptionsMonitor integration for dynamic configuration changes
-- [ ] Implement options builder pattern for fluent configuration
-- [ ] Add default options factory with sensible defaults
+- [x] Create MeteredMemoryCacheOptions class with cache name property
+- [x] Add DisposeInner boolean option for disposal behavior control
+- [x] Implement AdditionalTags dictionary for custom dimensional metrics
+- [x] Create constructor overload accepting MeteredMemoryCacheOptions
+- [x] Add options validation with appropriate error messages (replaced custom Validate() with IValidateOptions<T> pattern)
+- [x] Support IOptionsMonitor integration for dynamic configuration changes
+- [x] Implement proper .NET options validation pattern with ValidateDataAnnotations() and ValidateOnStart()
+- [x] Add MeteredMemoryCacheOptionsValidator implementing IValidateOptions<T> for complex validation
+- [x] Integrate validation with service collection extensions using proper .NET patterns
 
 ### Task 4: Comprehensive Testing & Validation
 **Type**: Testing  
@@ -87,8 +88,8 @@ Develop complete test coverage including unit tests, integration tests, and benc
 Create comprehensive documentation for usage patterns, integration guides, and OpenTelemetry setup.
 
 #### Sub-tasks:
-- [ ] Create MeteredMemoryCache.md usage documentation with code examples
-- [ ] Create OpenTelemetryIntegration.md setup guide with various OTel exporters
+- [ ] Create docs/MeteredMemoryCache.md usage documentation with code examples
+- [ ] Create docs/OpenTelemetryIntegration.md setup guide with various OTel exporters
 - [ ] Document multi-cache scenarios and naming conventions
 - [ ] Add performance characteristics documentation with benchmark results
 - [ ] Create migration guide from existing custom metrics solutions
@@ -102,9 +103,12 @@ Create comprehensive documentation for usage patterns, integration guides, and O
 
 ## Relevant Files
 
+### New Files Created
+- `src/CacheImplementations/MeteredMemoryCacheOptions.cs` - ✅ Options pattern for configuration (COMPLETED)
+- `src/CacheImplementations/MeteredMemoryCacheOptionsValidator.cs` - ✅ IValidateOptions<T> implementation (COMPLETED)
+- `src/CacheImplementations/ServiceCollectionExtensions.cs` - ✅ DI registration helpers (COMPLETED)
+
 ### New Files to Create
-- `src/CacheImplementations/MeteredMemoryCacheOptions.cs` - Options pattern for configuration
-- `src/CacheImplementations/ServiceCollectionExtensions.cs` - DI registration helpers
 - `tests/Unit/MeteredMemoryCacheOptionsTests.cs` - Options class tests
 - `tests/Unit/ServiceCollectionExtensionsTests.cs` - DI extension tests
 - `tests/Integration/OpenTelemetryIntegrationTests.cs` - OTel integration tests
