@@ -69,7 +69,7 @@ Create options class for extensible configuration of MeteredMemoryCache behavior
 Develop complete test coverage including unit tests, integration tests, and benchmark validation with BenchGate.
 
 #### Sub-tasks:
-- [ ] Create MeteredMemoryCacheOptionsTests for options class validation
+- [x] Create MeteredMemoryCacheOptionsTests for options class validation
 - [ ] Create ServiceCollectionExtensionsTests for DI registration scenarios
 - [ ] Expand MeteredMemoryCacheTests to cover named cache scenarios
 - [ ] Add integration tests for OpenTelemetry metrics collection and validation
@@ -107,9 +107,9 @@ Create comprehensive documentation for usage patterns, integration guides, and O
 - `src/CacheImplementations/MeteredMemoryCacheOptions.cs` - ✅ Options pattern for configuration (COMPLETED)
 - `src/CacheImplementations/MeteredMemoryCacheOptionsValidator.cs` - ✅ IValidateOptions<T> implementation (COMPLETED)
 - `src/CacheImplementations/ServiceCollectionExtensions.cs` - ✅ DI registration helpers (COMPLETED)
+- `tests/Unit/MeteredMemoryCacheOptionsTests.cs` - ✅ Options class tests (COMPLETED)
 
 ### New Files to Create
-- `tests/Unit/MeteredMemoryCacheOptionsTests.cs` - Options class tests
 - `tests/Unit/ServiceCollectionExtensionsTests.cs` - DI extension tests
 - `tests/Integration/OpenTelemetryIntegrationTests.cs` - OTel integration tests
 - `tests/Integration/MultiCacheScenarioTests.cs` - Multi-cache integration tests

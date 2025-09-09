@@ -19,9 +19,15 @@ public class MeteredMemoryCacheOptions
     /// </summary>
     public bool DisposeInner { get; set; } = false;
 
+    private IDictionary<string, object?> _additionalTags = new Dictionary<string, object?>(StringComparer.Ordinal);
+
     /// <summary>
     /// Additional tags to include in all emitted metrics.
     /// </summary>
     [Required]
-    public IDictionary<string, object?> AdditionalTags { get; set; } = new Dictionary<string, object?>(StringComparer.Ordinal);
+    public IDictionary<string, object?> AdditionalTags
+    {
+        get => _additionalTags;
+        set => _additionalTags = value ?? throw new ArgumentNullException(nameof(value));
+    }
 }

@@ -7,7 +7,7 @@ namespace CacheImplementations;
 /// <summary>
 /// Validates MeteredMemoryCacheOptions using the standard .NET options validation pattern.
 /// </summary>
-internal sealed class MeteredMemoryCacheOptionsValidator : IValidateOptions<MeteredMemoryCacheOptions>
+public sealed class MeteredMemoryCacheOptionsValidator : IValidateOptions<MeteredMemoryCacheOptions>
 {
     public ValidateOptionsResult Validate(string? name, MeteredMemoryCacheOptions options)
     {
