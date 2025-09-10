@@ -90,14 +90,14 @@ Create comprehensive documentation for usage patterns, integration guides, and O
 #### Sub-tasks:
 - [x] Create docs/MeteredMemoryCache.md usage documentation with code examples
 - [x] Create docs/OpenTelemetryIntegration.md setup guide with various OTel exporters
-- [ ] Document multi-cache scenarios and naming conventions
+- [x] Document multi-cache scenarios and naming conventions
 - [ ] Add performance characteristics documentation with benchmark results
-- [ ] Create migration guide from existing custom metrics solutions
 - [ ] Document troubleshooting common configuration issues
 - [ ] Add API reference documentation for all public methods and options
-- [ ] Create sample applications demonstrating various usage patterns
 - [ ] Update repository README with MeteredMemoryCache overview
 - [ ] Add inline code documentation for complex metric emission logic
+- [ ] Create migration guide from existing custom metrics solutions
+- [ ] Create sample applications demonstrating various usage patterns
 
 ---
 
