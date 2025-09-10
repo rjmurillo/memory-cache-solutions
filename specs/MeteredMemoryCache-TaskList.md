@@ -173,4 +173,4 @@ Each task completion must include:
 - Tests: `dotnet test -c Release` PASS with new/updated test coverage
 - BenchGate: PASS validation plus synthetic FAIL simulation
 - Performance: Before/after metrics table for any performance-affecting changes
-- Format: `dotnet format` and `dotnet tool run prettier --write .` applied
+- Format: `dotnet format` and `dotnet tool run pprettier --write .` applied
