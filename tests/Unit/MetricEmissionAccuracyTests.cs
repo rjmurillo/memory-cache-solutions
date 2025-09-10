@@ -295,7 +295,8 @@ public class MetricEmissionAccuracyTests
         Assert.Equal(1, cache2Hits);
         Assert.Equal(4, cache2Misses);
 
-        // Validate total aggregation
+        // Validate total aggregation - expected: cache1(3 hits) + cache2(1 hit) = 4 total hits
+        // expected: cache1(2 misses) + cache2(4 misses) = 6 total misses  
         harness.AssertAggregatedCount("cache_hits_total", 4); // 3 + 1
         harness.AssertAggregatedCount("cache_misses_total", 6); // 2 + 4
 
