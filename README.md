@@ -132,8 +132,8 @@ Eviction reasons include: `Expired`, `TokenExpired`, `Capacity`, `Removed`, `Rep
 
 ### Performance Characteristics
 
-- **Read Operations**: ~15-40ns overhead per hit/miss
-- **Write Operations**: ~1-14% overhead for `Set` operations
+- **Read Operations**: 15-40ns overhead per hit/miss (28-43% increase)
+- **Write Operations**: 1-14% overhead for `Set` operations (8-74ns absolute)
 - **Memory**: +200B per cache instance, +160B per cached entry
 - **Concurrency**: Lock-free counter operations, optimized for high-throughput
 

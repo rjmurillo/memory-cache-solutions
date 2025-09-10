@@ -668,7 +668,11 @@ builder.Services.AddOpenTelemetry()
 
 ## Related Documentation
 
-- [MeteredMemoryCache Usage Guide](MeteredMemoryCache.md)
+- [MeteredMemoryCache Usage Guide](MeteredMemoryCache.md) - Basic usage patterns and API reference
+- [Multi-Cache Scenarios](MultiCacheScenarios.md) - Advanced multi-cache configurations
+- [Performance Characteristics](PerformanceCharacteristics.md) - Detailed performance analysis and benchmarks
+- [Troubleshooting Guide](Troubleshooting.md) - Common issues and debugging techniques
+- [API Reference](ApiReference.md) - Complete API documentation
 - [OpenTelemetry .NET Documentation](https://opentelemetry.io/docs/instrumentation/net/)
 - [Prometheus Export Format](https://prometheus.io/docs/instrumenting/exposition_formats/)
 - [OTLP Specification](https://opentelemetry.io/docs/reference/specification/protocol/)

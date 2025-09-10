@@ -9,7 +9,7 @@ MeteredMemoryCache is a decorator for `IMemoryCache` that automatically emits Op
 - **Zero-configuration metrics** for any `IMemoryCache` implementation
 - **OpenTelemetry integration** with standardized metric names
 - **Dimensional metrics** with cache naming and custom tags
-- **Minimal performance overhead** (~100ns per operation)
+- **Minimal performance overhead** (15-40ns per operation)
 - **Thread-safe** operations with concurrent metric collection
 - **Dependency injection support** with .NET options pattern
 
@@ -311,16 +311,16 @@ services.AddNamedMeteredMemoryCache("critical-cache", opts =>
 
 ### Overhead Measurements
 
-Based on benchmarks with 16,384 operations:
+Based on benchmarks with 16,384 operations on Windows 11/.NET 9.0.8:
 
-| Operation        | Raw Cache | Metered Cache | Overhead       |
-| ---------------- | --------- | ------------- | -------------- |
-| Hit (Get)        | ~9.5ns    | ~19.1ns       | ~9.6ns (2.0x)  |
-| Miss (Get)       | ~15.8ns   | ~31.6ns       | ~15.8ns (2.0x) |
-| Set              | ~375ns    | ~484ns        | ~109ns (1.3x)  |
-| TryGetValue Hit  | ~4.5ns    | ~5.4ns        | ~0.9ns (1.2x)  |
-| TryGetValue Miss | ~4.3ns    | ~6.3ns        | ~2.0ns (1.5x)  |
-| CreateEntry      | ~353ns    | ~467ns        | ~114ns (1.3x)  |
+| Operation        | Raw Cache | Metered Cache | Overhead         |
+| ---------------- | --------- | ------------- | ---------------- |
+| Hit (Get)        | 68.07ns   | 90.77ns       | +22.70ns (+33%)  |
+| Miss (Get)       | 52.30ns   | 92.92ns       | +40.62ns (+78%)  |
+| Set              | 543.34ns  | 551.03ns      | +7.69ns (+1.4%)  |
+| TryGetValue Hit  | 53.35ns   | 61.52ns       | +8.17ns (+15%)   |
+| TryGetValue Miss | 43.13ns   | 83.29ns       | +40.16ns (+93%)  |
+| CreateEntry      | 537.14ns  | 547.98ns      | +10.84ns (+2.0%) |
 
 ### Memory Impact
 
