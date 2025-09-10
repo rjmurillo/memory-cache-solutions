@@ -21,17 +21,18 @@ public sealed class MeteredMemoryCache : IMemoryCache
     private readonly Counter<long> _misses;
     private readonly Counter<long> _evictions;
     private readonly TagList _tags;
+    private bool _disposed;
 
     /// <summary>
     /// Gets the logical name of this cache instance, if provided.
     /// </summary>
     public string? Name { get; }
 
-    public MeteredMemoryCache(IMemoryCache inner, Meter meter, string? cacheName = null, bool disposeInner = false)
+    public MeteredMemoryCache(IMemoryCache innerCache, Meter meter, string? cacheName = null, bool disposeInner = false)
     {
-        ArgumentNullException.ThrowIfNull(inner);
+        ArgumentNullException.ThrowIfNull(innerCache);
         ArgumentNullException.ThrowIfNull(meter);
-        _inner = inner;
+        _inner = innerCache;
         _disposeInner = disposeInner;
         _hits = meter.CreateCounter<long>("cache_hits_total");
         _misses = meter.CreateCounter<long>("cache_misses_total");
@@ -47,12 +48,12 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// <summary>
     /// Options-based constructor for advanced configuration.
     /// </summary>
-    public MeteredMemoryCache(IMemoryCache inner, Meter meter, MeteredMemoryCacheOptions options)
+    public MeteredMemoryCache(IMemoryCache innerCache, Meter meter, MeteredMemoryCacheOptions options)
     {
-        ArgumentNullException.ThrowIfNull(inner);
+        ArgumentNullException.ThrowIfNull(innerCache);
         ArgumentNullException.ThrowIfNull(meter);
         ArgumentNullException.ThrowIfNull(options);
-        _inner = inner;
+        _inner = innerCache;
         _disposeInner = options.DisposeInner;
         _hits = meter.CreateCounter<long>("cache_hits_total");
         _misses = meter.CreateCounter<long>("cache_misses_total");
@@ -75,6 +76,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
     public bool TryGet<T>(object key, out T value)
     {
         ArgumentNullException.ThrowIfNull(key);
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (_inner.TryGetValue(key, out var obj) && obj is T t)
         {
             _hits.Add(1, _tags);
@@ -92,15 +94,19 @@ public sealed class MeteredMemoryCache : IMemoryCache
     public void Set<T>(object key, T value, MemoryCacheEntryOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(key);
+        ObjectDisposedException.ThrowIf(_disposed, this);
         options ??= new MemoryCacheEntryOptions();
         options.RegisterPostEvictionCallback(static (_, _, reason, state) =>
         {
             var self = (MeteredMemoryCache)state!;
-            var tags = new TagList();
-            foreach (var tag in self._tags)
-                tags.Add(tag.Key, tag.Value);
-            tags.Add("reason", reason.ToString());
-            self._evictions.Add(1, tags);
+            if (!self._disposed)
+            {
+                var tags = new TagList();
+                foreach (var tag in self._tags)
+                    tags.Add(tag.Key, tag.Value);
+                tags.Add("reason", reason.ToString());
+                self._evictions.Add(1, tags);
+            }
         }, this);
         _inner.Set(key, value, options);
     }
@@ -112,6 +118,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
     {
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(factory);
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (_inner.TryGetValue(key, out var existing) && existing is T hit)
         {
@@ -125,11 +132,14 @@ public sealed class MeteredMemoryCache : IMemoryCache
             entry.RegisterPostEvictionCallback(static (_, _, reason, state) =>
             {
                 var self = (MeteredMemoryCache)state!;
-                var tags = new TagList();
-                foreach (var tag in self._tags)
-                    tags.Add(tag.Key, tag.Value);
-                tags.Add("reason", reason.ToString());
-                self._evictions.Add(1, tags);
+                if (!self._disposed)
+                {
+                    var tags = new TagList();
+                    foreach (var tag in self._tags)
+                        tags.Add(tag.Key, tag.Value);
+                    tags.Add("reason", reason.ToString());
+                    self._evictions.Add(1, tags);
+                }
             }, this);
             return factory(entry);
         });
@@ -144,6 +154,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
     public bool TryGetValue(object key, out object? value)
     {
         ArgumentNullException.ThrowIfNull(key);
+        ObjectDisposedException.ThrowIf(_disposed, this);
         var hit = _inner.TryGetValue(key, out value);
         if (hit) _hits.Add(1, _tags); else _misses.Add(1, _tags);
         return hit;
@@ -152,15 +163,19 @@ public sealed class MeteredMemoryCache : IMemoryCache
     public ICacheEntry CreateEntry(object key)
     {
         ArgumentNullException.ThrowIfNull(key);
+        ObjectDisposedException.ThrowIf(_disposed, this);
         var entry = _inner.CreateEntry(key);
         entry.RegisterPostEvictionCallback(static (_, _, reason, state) =>
         {
             var self = (MeteredMemoryCache)state!;
-            var tags = new TagList();
-            foreach (var tag in self._tags)
-                tags.Add(tag.Key, tag.Value);
-            tags.Add("reason", reason.ToString());
-            self._evictions.Add(1, tags);
+            if (!self._disposed)
+            {
+                var tags = new TagList();
+                foreach (var tag in self._tags)
+                    tags.Add(tag.Key, tag.Value);
+                tags.Add("reason", reason.ToString());
+                self._evictions.Add(1, tags);
+            }
         }, this);
         return entry;
     }
@@ -168,14 +183,19 @@ public sealed class MeteredMemoryCache : IMemoryCache
     public void Remove(object key)
     {
         ArgumentNullException.ThrowIfNull(key);
+        ObjectDisposedException.ThrowIf(_disposed, this);
         _inner.Remove(key); // eviction callback (if any) will record eviction metric
     }
 
     public void Dispose()
     {
-        if (_disposeInner)
+        if (!_disposed)
         {
-            _inner.Dispose();
+            _disposed = true;
+            if (_disposeInner)
+            {
+                _inner.Dispose();
+            }
         }
     }
 }
