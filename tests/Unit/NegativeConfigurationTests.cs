@@ -154,19 +154,19 @@ public class NegativeConfigurationTests
         // Act & Assert
         var exception = Assert.Throws<ArgumentNullException>(() =>
             CacheImplementations.ServiceCollectionExtensions.DecorateMemoryCacheWithMetrics(null!, "test"));
-        Assert.Contains("collection", exception.ParamName); // Scrutor uses "collection" parameter name
+        Assert.Equal("services", exception.ParamName);
     }
 
     [Fact]
-    public void DecorateMemoryCacheWithMetrics_NoMemoryCacheRegistered_ThrowsDecorationException()
+    public void DecorateMemoryCacheWithMetrics_NoMemoryCacheRegistered_ThrowsInvalidOperationException()
     {
         // Arrange
         var services = new ServiceCollection();
 
-        // Act & Assert - This throws DecorationException from Scrutor
-        var exception = Assert.Throws<Scrutor.DecorationException>(() =>
+        // Act & Assert - This throws InvalidOperationException from our manual decoration implementation
+        var exception = Assert.Throws<InvalidOperationException>(() =>
             services.DecorateMemoryCacheWithMetrics("test"));
-        Assert.Contains("IMemoryCache", exception.Message);
+        Assert.Contains("No IMemoryCache registration found", exception.Message);
     }
 
     #endregion

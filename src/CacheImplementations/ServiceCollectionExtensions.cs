@@ -26,6 +26,8 @@ public static class ServiceCollectionExtensions
         Action<MeteredMemoryCacheOptions>? configureOptions = null,
         string? meterName = null)
     {
+        ArgumentNullException.ThrowIfNull(services);
+        
         if (string.IsNullOrWhiteSpace(cacheName))
             throw new ArgumentException("Cache name must be non-empty", nameof(cacheName));
 
@@ -79,6 +81,8 @@ public static class ServiceCollectionExtensions
         string? meterName = null,
         Action<MeteredMemoryCacheOptions>? configureOptions = null)
     {
+        ArgumentNullException.ThrowIfNull(services);
+        
         var effectiveMeterName = meterName ?? "MeteredMemoryCache";
 
         // Register the meter if not already registered
@@ -95,14 +99,51 @@ public static class ServiceCollectionExtensions
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<MeteredMemoryCacheOptions>, MeteredMemoryCacheOptionsValidator>());
 
-        // Decorate the existing IMemoryCache registration
-        services.Decorate<IMemoryCache>((inner, sp) =>
+        // Manual decoration - find existing IMemoryCache registration and replace it
+        var existingDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IMemoryCache));
+        if (existingDescriptor == null)
         {
-            var meter = sp.GetRequiredService<Meter>();
-            var options = sp.GetRequiredService<IOptions<MeteredMemoryCacheOptions>>().Value;
-            return new MeteredMemoryCache(inner, meter, options);
-        });
+            throw new InvalidOperationException("No IMemoryCache registration found. Register IMemoryCache before calling DecorateMemoryCacheWithMetrics.");
+        }
+
+        // Remove the existing registration
+        services.Remove(existingDescriptor);
+
+        // Create new descriptor that decorates the original
+        var decoratedDescriptor = new ServiceDescriptor(
+            typeof(IMemoryCache),
+            sp =>
+            {
+                var innerCache = CreateInnerCache(existingDescriptor, sp);
+                var meter = sp.GetRequiredService<Meter>();
+                var options = sp.GetRequiredService<IOptions<MeteredMemoryCacheOptions>>().Value;
+                return new MeteredMemoryCache(innerCache, meter, options);
+            },
+            existingDescriptor.Lifetime);
+
+        // Add the decorated registration
+        services.Add(decoratedDescriptor);
 
         return services;
+    }
+
+    private static IMemoryCache CreateInnerCache(ServiceDescriptor existingDescriptor, IServiceProvider serviceProvider)
+    {
+        if (existingDescriptor.ImplementationType != null)
+        {
+            return (IMemoryCache)ActivatorUtilities.CreateInstance(serviceProvider, existingDescriptor.ImplementationType);
+        }
+
+        if (existingDescriptor.ImplementationFactory != null)
+        {
+            return (IMemoryCache)existingDescriptor.ImplementationFactory(serviceProvider);
+        }
+
+        if (existingDescriptor.ImplementationInstance is IMemoryCache instance)
+        {
+            return instance;
+        }
+
+        throw new InvalidOperationException("Unable to resolve inner IMemoryCache instance.");
     }
 }
