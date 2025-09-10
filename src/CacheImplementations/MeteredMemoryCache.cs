@@ -7,11 +7,12 @@ using System.Linq;
 namespace CacheImplementations;
 
 /// <summary>
-/// IMemoryCache decorator that emits OpenTelemetry / .NET metrics for cache hits, misses and evictions.
+/// <see cref="IMemoryCache"/> decorator that emits OpenTelemetry / .NET metrics for cache hits, misses and evictions.
+/// Provides comprehensive observability for any <see cref="IMemoryCache"/> implementation.
 /// Instruments:
-///  - cache_hits_total (Counter<long>)
-///  - cache_misses_total (Counter<long>)
-///  - cache_evictions_total (Counter<long>) with tag "reason" = <see cref="PostEvictionReason"/> string
+///  - cache_hits_total (<see cref="Counter{T}"/> where T is <see langword="long"/>)
+///  - cache_misses_total (<see cref="Counter{T}"/> where T is <see langword="long"/>)
+///  - cache_evictions_total (<see cref="Counter{T}"/> where T is <see langword="long"/>) with tag "reason" = <see cref="EvictionReason"/> string
 /// </summary>
 public sealed class MeteredMemoryCache : IMemoryCache
 {
@@ -28,6 +29,14 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// </summary>
     public string? Name { get; }
 
+    /// <summary>
+    /// Initializes a new instance of <see cref="MeteredMemoryCache"/> that decorates the specified <see cref="IMemoryCache"/> with OpenTelemetry metrics.
+    /// </summary>
+    /// <param name="innerCache">The <see cref="IMemoryCache"/> implementation to decorate with metrics.</param>
+    /// <param name="meter">The <see cref="Meter"/> instance used to create counters for hit, miss, and eviction metrics.</param>
+    /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in dimensional metrics. Pass <see langword="null"/> for unnamed cache.</param>
+    /// <param name="disposeInner">Whether to dispose the <paramref name="innerCache"/> when this instance is disposed. Defaults to <see langword="false"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="innerCache"/> or <paramref name="meter"/> is <see langword="null"/>.</exception>
     public MeteredMemoryCache(IMemoryCache innerCache, Meter meter, string? cacheName = null, bool disposeInner = false)
     {
         ArgumentNullException.ThrowIfNull(innerCache);
@@ -54,8 +63,12 @@ public sealed class MeteredMemoryCache : IMemoryCache
     }
 
     /// <summary>
-    /// Options-based constructor for advanced configuration.
+    /// Initializes a new instance of <see cref="MeteredMemoryCache"/> using the options pattern for advanced configuration.
     /// </summary>
+    /// <param name="innerCache">The <see cref="IMemoryCache"/> implementation to decorate with metrics.</param>
+    /// <param name="meter">The <see cref="Meter"/> instance used to create counters for hit, miss, and eviction metrics.</param>
+    /// <param name="options">The <see cref="MeteredMemoryCacheOptions"/> containing cache name, disposal behavior, and additional tags.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="innerCache"/>, <paramref name="meter"/>, or <paramref name="options"/> is <see langword="null"/>.</exception>
     public MeteredMemoryCache(IMemoryCache innerCache, Meter meter, MeteredMemoryCacheOptions options)
     {
         ArgumentNullException.ThrowIfNull(innerCache);
@@ -86,8 +99,14 @@ public sealed class MeteredMemoryCache : IMemoryCache
     }
 
     /// <summary>
-    /// Strongly typed convenience method that records hit/miss metrics.
+    /// Attempts to get a strongly typed value from the cache and records hit/miss metrics.
     /// </summary>
+    /// <typeparam name="T">The type of the cached value.</typeparam>
+    /// <param name="key">The cache key to retrieve. Cannot be <see langword="null"/>.</param>
+    /// <param name="value">When this method returns, contains the cached value if found and of the correct type; otherwise, the default value for <typeparamref name="T"/>.</param>
+    /// <returns><see langword="true"/> if the key was found and the value is of type <typeparamref name="T"/>; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when this <see cref="MeteredMemoryCache"/> instance has been disposed.</exception>
     public bool TryGet<T>(object key, out T value)
     {
         ArgumentNullException.ThrowIfNull(key);
@@ -104,8 +123,14 @@ public sealed class MeteredMemoryCache : IMemoryCache
     }
 
     /// <summary>
-    /// Set value and register eviction callback to emit eviction metric.
+    /// Sets a cache entry with the specified key and value, automatically registering an eviction callback to emit eviction metrics.
     /// </summary>
+    /// <typeparam name="T">The type of the value to cache.</typeparam>
+    /// <param name="key">The cache key. Cannot be <see langword="null"/>.</param>
+    /// <param name="value">The value to associate with the key.</param>
+    /// <param name="options">The <see cref="MemoryCacheEntryOptions"/> for the cache entry. If <see langword="null"/>, a new instance will be created.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when this <see cref="MeteredMemoryCache"/> instance has been disposed.</exception>
     public void Set<T>(object key, T value, MemoryCacheEntryOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(key);
@@ -130,8 +155,15 @@ public sealed class MeteredMemoryCache : IMemoryCache
     }
 
     /// <summary>
-    /// Get or create value while emitting hit/miss metrics and registering eviction callback.
+    /// Gets an existing cache entry or creates a new one using the provided factory, while emitting hit/miss metrics and registering eviction callbacks.
     /// </summary>
+    /// <typeparam name="T">The type of the cached value.</typeparam>
+    /// <param name="key">The cache key. Cannot be <see langword="null"/>.</param>
+    /// <param name="factory">The factory function to create a new cache entry if the key is not found. Cannot be <see langword="null"/>.</param>
+    /// <returns>The cached value if found, or the newly created value from the factory.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> or <paramref name="factory"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when this <see cref="MeteredMemoryCache"/> instance has been disposed.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the factory returns <see langword="null"/> for a reference type.</exception>
     public T GetOrCreate<T>(object key, Func<ICacheEntry, T> factory)
     {
         ArgumentNullException.ThrowIfNull(key);
@@ -174,6 +206,14 @@ public sealed class MeteredMemoryCache : IMemoryCache
         return created!; // safe due to check above or value type
     }
 
+    /// <summary>
+    /// Attempts to get a value associated with the specified key from the cache and records hit/miss metrics.
+    /// </summary>
+    /// <param name="key">The cache key to retrieve. Cannot be <see langword="null"/>.</param>
+    /// <param name="value">When this method returns, contains the cached value if found; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if the key was found in the cache; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when this <see cref="MeteredMemoryCache"/> instance has been disposed.</exception>
     public bool TryGetValue(object key, out object? value)
     {
         ArgumentNullException.ThrowIfNull(key);
@@ -186,6 +226,13 @@ public sealed class MeteredMemoryCache : IMemoryCache
         return hit;
     }
 
+    /// <summary>
+    /// Creates a new <see cref="ICacheEntry"/> instance associated with the specified key, with automatic eviction callback registration.
+    /// </summary>
+    /// <param name="key">The cache key for the entry. Cannot be <see langword="null"/>.</param>
+    /// <returns>The newly created <see cref="ICacheEntry"/> instance with pre-registered eviction tracking.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when this <see cref="MeteredMemoryCache"/> instance has been disposed.</exception>
     public ICacheEntry CreateEntry(object key)
     {
         ArgumentNullException.ThrowIfNull(key);
@@ -206,6 +253,12 @@ public sealed class MeteredMemoryCache : IMemoryCache
         return entry;
     }
 
+    /// <summary>
+    /// Removes the cache entry associated with the specified key. If the entry exists, its eviction callback will automatically emit eviction metrics.
+    /// </summary>
+    /// <param name="key">The cache key to remove. Cannot be <see langword="null"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when this <see cref="MeteredMemoryCache"/> instance has been disposed.</exception>
     public void Remove(object key)
     {
         ArgumentNullException.ThrowIfNull(key);
@@ -238,6 +291,10 @@ public sealed class MeteredMemoryCache : IMemoryCache
         return tags;
     }
 
+    /// <summary>
+    /// Releases all resources used by this <see cref="MeteredMemoryCache"/> instance.
+    /// Optionally disposes the inner <see cref="IMemoryCache"/> if <c>disposeInner</c> was set to <see langword="true"/> during construction.
+    /// </summary>
     public void Dispose()
     {
         if (!_disposed)
