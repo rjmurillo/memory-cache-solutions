@@ -96,7 +96,7 @@ Create comprehensive documentation for usage patterns, integration guides, and O
 - [ ] Add API reference documentation for all public methods and options
 - [ ] Update repository README with MeteredMemoryCache overview
 - [ ] Add inline code documentation for complex metric emission logic
-- [ ] Review all documentation for clarity, accuracy, and cross reference opportunity
+- [ ] Review all XML and Markdown documentation for clarity, accuracy, and cross reference opportunity
 - [ ] Create migration guide from existing custom metrics solutions
 - [ ] Create sample applications demonstrating various usage patterns
 

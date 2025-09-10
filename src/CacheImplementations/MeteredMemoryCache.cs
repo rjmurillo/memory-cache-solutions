@@ -101,10 +101,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
             var self = (MeteredMemoryCache)state!;
             if (!self._disposed)
             {
-                var tags = new TagList();
-                foreach (var tag in self._tags)
-                    tags.Add(tag.Key, tag.Value);
-                tags.Add("reason", reason.ToString());
+                var tags = CreateEvictionTags(self._tags, reason.ToString());
                 self._evictions.Add(1, tags);
             }
         }, this);
@@ -134,10 +131,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
                 var self = (MeteredMemoryCache)state!;
                 if (!self._disposed)
                 {
-                    var tags = new TagList();
-                    foreach (var tag in self._tags)
-                        tags.Add(tag.Key, tag.Value);
-                    tags.Add("reason", reason.ToString());
+                    var tags = CreateEvictionTags(self._tags, reason.ToString());
                     self._evictions.Add(1, tags);
                 }
             }, this);
@@ -170,10 +164,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
             var self = (MeteredMemoryCache)state!;
             if (!self._disposed)
             {
-                var tags = new TagList();
-                foreach (var tag in self._tags)
-                    tags.Add(tag.Key, tag.Value);
-                tags.Add("reason", reason.ToString());
+                var tags = CreateEvictionTags(self._tags, reason.ToString());
                 self._evictions.Add(1, tags);
             }
         }, this);
@@ -185,6 +176,24 @@ public sealed class MeteredMemoryCache : IMemoryCache
         ArgumentNullException.ThrowIfNull(key);
         ObjectDisposedException.ThrowIf(_disposed, this);
         _inner.Remove(key); // eviction callback (if any) will record eviction metric
+    }
+
+    /// <summary>
+    /// Thread-safe helper to create eviction tags by combining base tags with eviction reason.
+    /// </summary>
+    private static TagList CreateEvictionTags(TagList baseTags, string reason)
+    {
+        var tags = new TagList();
+        
+        // Copy base tags in a thread-safe manner
+        // TagList implements IEnumerable<KeyValuePair<string, object?>> thread-safely
+        foreach (var tag in baseTags)
+        {
+            tags.Add(tag.Key, tag.Value);
+        }
+        
+        tags.Add("reason", reason);
+        return tags;
     }
 
     public void Dispose()
