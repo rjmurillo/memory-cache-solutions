@@ -15,8 +15,27 @@ public class MeteredMemoryCacheTests
         private readonly MeterListener _listener = new();
         private readonly List<(string Name, long Value, IEnumerable<KeyValuePair<string, object?>> Tags)> _measurements = new();
         private readonly Dictionary<string, long> _counters = [];
-        public IReadOnlyDictionary<string, long> Counters => _counters;
-        public IReadOnlyList<(string Name, long Value, IEnumerable<KeyValuePair<string, object?>> Tags)> Measurements => _measurements;
+        private readonly object _lock = new();
+        public IReadOnlyDictionary<string, long> Counters
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return new Dictionary<string, long>(_counters);
+                }
+            }
+        }
+        public IReadOnlyList<(string Name, long Value, IEnumerable<KeyValuePair<string, object?>> Tags)> Measurements
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _measurements.ToList();
+                }
+            }
+        }
 
         public TestListener(params string[] instrumentNames)
         {
@@ -29,14 +48,17 @@ public class MeteredMemoryCacheTests
             };
             _listener.SetMeasurementEventCallback<long>((inst, measurement, tags, state) =>
             {
-                _measurements.Add((inst.Name, measurement, tags.ToArray()));
-                if (_counters.TryGetValue(inst.Name, out var cur))
+                lock (_lock)
                 {
-                    _counters[inst.Name] = cur + measurement;
-                }
-                else
-                {
-                    _counters[inst.Name] = measurement;
+                    _measurements.Add((inst.Name, measurement, tags.ToArray()));
+                    if (_counters.TryGetValue(inst.Name, out var cur))
+                    {
+                        _counters[inst.Name] = cur + measurement;
+                    }
+                    else
+                    {
+                        _counters[inst.Name] = measurement;
+                    }
                 }
             });
             _listener.Start();

@@ -21,7 +21,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
     private readonly Counter<long> _hits;
     private readonly Counter<long> _misses;
     private readonly Counter<long> _evictions;
-    private readonly TagList _tags;
+    private readonly TagList _baseTags;
     private bool _disposed;
 
     /// <summary>
@@ -50,14 +50,14 @@ public sealed class MeteredMemoryCache : IMemoryCache
         _misses = meter.CreateCounter<long>("cache_misses_total");
         _evictions = meter.CreateCounter<long>("cache_evictions_total");
 
-        // Initialize TagList for dimensional metrics - this will be shared across all metric emissions
+        // Initialize TagList for dimensional metrics - this will be used as immutable base for thread-safe copies
         // TagList is used for high-performance metric tagging with minimal allocations
-        _tags = new TagList();
+        _baseTags = new TagList();
         if (!string.IsNullOrEmpty(cacheName))
         {
             // Add cache.name as a dimensional tag to distinguish metrics from multiple cache instances
             // This enables filtering and aggregation by cache name in monitoring dashboards
-            _tags.Add("cache.name", cacheName);
+            _baseTags.Add("cache.name", cacheName);
             Name = cacheName;
         }
     }
@@ -83,10 +83,10 @@ public sealed class MeteredMemoryCache : IMemoryCache
         _evictions = meter.CreateCounter<long>("cache_evictions_total");
 
         // Build dimensional tag list for all metric emissions
-        _tags = new TagList();
+        _baseTags = new TagList();
         if (!string.IsNullOrEmpty(options.CacheName))
         {
-            _tags.Add("cache.name", options.CacheName);
+            _baseTags.Add("cache.name", options.CacheName);
             Name = options.CacheName;
         }
 
@@ -94,7 +94,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
         // This filtering ensures cache.name remains consistent if set via CacheName property
         foreach (var kvp in options.AdditionalTags.Where(kvp => !string.Equals(kvp.Key, "cache.name", System.StringComparison.Ordinal)))
         {
-            _tags.Add(kvp.Key, kvp.Value);
+            _baseTags.Add(kvp.Key, kvp.Value);
         }
     }
 
@@ -113,11 +113,11 @@ public sealed class MeteredMemoryCache : IMemoryCache
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_inner.TryGetValue(key, out var obj) && obj is T t)
         {
-            _hits.Add(1, _tags);
+            _hits.Add(1, _baseTags);
             value = t;
             return true;
         }
-        _misses.Add(1, _tags);
+        _misses.Add(1, _baseTags);
         value = default!;
         return false;
     }
@@ -147,7 +147,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
             {
                 // Create a new TagList with eviction reason to maintain thread safety
                 // Each eviction gets its own tag collection to prevent concurrent modification issues
-                var tags = CreateEvictionTags(self._tags, reason.ToString());
+                var tags = CreateEvictionTags(self._baseTags, reason.ToString());
                 self._evictions.Add(1, tags);
             }
         }, this);
@@ -173,13 +173,13 @@ public sealed class MeteredMemoryCache : IMemoryCache
         // First attempt: check if key exists and value is correct type (cache hit scenario)
         if (_inner.TryGetValue(key, out var existing) && existing is T hit)
         {
-            _hits.Add(1, _tags);
+            _hits.Add(1, _baseTags);
             return hit;
         }
 
         // Cache miss: record miss metric and delegate to inner cache for creation
         // This ensures accurate hit/miss ratios even with concurrent access patterns
-        _misses.Add(1, _tags);
+        _misses.Add(1, _baseTags);
         var created = _inner.GetOrCreate(key, entry =>
         {
             // Register eviction tracking for the newly created entry
@@ -191,7 +191,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
                 if (!self._disposed)
                 {
                     // Thread-safe tag creation for eviction reason dimensional metric
-                    var tags = CreateEvictionTags(self._tags, reason.ToString());
+                    var tags = CreateEvictionTags(self._baseTags, reason.ToString());
                     self._evictions.Add(1, tags);
                 }
             }, this);
@@ -222,7 +222,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
         // Delegate to inner cache and emit appropriate metric based on result
         // This pattern ensures consistent hit/miss tracking across all access methods
         var hit = _inner.TryGetValue(key, out value);
-        if (hit) _hits.Add(1, _tags); else _misses.Add(1, _tags);
+        if (hit) _hits.Add(1, _baseTags); else _misses.Add(1, _baseTags);
         return hit;
     }
 
@@ -246,7 +246,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
             var self = (MeteredMemoryCache)state!;
             if (!self._disposed)
             {
-                var tags = CreateEvictionTags(self._tags, reason.ToString());
+                var tags = CreateEvictionTags(self._baseTags, reason.ToString());
                 self._evictions.Add(1, tags);
             }
         }, this);

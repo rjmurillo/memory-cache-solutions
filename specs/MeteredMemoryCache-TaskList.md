@@ -114,11 +114,11 @@ Create comprehensive documentation for usage patterns, integration guides, and O
 Investigate and fix thread-safety issues in MeteredMemoryCache related to TagList enumeration in concurrent scenarios. Three tests are currently failing due to concurrent access to TagList.
 
 #### Sub-tasks:
-- [ ] Write comprehensive tests to reproduce TagList enumeration thread-safety issues
-- [ ] Analyze root cause of concurrent TagList access failures
-- [ ] Implement thread-safe solution for TagList usage in metric emission
-- [ ] Validate fix with stress testing and concurrent scenarios
-- [ ] Ensure no performance regression from thread-safety changes
+- [x] Write comprehensive tests to reproduce TagList enumeration thread-safety issues
+- [x] Analyze root cause of concurrent TagList access failures
+- [x] Implement thread-safe solution for TagList usage in metric emission
+- [x] Validate fix with stress testing and concurrent scenarios
+- [x] Ensure no performance regression from thread-safety changes
 
 ---
 
