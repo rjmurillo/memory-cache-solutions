@@ -406,7 +406,7 @@ public class MetricEmissionAccuracyTests
     public void TryGetStronglyTyped_AccurateMetrics_ValidatesTypeConversion()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        var meter = new Meter("test.accuracy.6");
+        var meter = new Meter("test.accuracy.tryget.typed.validation");
         using var harness = new MetricCollectionHarness("cache_hits_total", "cache_misses_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "tryget-typed-test");

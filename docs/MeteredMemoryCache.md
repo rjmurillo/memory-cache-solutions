@@ -1,10 +1,22 @@
 # MeteredMemoryCache Usage Guide
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+- [Basic Usage](#basic-usage)
+- [Advanced Configuration](#advanced-configuration)
+- [API Reference](#api-reference)
+- [Best Practices](#best-practices)
+- [Migration Guide](#migration-guide)
+- [Troubleshooting](#troubleshooting)
+- [Related Documentation](#related-documentation)
+
 ## Overview
 
 MeteredMemoryCache is a decorator for `IMemoryCache` that automatically emits OpenTelemetry metrics for cache operations. It provides observability into cache hit rates, miss rates, and eviction patterns without requiring changes to your existing cache usage code.
 
-## Key Features
+### Key Features
 
 - **Zero-configuration metrics** for any `IMemoryCache` implementation
 - **OpenTelemetry integration** with standardized metric names
@@ -13,7 +25,7 @@ MeteredMemoryCache is a decorator for `IMemoryCache` that automatically emits Op
 - **Thread-safe** operations with concurrent metric collection
 - **Dependency injection support** with .NET options pattern
 
-## Emitted Metrics
+### Emitted Metrics
 
 | Metric Name             | Type    | Description                        | Tags                              |
 | ----------------------- | ------- | ---------------------------------- | --------------------------------- |
@@ -21,7 +33,7 @@ MeteredMemoryCache is a decorator for `IMemoryCache` that automatically emits Op
 | `cache_misses_total`    | Counter | Number of failed cache lookups     | `cache.name` (optional)           |
 | `cache_evictions_total` | Counter | Number of cache evictions          | `cache.name` (optional), `reason` |
 
-### Eviction Reasons
+#### Eviction Reasons
 
 The `reason` tag on `cache_evictions_total` corresponds to `EvictionReason` enum values:
 
@@ -31,6 +43,50 @@ The `reason` tag on `cache_evictions_total` corresponds to `EvictionReason` enum
 - `Expired` - Expired based on time
 - `TokenExpired` - Expired based on cancellation token
 - `Capacity` - Evicted due to cache size limits
+
+## Quick Start
+
+### Dependency Injection (Recommended)
+
+```csharp
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using CacheImplementations;
+
+var builder = Host.CreateApplicationBuilder(args);
+
+// Configure OpenTelemetry
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics => metrics
+        .AddMeter("MyApp.Cache")
+        .AddPrometheusExporter());
+
+// Register named cache with metrics
+builder.Services.AddNamedMeteredMemoryCache("user-cache");
+
+var app = builder.Build();
+
+// Use the cache - metrics are emitted automatically
+var cache = app.Services.GetRequiredKeyedService<IMemoryCache>("user-cache");
+var result = cache.Get("some-key");
+```
+
+### Manual Setup
+
+```csharp
+using System.Diagnostics.Metrics;
+using Microsoft.Extensions.Caching.Memory;
+using CacheImplementations;
+
+// Create and wrap cache
+var innerCache = new MemoryCache(new MemoryCacheOptions());
+var meter = new Meter("MyApp.Cache");
+IMemoryCache cache = new MeteredMemoryCache(innerCache, meter, "my-cache");
+
+// Use normally - metrics emitted automatically
+cache.Set("key", "value");
+var value = cache.Get("key");
+```
 
 ## Basic Usage
 
@@ -414,12 +470,15 @@ foreach (var metric in exportedItems)
 }
 ```
 
-## Migration Examples
+## Migration Guide
 
 ### From Manual Metrics
 
+If you're currently instrumenting cache operations manually, MeteredMemoryCache eliminates the need for custom instrumentation code.
+
+#### Before: Manual Instrumentation
+
 ```csharp
-// Before: Manual instrumentation
 public class CacheService
 {
     private readonly IMemoryCache _cache;
@@ -435,37 +494,158 @@ public class CacheService
         _metrics.Increment("cache.misses");
         return default(T);
     }
-}
 
-// After: Automatic instrumentation
+    public void Set<T>(string key, T value)
+    {
+        _cache.Set(key, value);
+        _metrics.Increment("cache.sets");
+    }
+}
+```
+
+#### After: Automatic Instrumentation
+
+```csharp
 public class CacheService
 {
-    private readonly IMemoryCache _cache; // MeteredMemoryCache
+    private readonly IMemoryCache _cache; // MeteredMemoryCache via DI
 
     public T Get<T>(string key)
     {
         return _cache.TryGetValue(key, out var value) ? (T)value : default(T);
         // Metrics emitted automatically
     }
+
+    public void Set<T>(string key, T value)
+    {
+        _cache.Set(key, value);
+        // Metrics emitted automatically
+    }
 }
 ```
 
+**Migration Steps:**
+
+1. Remove manual metric instrumentation code
+2. Register MeteredMemoryCache in DI container
+3. Configure OpenTelemetry to collect the new metrics
+4. Update monitoring dashboards to use new metric names
+
 ### From Custom Cache Wrapper
 
+If you've built a custom cache wrapper for metrics, MeteredMemoryCache provides a standardized replacement.
+
+#### Before: Custom Wrapper
+
 ```csharp
-// Before: Custom wrapper
 public class InstrumentedCache : IMemoryCache
 {
     private readonly IMemoryCache _inner;
     private readonly Counter<long> _hitCounter;
+    private readonly Counter<long> _missCounter;
 
-    // ... manual implementation of all methods
+    public InstrumentedCache(IMemoryCache inner, IMeterFactory meterFactory)
+    {
+        _inner = inner;
+        var meter = meterFactory.Create("MyApp.Cache");
+        _hitCounter = meter.CreateCounter<long>("cache_hits");
+        _missCounter = meter.CreateCounter<long>("cache_misses");
+    }
+
+    public bool TryGetValue(object key, out object? value)
+    {
+        var result = _inner.TryGetValue(key, out value);
+        if (result)
+            _hitCounter.Add(1);
+        else
+            _missCounter.Add(1);
+        return result;
+    }
+
+    // ... implement all other IMemoryCache methods
 }
-
-// After: Use MeteredMemoryCache
-IMemoryCache cache = new MeteredMemoryCache(innerCache, meter, "my-cache");
-// All methods instrumented automatically
 ```
+
+#### After: Use MeteredMemoryCache
+
+```csharp
+// Register in DI
+services.AddNamedMeteredMemoryCache("my-cache");
+
+// Use directly - no custom wrapper needed
+public class MyService
+{
+    private readonly IMemoryCache _cache;
+
+    public MyService(IMemoryCache cache) // or keyed service for named caches
+    {
+        _cache = cache;
+    }
+
+    // All methods instrumented automatically
+}
+```
+
+### From Other Caching Libraries
+
+#### From Microsoft.Extensions.Caching.Distributed
+
+```csharp
+// Before: IDistributedCache (if using in-memory)
+services.AddDistributedMemoryCache();
+
+// After: MeteredMemoryCache with equivalent functionality
+services.AddNamedMeteredMemoryCache("distributed-equivalent", opts =>
+{
+    opts.AdditionalTags["cache_type"] = "distributed_memory";
+});
+```
+
+#### From Third-Party Libraries
+
+```csharp
+// Before: LazyCache
+services.AddLazyCache();
+
+// After: MeteredMemoryCache with lazy loading pattern
+services.AddNamedMeteredMemoryCache("lazy-cache");
+
+// Usage with lazy loading
+var result = cache.GetOrCreate("key", entry => 
+{
+    entry.SlidingExpiration = TimeSpan.FromMinutes(5);
+    return ExpensiveOperation();
+});
+```
+
+### Migration Checklist
+
+- [ ] **Identify Current Metrics**: Document existing cache metrics and naming conventions
+- [ ] **Plan Metric Mapping**: Map old metric names to new OpenTelemetry standard names
+- [ ] **Update Dependencies**: Add required packages (OpenTelemetry, MeteredMemoryCache)
+- [ ] **Configure Services**: Replace cache registrations with MeteredMemoryCache
+- [ ] **Remove Custom Code**: Delete manual instrumentation and wrapper classes
+- [ ] **Update Monitoring**: Modify dashboards and alerts for new metric names
+- [ ] **Test Thoroughly**: Verify metrics are correctly emitted in all scenarios
+- [ ] **Monitor Performance**: Ensure acceptable overhead in production workloads
+
+### Metric Name Migration
+
+| Old Metric | New Metric | Notes |
+|------------|------------|-------|
+| `cache.hits` | `cache_hits_total` | Counter, follows OTel conventions |
+| `cache.misses` | `cache_misses_total` | Counter, follows OTel conventions |
+| `cache.sets` | N/A | Tracked via eviction callbacks instead |
+| `cache.evictions` | `cache_evictions_total` | Counter with `reason` tag |
+| `cache.size` | N/A | Not available through IMemoryCache interface |
+
+### Performance Migration Notes
+
+MeteredMemoryCache adds minimal overhead (15-40ns per operation). If you're migrating from:
+
+- **Heavy custom instrumentation**: Expect performance improvement
+- **No instrumentation**: Expect small performance decrease
+- **Third-party wrappers**: Performance impact varies by implementation
 
 ## Related Documentation
 

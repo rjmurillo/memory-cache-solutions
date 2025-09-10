@@ -1,6 +1,20 @@
-# memory-cache-solutions
+# Memory Cache Solutions
 
-High‑quality experimental patterns & decorators built on top of `IMemoryCache` ([Microsoft.Extensions.Caching.Memory](https://www.nuget.org/packages/Microsoft.Extensions.Caching.Memory)) to address common performance and correctness concerns:
+High‑quality experimental patterns & decorators built on top of `IMemoryCache` ([Microsoft.Extensions.Caching.Memory](https://www.nuget.org/packages/Microsoft.Extensions.Caching.Memory)) to address common performance and correctness concerns.
+
+## Table of Contents
+
+- [Components Overview](#components-overview)
+- [Quick Start](#quick-start)
+- [MeteredMemoryCache](#meteredmemorycache)
+- [Implementation Details](#implementation-details)
+- [Choosing an Approach](#choosing-an-approach)
+- [Benchmarks & Performance](#benchmarks--performance)
+- [Documentation](#documentation)
+- [Testing](#testing)
+- [License](#license)
+
+## Components Overview
 
 | Component                             | Purpose                                                                                      | Concurrency Control                                                           | Async Support              | Extra Features                                                                       |
 | ------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------ |
@@ -68,33 +82,15 @@ Consume with `MeterListener`, OpenTelemetry Metrics SDK, or any compatible expor
 
 ---
 
-## MeteredMemoryCache Overview
+## MeteredMemoryCache
 
-The `MeteredMemoryCache` provides comprehensive observability for cache operations through OpenTelemetry metrics integration. It acts as a decorator around any `IMemoryCache` implementation, adding zero-configuration metrics emission with minimal performance overhead.
+The `MeteredMemoryCache` provides comprehensive observability for cache operations through OpenTelemetry metrics integration. It decorates any `IMemoryCache` implementation with zero-configuration metrics emission.
 
-### Key Features
-
-- **Named Cache Support**: Distinguish metrics across multiple cache instances using dimensional tags
-- **Service Collection Extensions**: Easy dependency injection integration with `.AddNamedMeteredMemoryCache()`
-- **Options Pattern**: Configurable behavior with validation through `MeteredMemoryCacheOptions`
-- **Thread-Safe Metrics**: Lock-free counter operations optimized for high-throughput scenarios
-- **Comprehensive Coverage**: Tracks hits, misses, evictions with detailed reason categorization
-
-### Quick Setup with Dependency Injection
+### Quick Setup
 
 ```csharp
-// Single named cache
-builder.Services.AddNamedMeteredMemoryCache("user-cache", options =>
-{
-    options.SizeLimit = 1000;
-});
-
-// Multiple caches with different configurations
-builder.Services.AddNamedMeteredMemoryCache("product-cache", options =>
-{
-    options.SizeLimit = 5000;
-    options.CompactionPercentage = 0.1;
-});
+// Register with dependency injection
+builder.Services.AddNamedMeteredMemoryCache("user-cache");
 
 // Configure OpenTelemetry
 builder.Services.AddOpenTelemetry()
@@ -103,71 +99,23 @@ builder.Services.AddOpenTelemetry()
         .AddOtlpExporter());
 ```
 
-### Advanced Configuration with Options
+### Key Features
 
-```csharp
-builder.Services.Configure<MeteredMemoryCacheOptions>("analytics-cache", options =>
-{
-    options.CacheName = "analytics-cache";
-    options.DisposeInner = false;
-    options.AdditionalTags = new Dictionary<string, object>
-    {
-        ["environment"] = "production",
-        ["service"] = "analytics-api"
-    };
-});
+- **Named Cache Support**: Dimensional metrics with `cache.name` tags
+- **Service Collection Extensions**: Easy DI integration
+- **Options Pattern**: Configurable behavior with validation
+- **Minimal Overhead**: 15-40ns per operation
+- **Thread-Safe**: Lock-free counter operations
 
-builder.Services.AddNamedMeteredMemoryCache("analytics-cache");
-```
+### Emitted Metrics
 
-### Metrics Emitted
+| Metric                  | Description                 | Tags                   |
+| ----------------------- | --------------------------- | ---------------------- |
+| `cache_hits_total`      | Successful cache retrievals | `cache.name`           |
+| `cache_misses_total`    | Cache key not found         | `cache.name`           |
+| `cache_evictions_total` | Items removed from cache    | `cache.name`, `reason` |
 
-| Metric Name             | Type    | Tags                   | Description                 |
-| ----------------------- | ------- | ---------------------- | --------------------------- |
-| `cache_hits_total`      | Counter | `cache.name`           | Successful cache retrievals |
-| `cache_misses_total`    | Counter | `cache.name`           | Cache key not found         |
-| `cache_evictions_total` | Counter | `cache.name`, `reason` | Items removed from cache    |
-
-Eviction reasons include: `Expired`, `TokenExpired`, `Capacity`, `Removed`, `Replaced`, and others based on `EvictionReason` enum values.
-
-### Performance Characteristics
-
-- **Read Operations**: 15-40ns overhead per hit/miss (28-43% increase)
-- **Write Operations**: 1-14% overhead for `Set` operations (8-74ns absolute)
-- **Memory**: +200B per cache instance, +160B per cached entry
-- **Concurrency**: Lock-free counter operations, optimized for high-throughput
-
-### Multi-Cache Scenarios
-
-```csharp
-// Register multiple independent caches
-services.AddNamedMeteredMemoryCache("session-cache");
-services.AddNamedMeteredMemoryCache("permission-cache");
-services.AddNamedMeteredMemoryCache("feature-flag-cache");
-
-// Inject specific cache by name
-public class UserService
-{
-    public UserService([FromKeyedServices("session-cache")] IMemoryCache sessionCache) { }
-}
-```
-
-### Decorating Existing Caches
-
-```csharp
-// Add metrics to existing cache registration
-builder.Services.AddMemoryCache();
-builder.Services.DecorateMemoryCacheWithMetrics("legacy-cache");
-```
-
-### Integration Examples
-
-For comprehensive usage examples, see:
-
-- [Basic Usage Guide](docs/MeteredMemoryCache.md)
-- [OpenTelemetry Integration](docs/OpenTelemetryIntegration.md)
-- [Multi-Cache Scenarios](docs/MultiCacheScenarios.md)
-- [API Reference](docs/ApiReference.md)
+For detailed usage, configuration, and examples, see the [MeteredMemoryCache Usage Guide](docs/MeteredMemoryCache.md).
 
 ---
 
@@ -332,6 +280,28 @@ Evidence & Process requirements are described in `.github/copilot-instructions.m
 - Enrich metrics (e.g., object size, latency histogram for factory execution).
 - Add negative caching (cache specific failures briefly) if upstream calls are very costly.
 - Provide a multi-layer (L1 in-memory + L2 distributed) single-flight composition.
+
+---
+
+## Documentation
+
+Comprehensive guides and references are available in the `docs/` directory:
+
+### Usage Guides
+- [MeteredMemoryCache Usage Guide](docs/MeteredMemoryCache.md) - Complete usage documentation with examples
+- [OpenTelemetry Integration](docs/OpenTelemetryIntegration.md) - Setup guide for various OTel exporters
+- [Multi-Cache Scenarios](docs/MultiCacheScenarios.md) - Patterns for managing multiple named caches
+
+### Reference Documentation
+- [Performance Characteristics](docs/PerformanceCharacteristics.md) - Detailed benchmark analysis and optimization guidance
+- [Troubleshooting Guide](docs/Troubleshooting.md) - Common issues and solutions
+- [API Reference](docs/ApiReference.md) - Complete API documentation with examples
+
+### Quick Reference Links
+- **Getting Started**: See [Quick Start](#quick-start) above
+- **Performance Impact**: [Performance Characteristics](docs/PerformanceCharacteristics.md)
+- **Common Issues**: [Troubleshooting Guide](docs/Troubleshooting.md)
+- **Advanced Patterns**: [Multi-Cache Scenarios](docs/MultiCacheScenarios.md)
 
 ---
 
