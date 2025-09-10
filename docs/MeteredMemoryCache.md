@@ -15,15 +15,16 @@ MeteredMemoryCache is a decorator for `IMemoryCache` that automatically emits Op
 
 ## Emitted Metrics
 
-| Metric Name | Type | Description | Tags |
-|-------------|------|-------------|------|
-| `cache_hits_total` | Counter | Number of successful cache lookups | `cache.name` (optional) |
-| `cache_misses_total` | Counter | Number of failed cache lookups | `cache.name` (optional) |
-| `cache_evictions_total` | Counter | Number of cache evictions | `cache.name` (optional), `reason` |
+| Metric Name             | Type    | Description                        | Tags                              |
+| ----------------------- | ------- | ---------------------------------- | --------------------------------- |
+| `cache_hits_total`      | Counter | Number of successful cache lookups | `cache.name` (optional)           |
+| `cache_misses_total`    | Counter | Number of failed cache lookups     | `cache.name` (optional)           |
+| `cache_evictions_total` | Counter | Number of cache evictions          | `cache.name` (optional), `reason` |
 
 ### Eviction Reasons
 
 The `reason` tag on `cache_evictions_total` corresponds to `EvictionReason` enum values:
+
 - `None` - Not evicted
 - `Removed` - Explicitly removed
 - `Replaced` - Replaced by newer entry
@@ -41,9 +42,9 @@ using Microsoft.Extensions.Caching.Memory;
 using CacheImplementations;
 
 // Create the underlying cache and meter
-var innerCache = new MemoryCache(new MemoryCacheOptions 
-{ 
-    SizeLimit = 1000 
+var innerCache = new MemoryCache(new MemoryCacheOptions
+{
+    SizeLimit = 1000
 });
 var meter = new Meter("MyApp.Cache");
 
@@ -100,7 +101,7 @@ var options = new MeteredMemoryCacheOptions
 {
     CacheName = "product-cache",
     DisposeInner = true,
-    AdditionalTags = 
+    AdditionalTags =
     {
         ["environment"] = "production",
         ["datacenter"] = "us-west-2",
@@ -115,17 +116,17 @@ var cache = new MeteredMemoryCache(innerCache, meter, options);
 
 ```csharp
 // Register multiple caches with different configurations
-services.AddNamedMeteredMemoryCache("user-cache", opts => 
+services.AddNamedMeteredMemoryCache("user-cache", opts =>
 {
     opts.AdditionalTags["type"] = "user-data";
 });
 
-services.AddNamedMeteredMemoryCache("product-cache", opts => 
+services.AddNamedMeteredMemoryCache("product-cache", opts =>
 {
     opts.AdditionalTags["type"] = "product-data";
 });
 
-services.AddNamedMeteredMemoryCache("session-cache", opts => 
+services.AddNamedMeteredMemoryCache("session-cache", opts =>
 {
     opts.AdditionalTags["type"] = "session-data";
     opts.AdditionalTags["ttl"] = "short";
@@ -143,7 +144,7 @@ var productCache = serviceProvider.GetRequiredKeyedService<IMemoryCache>("produc
 services.AddMemoryCache();
 
 // Decorate with metrics
-services.DecorateMemoryCacheWithMetrics("main-cache", 
+services.DecorateMemoryCacheWithMetrics("main-cache",
     meterName: "MyApp.Cache",
     configureOptions: opts =>
     {
@@ -156,11 +157,12 @@ services.DecorateMemoryCacheWithMetrics("main-cache",
 ### Constructors
 
 #### Primary Constructor
+
 ```csharp
 public MeteredMemoryCache(
-    IMemoryCache innerCache, 
-    Meter meter, 
-    string? cacheName = null, 
+    IMemoryCache innerCache,
+    Meter meter,
+    string? cacheName = null,
     bool disposeInner = false)
 ```
 
@@ -170,44 +172,54 @@ public MeteredMemoryCache(
 - `disposeInner`: Whether to dispose the inner cache on disposal
 
 #### Options Constructor
+
 ```csharp
 public MeteredMemoryCache(
-    IMemoryCache innerCache, 
-    Meter meter, 
+    IMemoryCache innerCache,
+    Meter meter,
     MeteredMemoryCacheOptions options)
 ```
 
 ### Key Methods
 
 #### TryGet<T>
+
 ```csharp
 public bool TryGet<T>(object key, out T value)
 ```
+
 Strongly typed retrieval with automatic hit/miss metric emission.
 
 #### Set<T>
+
 ```csharp
 public void Set<T>(object key, T value, MemoryCacheEntryOptions? options = null)
 ```
+
 Sets a cache entry with automatic eviction metric registration.
 
 #### GetOrCreate<T>
+
 ```csharp
 public T GetOrCreate<T>(object key, Func<ICacheEntry, T> factory)
 ```
+
 Gets existing entry or creates new one with full metric coverage.
 
 ### Properties
 
 #### Name
+
 ```csharp
 public string? Name { get; }
 ```
+
 Gets the logical cache name if provided during construction.
 
 ## Extension Methods
 
 ### AddNamedMeteredMemoryCache
+
 ```csharp
 public static IServiceCollection AddNamedMeteredMemoryCache(
     this IServiceCollection services,
@@ -217,12 +229,14 @@ public static IServiceCollection AddNamedMeteredMemoryCache(
 ```
 
 Registers a named cache with complete dependency injection setup including:
+
 - Options validation with `IValidateOptions<T>`
 - Keyed service registration for multi-cache scenarios
 - Automatic meter registration
 - Fallback singleton registration for single-cache scenarios
 
 ### DecorateMemoryCacheWithMetrics
+
 ```csharp
 public static IServiceCollection DecorateMemoryCacheWithMetrics(
     this IServiceCollection services,
@@ -236,7 +250,9 @@ Decorates existing `IMemoryCache` registration with metrics support.
 ## Best Practices
 
 ### 1. Cache Naming Strategy
+
 Use hierarchical naming for related caches:
+
 ```csharp
 services.AddNamedMeteredMemoryCache("user.profile");
 services.AddNamedMeteredMemoryCache("user.permissions");
@@ -245,7 +261,9 @@ services.AddNamedMeteredMemoryCache("product.pricing");
 ```
 
 ### 2. Consistent Tagging
+
 Establish consistent tag naming across your application:
+
 ```csharp
 var commonOptions = new Action<MeteredMemoryCacheOptions>(opts =>
 {
@@ -259,10 +277,12 @@ services.AddNamedMeteredMemoryCache("cache2", commonOptions);
 ```
 
 ### 3. Disposal Handling
+
 Configure `DisposeInner` based on ownership:
+
 ```csharp
 // Own the inner cache - dispose it
-services.AddNamedMeteredMemoryCache("owned-cache", opts => 
+services.AddNamedMeteredMemoryCache("owned-cache", opts =>
 {
     opts.DisposeInner = true;
 });
@@ -275,7 +295,9 @@ services.DecorateMemoryCacheWithMetrics("shared-cache", opts =>
 ```
 
 ### 4. Validation Configuration
+
 Always validate options in production:
+
 ```csharp
 services.AddNamedMeteredMemoryCache("critical-cache", opts =>
 {
@@ -288,23 +310,26 @@ services.AddNamedMeteredMemoryCache("critical-cache", opts =>
 ## Performance Characteristics
 
 ### Overhead Measurements
+
 Based on benchmarks with 16,384 operations:
 
-| Operation | Raw Cache | Metered Cache | Overhead |
-|-----------|-----------|---------------|----------|
-| Hit (Get) | ~9.5ns | ~19.1ns | ~9.6ns (2.0x) |
-| Miss (Get) | ~15.8ns | ~31.6ns | ~15.8ns (2.0x) |
-| Set | ~375ns | ~484ns | ~109ns (1.3x) |
-| TryGetValue Hit | ~4.5ns | ~5.4ns | ~0.9ns (1.2x) |
-| TryGetValue Miss | ~4.3ns | ~6.3ns | ~2.0ns (1.5x) |
-| CreateEntry | ~353ns | ~467ns | ~114ns (1.3x) |
+| Operation        | Raw Cache | Metered Cache | Overhead       |
+| ---------------- | --------- | ------------- | -------------- |
+| Hit (Get)        | ~9.5ns    | ~19.1ns       | ~9.6ns (2.0x)  |
+| Miss (Get)       | ~15.8ns   | ~31.6ns       | ~15.8ns (2.0x) |
+| Set              | ~375ns    | ~484ns        | ~109ns (1.3x)  |
+| TryGetValue Hit  | ~4.5ns    | ~5.4ns        | ~0.9ns (1.2x)  |
+| TryGetValue Miss | ~4.3ns    | ~6.3ns        | ~2.0ns (1.5x)  |
+| CreateEntry      | ~353ns    | ~467ns        | ~114ns (1.3x)  |
 
 ### Memory Impact
+
 - **Per-instance**: ~200 bytes (3 counters + tag storage)
 - **Per-operation**: 0 allocations on hot path
 - **Per-eviction**: 1 allocation for eviction tag array
 
 ### Scalability
+
 - Thread-safe via underlying OpenTelemetry counter implementations
 - No global locks or contention points
 - Linear scaling with operation rate
@@ -315,6 +340,7 @@ Based on benchmarks with 16,384 operations:
 ### Common Issues
 
 #### 1. No Metrics Appearing
+
 ```csharp
 // Ensure meter is registered and exported
 services.AddOpenTelemetry()
@@ -324,6 +350,7 @@ services.AddOpenTelemetry()
 ```
 
 #### 2. Duplicate Cache Names
+
 ```csharp
 // Will throw on second registration
 services.AddNamedMeteredMemoryCache("duplicate");
@@ -335,12 +362,15 @@ services.AddNamedMeteredMemoryCache("cache-v2"); // ✅ OK
 ```
 
 #### 3. Missing Eviction Metrics
+
 Eviction metrics are only emitted when:
+
 - Entry has an eviction callback registered (automatic with MeteredMemoryCache)
 - Entry is actually evicted (not just expired and accessed)
 - Cache is not disposed before eviction occurs
 
 #### 4. Options Validation Failures
+
 ```csharp
 // ❌ Invalid - null additional tags
 var options = new MeteredMemoryCacheOptions
@@ -358,6 +388,7 @@ var options = new MeteredMemoryCacheOptions
 ### Debugging Metrics
 
 #### View Raw Metrics
+
 ```csharp
 services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
@@ -366,6 +397,7 @@ services.AddOpenTelemetry()
 ```
 
 #### Custom Metric Collection
+
 ```csharp
 using var meterProvider = Sdk.CreateMeterProviderBuilder()
     .AddMeter("MyApp.Cache")
@@ -392,7 +424,7 @@ public class CacheService
 {
     private readonly IMemoryCache _cache;
     private readonly IMetrics _metrics;
-    
+
     public T Get<T>(string key)
     {
         if (_cache.TryGetValue(key, out var value))
@@ -409,7 +441,7 @@ public class CacheService
 public class CacheService
 {
     private readonly IMemoryCache _cache; // MeteredMemoryCache
-    
+
     public T Get<T>(string key)
     {
         return _cache.TryGetValue(key, out var value) ? (T)value : default(T);
@@ -426,7 +458,7 @@ public class InstrumentedCache : IMemoryCache
 {
     private readonly IMemoryCache _inner;
     private readonly Counter<long> _hitCounter;
-    
+
     // ... manual implementation of all methods
 }
 

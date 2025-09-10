@@ -25,7 +25,7 @@ builder.Services.AddOpenTelemetry()
         .AddConsoleExporter());            // Output to console
 
 // Register MeteredMemoryCache
-builder.Services.AddNamedMeteredMemoryCache("user-cache", 
+builder.Services.AddNamedMeteredMemoryCache("user-cache",
     meterName: "MyApp.Cache");
 
 var app = builder.Build();
@@ -52,6 +52,7 @@ app.MapPrometheusScrapingEndpoint(); // Default: /metrics
 ```
 
 **Configuration Options:**
+
 ```csharp
 builder.Services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
@@ -64,12 +65,13 @@ builder.Services.AddOpenTelemetry()
 ```
 
 **Sample Prometheus Output:**
+
 ```prometheus
 # HELP cache_hits_total Number of cache hits
 # TYPE cache_hits_total counter
 cache_hits_total{cache_name="user-cache"} 1547
 
-# HELP cache_misses_total Number of cache misses  
+# HELP cache_misses_total Number of cache misses
 # TYPE cache_misses_total counter
 cache_misses_total{cache_name="user-cache"} 423
 
@@ -98,6 +100,7 @@ builder.Services.AddOpenTelemetry()
 ```
 
 **HTTP Protocol:**
+
 ```csharp
 .AddOtlpExporter(options =>
 {
@@ -108,6 +111,7 @@ builder.Services.AddOpenTelemetry()
 ```
 
 **Environment Variables:**
+
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"
 export OTEL_EXPORTER_OTLP_HEADERS="api-key=your-key"
@@ -132,6 +136,7 @@ builder.Services.AddOpenTelemetry()
 ```
 
 **App Settings Configuration:**
+
 ```json
 {
   "APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=your-key;IngestionEndpoint=https://...",
@@ -279,7 +284,7 @@ builder.Services.AddOpenTelemetry()
 ### Docker Compose with OpenTelemetry Collector
 
 ```yaml
-version: '3.8'
+version: "3.8"
 services:
   app:
     build: .
@@ -295,8 +300,8 @@ services:
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
     ports:
-      - "4317:4317"   # OTLP gRPC receiver
-      - "8889:8889"   # Prometheus metrics
+      - "4317:4317" # OTLP gRPC receiver
+      - "8889:8889" # Prometheus metrics
 
   prometheus:
     image: prom/prometheus:latest
@@ -307,6 +312,7 @@ services:
 ```
 
 **OpenTelemetry Collector Configuration:**
+
 ```yaml
 # otel-collector-config.yaml
 receivers:
@@ -345,21 +351,21 @@ spec:
   template:
     spec:
       containers:
-      - name: app
-        image: cache-app:latest
-        env:
-        - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://otel-collector.observability:4317"
-        - name: OTEL_RESOURCE_ATTRIBUTES
-          value: "service.name=cache-app,k8s.namespace.name=$(NAMESPACE),k8s.pod.name=$(POD_NAME)"
-        - name: NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
+        - name: app
+          image: cache-app:latest
+          env:
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector.observability:4317"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "service.name=cache-app,k8s.namespace.name=$(NAMESPACE),k8s.pod.name=$(POD_NAME)"
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
 ```
 
 ## Cloud Provider Specific Setups
@@ -414,7 +420,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
           "value": "http://otel-collector:4317"
         },
         {
-          "name": "OTEL_RESOURCE_ATTRIBUTES", 
+          "name": "OTEL_RESOURCE_ATTRIBUTES",
           "value": "service.name=cache-app,cloud.provider=aws,cloud.region=us-west-2"
         }
       ]
@@ -439,12 +445,12 @@ spec:
         autoscaling.knative.dev/maxScale: "100"
     spec:
       containers:
-      - image: cache-app:latest
-        env:
-        - name: GOOGLE_CLOUD_PROJECT
-          value: "your-project-id"
-        - name: OTEL_RESOURCE_ATTRIBUTES
-          value: "service.name=cache-app,cloud.provider=gcp,cloud.region=us-central1"
+        - image: cache-app:latest
+          env:
+            - name: GOOGLE_CLOUD_PROJECT
+              value: "your-project-id"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "service.name=cache-app,cloud.provider=gcp,cloud.region=us-central1"
 ```
 
 ## Monitoring and Alerting
@@ -454,36 +460,36 @@ spec:
 ```yaml
 # cache-alerts.yml
 groups:
-- name: cache.rules
-  rules:
-  - alert: HighCacheMissRate
-    expr: |
-      (
-        rate(cache_misses_total[5m]) / 
-        (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
-      ) > 0.5
-    for: 2m
-    labels:
-      severity: warning
-    annotations:
-      summary: "High cache miss rate detected"
-      description: "Cache {{ $labels.cache_name }} has a miss rate of {{ $value | humanizePercentage }}"
+  - name: cache.rules
+    rules:
+      - alert: HighCacheMissRate
+        expr: |
+          (
+            rate(cache_misses_total[5m]) / 
+            (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
+          ) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High cache miss rate detected"
+          description: "Cache {{ $labels.cache_name }} has a miss rate of {{ $value | humanizePercentage }}"
 
-  - alert: ExcessiveCacheEvictions
-    expr: rate(cache_evictions_total[5m]) > 10
-    for: 1m
-    labels:
-      severity: warning
-    annotations:
-      summary: "Excessive cache evictions"
-      description: "Cache {{ $labels.cache_name }} is evicting {{ $value }} items per second"
+      - alert: ExcessiveCacheEvictions
+        expr: rate(cache_evictions_total[5m]) > 10
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Excessive cache evictions"
+          description: "Cache {{ $labels.cache_name }} is evicting {{ $value }} items per second"
 ```
 
 ### Grafana Dashboard Query Examples
 
 ```promql
 # Cache Hit Rate
-rate(cache_hits_total[5m]) / 
+rate(cache_hits_total[5m]) /
 (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
 
 # Cache Operations Per Second
@@ -493,7 +499,7 @@ rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])
 rate(cache_evictions_total[5m]) by (reason)
 
 # Cache Efficiency (hits per operation)
-increase(cache_hits_total[1h]) / 
+increase(cache_hits_total[1h]) /
 (increase(cache_hits_total[1h]) + increase(cache_misses_total[1h]))
 ```
 
@@ -502,6 +508,7 @@ increase(cache_hits_total[1h]) /
 ### No Metrics Appearing
 
 1. **Verify Meter Name Match:**
+
 ```csharp
 // Ensure meter name matches in both registration and OpenTelemetry config
 var meter = new Meter("MyApp.Cache");
@@ -510,17 +517,19 @@ builder.Services.AddOpenTelemetry()
 ```
 
 2. **Check Resource Configuration:**
+
 ```csharp
 // Add console exporter to debug
 .AddConsoleExporter()
 ```
 
 3. **Validate Export Endpoint:**
+
 ```bash
 # Test OTLP endpoint
 curl -v http://otel-collector:4317
 
-# Test Prometheus endpoint  
+# Test Prometheus endpoint
 curl http://localhost:9090/metrics
 ```
 
@@ -567,6 +576,7 @@ builder.Services.AddOpenTelemetry()
 ## Best Practices
 
 ### 1. Resource Labeling
+
 ```csharp
 .ConfigureResource(resource => resource
     .AddService("cache-service", "1.0.0")
@@ -579,6 +589,7 @@ builder.Services.AddOpenTelemetry()
 ```
 
 ### 2. Consistent Naming
+
 ```csharp
 // Use hierarchical meter names
 var cacheMetrics = new Meter("MyCompany.MyApp.Cache");
@@ -586,6 +597,7 @@ var databaseMetrics = new Meter("MyCompany.MyApp.Database");
 ```
 
 ### 3. Environment-Specific Configuration
+
 ```csharp
 if (builder.Environment.IsDevelopment())
 {
@@ -607,6 +619,7 @@ else
 ```
 
 ### 4. Security Considerations
+
 ```csharp
 // Use managed identity for cloud providers
 builder.Services.AddOpenTelemetry()
@@ -627,11 +640,13 @@ builder.Services.AddOpenTelemetry()
 ## Performance Recommendations
 
 ### Export Frequency
+
 - **Development**: 5-10 seconds for quick feedback
 - **Production**: 30-60 seconds to reduce overhead
 - **High-throughput**: 60+ seconds with larger batch sizes
 
 ### Resource Limits
+
 ```csharp
 .AddOtlpExporter(options =>
 {
@@ -646,6 +661,7 @@ builder.Services.AddOpenTelemetry()
 ```
 
 ### Memory Management
+
 - Monitor telemetry pipeline memory usage
 - Use appropriate batch sizes for your workload
 - Consider sampling for extremely high-volume scenarios
