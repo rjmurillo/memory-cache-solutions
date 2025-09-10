@@ -27,7 +27,7 @@ public static class ServiceCollectionExtensions
         string? meterName = null)
     {
         ArgumentNullException.ThrowIfNull(services);
-        
+
         if (string.IsNullOrWhiteSpace(cacheName))
             throw new ArgumentException("Cache name must be non-empty", nameof(cacheName));
 
@@ -82,7 +82,7 @@ public static class ServiceCollectionExtensions
         Action<MeteredMemoryCacheOptions>? configureOptions = null)
     {
         ArgumentNullException.ThrowIfNull(services);
-        
+
         var effectiveMeterName = meterName ?? "MeteredMemoryCache";
 
         // Register the meter if not already registered
