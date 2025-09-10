@@ -39,6 +39,7 @@ services.AddSingleton<IMemoryCache>(sp =>
 ### Q: What metrics does MeteredMemoryCache emit?
 
 **A:** MeteredMemoryCache emits three core counters:
+
 - **`cache_hits_total`** - Number of successful cache retrievals
 - **`cache_misses_total`** - Number of cache key lookups that failed
 - **`cache_evictions_total`** - Number of items removed from cache (with reason tag)
@@ -56,6 +57,7 @@ All metrics include optional dimensional tags like `cache.name` for multi-cache 
 **A:** Use MeteredMemoryCache when you need:
 
 ✅ **Use MeteredMemoryCache when:**
+
 - You want cache observability without manual instrumentation
 - You need to monitor cache effectiveness and hit rates
 - You're using multiple caches and need to track them separately
@@ -64,6 +66,7 @@ All metrics include optional dimensional tags like `cache.name` for multi-cache 
 - You need alerts on cache health degradation
 
 ❌ **Consider raw IMemoryCache when:**
+
 - Performance overhead is absolutely critical (< 40ns unacceptable)
 - You're in a resource-constrained environment
 - You already have comprehensive custom metrics
@@ -73,14 +76,14 @@ All metrics include optional dimensional tags like `cache.name` for multi-cache 
 
 **A:** Here's a decision matrix:
 
-| Scenario | Recommendation |
-|----------|---------------|
-| **Local in-memory caching with metrics** | ✅ MeteredMemoryCache |
-| **Distributed caching** | Use Redis/SQL with separate metrics |
-| **High-performance, no observability** | Raw IMemoryCache |
-| **Complex cache hierarchies** | MeteredMemoryCache + custom coordination |
-| **Temporary/experimental caching** | Raw IMemoryCache |
-| **Production systems** | ✅ MeteredMemoryCache |
+| Scenario                                 | Recommendation                           |
+| ---------------------------------------- | ---------------------------------------- |
+| **Local in-memory caching with metrics** | ✅ MeteredMemoryCache                    |
+| **Distributed caching**                  | Use Redis/SQL with separate metrics      |
+| **High-performance, no observability**   | Raw IMemoryCache                         |
+| **Complex cache hierarchies**            | MeteredMemoryCache + custom coordination |
+| **Temporary/experimental caching**       | Raw IMemoryCache                         |
+| **Production systems**                   | ✅ MeteredMemoryCache                    |
 
 ### Q: Can I use MeteredMemoryCache with distributed caching?
 
@@ -96,24 +99,26 @@ All metrics include optional dimensional tags like `cache.name` for multi-cache 
 
 **A:** Based on comprehensive benchmarks:
 
-| Operation | Overhead | Percentage Impact |
-|-----------|----------|-------------------|
-| **Cache Hit** | +15-40ns | +28-43% |
-| **Cache Miss** | +15-40ns | +28-43% |
-| **Cache Write** | +180-400ns | +1-14% |
-| **Memory Usage** | +200 bytes per instance | Negligible |
+| Operation        | Overhead                | Percentage Impact |
+| ---------------- | ----------------------- | ----------------- |
+| **Cache Hit**    | +15-40ns                | +28-43%           |
+| **Cache Miss**   | +15-40ns                | +28-43%           |
+| **Cache Write**  | +180-400ns              | +1-14%            |
+| **Memory Usage** | +200 bytes per instance | Negligible        |
 
 The overhead is generally acceptable for most applications. See [Performance Characteristics](PerformanceCharacteristics.md) for detailed analysis.
 
 ### Q: When is the overhead too high?
 
 **A:** Consider the overhead problematic if:
+
 - Your cache operations are in extremely hot paths (>1M ops/sec)
 - You have very strict latency requirements (<100ns total)
 - You're running in memory-constrained environments
 - You're using hundreds of cache instances
 
 **Mitigation strategies:**
+
 - Use fewer, larger caches instead of many small ones
 - Implement sampling (only meter a percentage of operations)
 - Use raw IMemoryCache for ultra-high-performance scenarios
@@ -211,13 +216,13 @@ services.AddSingleton<IMemoryCache>(sp =>
 {
     var cache = new MemoryCache(new MemoryCacheOptions());
     var config = sp.GetRequiredService<IConfiguration>();
-    
+
     if (config.GetValue<bool>("Cache:EnableMetrics"))
     {
         var meter = sp.GetRequiredService<Meter>();
         return new MeteredMemoryCache(cache, meter, "conditional-cache");
     }
-    
+
     return cache;
 });
 
@@ -233,12 +238,15 @@ var cache = new MeteredMemoryCache(innerCache, nullMeter);
 **A:** Essential metrics to track:
 
 1. **Hit Rate**: `rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))`
+
    - Target: >80%, Alert: <70%
 
 2. **Operations per Second**: `rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])`
+
    - Monitor for traffic patterns and capacity planning
 
 3. **Eviction Rate**: `rate(cache_evictions_total[5m])`
+
    - Target: <5%, Alert: >10%
 
 4. **Eviction Reasons**: `rate(cache_evictions_total[5m]) by (reason)`
@@ -297,7 +305,7 @@ groups:
           severity: warning
         annotations:
           summary: "Cache {{ $labels.cache_name }} hit rate below 70%"
-      
+
       - alert: CacheEvictionRateHigh
         expr: rate(cache_evictions_total[5m]) > 10
         for: 2m
@@ -314,6 +322,7 @@ groups:
 **A:** Check these common issues:
 
 1. **Meter Registration**: Ensure the meter is registered and matches the AddMeter() call
+
    ```csharp
    services.AddSingleton<Meter>(sp => new Meter("MyApp.Cache"));
    // Must match:
@@ -321,6 +330,7 @@ groups:
    ```
 
 2. **Exporter Configuration**: Verify your exporter is configured correctly
+
    ```csharp
    .AddOtlpExporter(options =>
    {
@@ -341,6 +351,7 @@ groups:
 **A:** Follow this diagnostic process:
 
 1. **Verify Cache Behavior**:
+
    ```csharp
    // Add logging to understand cache patterns
    public bool TryGetValue<T>(object key, out T value)
@@ -352,6 +363,7 @@ groups:
    ```
 
 2. **Check Eviction Patterns**:
+
    ```promql
    # Monitor eviction reasons
    rate(cache_evictions_total[5m]) by (reason)
@@ -367,15 +379,17 @@ groups:
 **A:** Use this troubleshooting approach:
 
 1. **Benchmark Comparison**:
+
    ```csharp
    [Benchmark(Baseline = true)]
    public bool RawCache_Get() => _rawCache.TryGetValue("key", out _);
-   
+
    [Benchmark]
    public bool MeteredCache_Get() => _meteredCache.TryGetValue("key", out _);
    ```
 
 2. **Check for High Cardinality**:
+
    ```csharp
    // Avoid this - creates too many unique metric series
    var options = new MeteredMemoryCacheOptions
@@ -433,7 +447,7 @@ var app = builder.Build();
 var builder = new ContainerBuilder();
 
 builder.Register(c => new Meter("MyApp.Cache")).AsSelf().SingleInstance();
-builder.Register(c => 
+builder.Register(c =>
 {
     var innerCache = new MemoryCache(new MemoryCacheOptions());
     var meter = c.Resolve<Meter>();
@@ -444,10 +458,12 @@ builder.Register(c =>
 ### Q: Can I use MeteredMemoryCache with .NET Framework?
 
 **A:** MeteredMemoryCache requires .NET 8+ due to its dependencies on:
+
 - `System.Diagnostics.Metrics` (modern metrics API)
 - `Microsoft.Extensions.Caching.Memory` (modern IMemoryCache)
 
 For .NET Framework, consider:
+
 - Upgrading to .NET 8+
 - Using custom instrumentation with Application Insights or other monitoring
 - Implementing a similar pattern with .NET Framework-compatible metrics libraries
@@ -468,13 +484,13 @@ ENTRYPOINT ["dotnet", "MyApp.dll"]
 
 ```yaml
 # docker-compose.yml
-version: '3.8'
+version: "3.8"
 services:
   app:
     image: myapp
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-  
+
   otel-collector:
     image: otel/opentelemetry-collector:latest
     ports:
@@ -492,7 +508,7 @@ public class HierarchicalCacheService
 {
     private readonly IMemoryCache _l1Cache; // Fast, small
     private readonly IMemoryCache _l2Cache; // Larger, longer TTL
-    
+
     public HierarchicalCacheService(
         [FromKeyedServices("l1")] IMemoryCache l1Cache,
         [FromKeyedServices("l2")] IMemoryCache l2Cache)
@@ -500,20 +516,20 @@ public class HierarchicalCacheService
         _l1Cache = l1Cache;
         _l2Cache = l2Cache;
     }
-    
+
     public async Task<T> GetAsync<T>(string key)
     {
         // L1 fast lookup
         if (_l1Cache.TryGetValue(key, out T l1Value))
             return l1Value;
-        
+
         // L2 fallback
         if (_l2Cache.TryGetValue(key, out T l2Value))
         {
             _l1Cache.Set(key, l2Value, TimeSpan.FromMinutes(5));
             return l2Value;
         }
-        
+
         // Fetch and populate both layers
         var value = await FetchFromSourceAsync<T>(key);
         _l1Cache.Set(key, value, TimeSpan.FromMinutes(5));
@@ -536,17 +552,17 @@ public class CustomMeteredCache : IMemoryCache
 {
     private readonly MeteredMemoryCache _inner;
     private readonly Counter<long> _customMetric;
-    
+
     public CustomMeteredCache(IMemoryCache inner, Meter meter)
     {
         _inner = new MeteredMemoryCache(inner, meter);
         _customMetric = meter.CreateCounter<long>("cache_custom_events");
     }
-    
+
     public void Set<T>(object key, T value, MemoryCacheEntryOptions options = null)
     {
         options ??= new MemoryCacheEntryOptions();
-        
+
         // Add custom tracking
         options.RegisterPostEvictionCallback((k, v, reason, state) =>
         {
@@ -557,10 +573,10 @@ public class CustomMeteredCache : IMemoryCache
                 new("value_size", EstimateSize(v))
             });
         });
-        
+
         _inner.Set(key, value, options);
     }
-    
+
     // Delegate other methods to _inner...
 }
 ```
@@ -574,7 +590,7 @@ public class CacheWarmupService : BackgroundService
 {
     private readonly IMemoryCache _cache;
     private readonly IDataService _dataService;
-    
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -583,11 +599,11 @@ public class CacheWarmupService : BackgroundService
             await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
         }
     }
-    
+
     private async Task WarmupCriticalData()
     {
         var criticalData = await _dataService.GetCriticalDataAsync();
-        
+
         foreach (var item in criticalData)
         {
             _cache.Set($"critical:{item.Id}", item, new MemoryCacheEntryOptions

@@ -288,16 +288,19 @@ Evidence & Process requirements are described in `.github/copilot-instructions.m
 Comprehensive guides and references are available in the `docs/` directory:
 
 ### Usage Guides
+
 - [MeteredMemoryCache Usage Guide](docs/MeteredMemoryCache.md) - Complete usage documentation with examples
 - [OpenTelemetry Integration](docs/OpenTelemetryIntegration.md) - Setup guide for various OTel exporters
 - [Multi-Cache Scenarios](docs/MultiCacheScenarios.md) - Patterns for managing multiple named caches
 
 ### Reference Documentation
+
 - [Performance Characteristics](docs/PerformanceCharacteristics.md) - Detailed benchmark analysis and optimization guidance
 - [Troubleshooting Guide](docs/Troubleshooting.md) - Common issues and solutions
 - [API Reference](docs/ApiReference.md) - Complete API documentation with examples
 
 ### Quick Reference Links
+
 - **Getting Started**: See [Quick Start](#quick-start) above
 - **Performance Impact**: [Performance Characteristics](docs/PerformanceCharacteristics.md)
 - **Common Issues**: [Troubleshooting Guide](docs/Troubleshooting.md)

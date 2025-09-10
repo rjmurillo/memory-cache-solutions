@@ -611,7 +611,7 @@ services.AddLazyCache();
 services.AddNamedMeteredMemoryCache("lazy-cache");
 
 // Usage with lazy loading
-var result = cache.GetOrCreate("key", entry => 
+var result = cache.GetOrCreate("key", entry =>
 {
     entry.SlidingExpiration = TimeSpan.FromMinutes(5);
     return ExpensiveOperation();
@@ -631,13 +631,13 @@ var result = cache.GetOrCreate("key", entry =>
 
 ### Metric Name Migration
 
-| Old Metric | New Metric | Notes |
-|------------|------------|-------|
-| `cache.hits` | `cache_hits_total` | Counter, follows OTel conventions |
-| `cache.misses` | `cache_misses_total` | Counter, follows OTel conventions |
-| `cache.sets` | N/A | Tracked via eviction callbacks instead |
-| `cache.evictions` | `cache_evictions_total` | Counter with `reason` tag |
-| `cache.size` | N/A | Not available through IMemoryCache interface |
+| Old Metric        | New Metric              | Notes                                        |
+| ----------------- | ----------------------- | -------------------------------------------- |
+| `cache.hits`      | `cache_hits_total`      | Counter, follows OTel conventions            |
+| `cache.misses`    | `cache_misses_total`    | Counter, follows OTel conventions            |
+| `cache.sets`      | N/A                     | Tracked via eviction callbacks instead       |
+| `cache.evictions` | `cache_evictions_total` | Counter with `reason` tag                    |
+| `cache.size`      | N/A                     | Not available through IMemoryCache interface |
 
 ### Performance Migration Notes
 

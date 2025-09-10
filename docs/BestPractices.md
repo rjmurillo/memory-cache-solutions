@@ -20,6 +20,7 @@ This document consolidates best practices for using MeteredMemoryCache effective
 Use consistent, descriptive names that reflect the cache's purpose:
 
 ✅ **Good Examples**:
+
 ```csharp
 services.AddNamedMeteredMemoryCache("user-sessions");
 services.AddNamedMeteredMemoryCache("product-catalog");
@@ -28,6 +29,7 @@ services.AddNamedMeteredMemoryCache("static-content");
 ```
 
 ❌ **Avoid**:
+
 ```csharp
 services.AddNamedMeteredMemoryCache("cache1");
 services.AddNamedMeteredMemoryCache("data");
@@ -62,11 +64,11 @@ services.AddNamedMeteredMemoryCache("small-frequent", options =>
 
 ### Size Calculation Guidelines
 
-| Object Type | Estimated Size | Recommended Limit |
-|-------------|---------------|-------------------|
-| **Small Objects** (primitives, DTOs) | 100B - 1KB | 5,000 - 50,000 items |
-| **Medium Objects** (rich entities) | 1KB - 10KB | 500 - 5,000 items |
-| **Large Objects** (images, documents) | 10KB+ | 50 - 500 items |
+| Object Type                           | Estimated Size | Recommended Limit    |
+| ------------------------------------- | -------------- | -------------------- |
+| **Small Objects** (primitives, DTOs)  | 100B - 1KB     | 5,000 - 50,000 items |
+| **Medium Objects** (rich entities)    | 1KB - 10KB     | 500 - 5,000 items    |
+| **Large Objects** (images, documents) | 10KB+          | 50 - 500 items       |
 
 ### Expiration Strategies
 
@@ -102,6 +104,7 @@ _cache.Set($"api-response:{key}", response, new MemoryCacheEntryOptions
 Use efficient patterns to reduce memory allocations:
 
 ✅ **Efficient Pattern**:
+
 ```csharp
 // Pre-calculate keys to avoid string concatenation
 private readonly string _keyPrefix = $"user:{Environment.MachineName}:";
@@ -118,6 +121,7 @@ public User GetUser(int id)
 ```
 
 ❌ **Inefficient Pattern**:
+
 ```csharp
 public User GetUser(int id)
 {
@@ -136,7 +140,7 @@ public async Task<Dictionary<int, User>> GetUsersAsync(IEnumerable<int> userIds)
 {
     var results = new Dictionary<int, User>();
     var missingIds = new List<int>();
-    
+
     // Check cache for all IDs first
     foreach (var id in userIds)
     {
@@ -149,7 +153,7 @@ public async Task<Dictionary<int, User>> GetUsersAsync(IEnumerable<int> userIds)
             missingIds.Add(id);
         }
     }
-    
+
     // Batch fetch missing users
     if (missingIds.Any())
     {
@@ -160,7 +164,7 @@ public async Task<Dictionary<int, User>> GetUsersAsync(IEnumerable<int> userIds)
             results[user.Id] = user;
         }
     }
-    
+
     return results;
 }
 ```
@@ -189,14 +193,14 @@ public class ThreadSafeCacheService
 {
     private readonly IMemoryCache _cache;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
-    
+
     // Use GetOrCreate for thread-safe lazy initialization
     public async Task<T> GetOrCreateAsync<T>(string key, Func<Task<T>> factory)
     {
         return await _cache.GetOrCreateAsync(key, async entry =>
         {
             entry.SlidingExpiration = TimeSpan.FromMinutes(15);
-            
+
             // Ensure only one thread executes the factory
             await _semaphore.WaitAsync();
             try
@@ -231,13 +235,13 @@ services.AddOpenTelemetry()
 
 ### Key Performance Indicators (KPIs)
 
-| Metric | Target Range | Alert Threshold |
-|--------|-------------|-----------------|
-| **Hit Rate** | > 80% | < 70% |
-| **Miss Rate** | < 20% | > 30% |
-| **Eviction Rate** | < 5% | > 10% |
-| **Operation Latency** | < 100ns | > 500ns |
-| **Memory Usage** | < 80% of limit | > 90% |
+| Metric                | Target Range   | Alert Threshold |
+| --------------------- | -------------- | --------------- |
+| **Hit Rate**          | > 80%          | < 70%           |
+| **Miss Rate**         | < 20%          | > 30%           |
+| **Eviction Rate**     | < 5%           | > 10%           |
+| **Operation Latency** | < 100ns        | > 500ns         |
+| **Memory Usage**      | < 80% of limit | > 90%           |
 
 ### Dashboard Configuration
 
@@ -249,14 +253,14 @@ Cache_Performance:
   panels:
     - title: "Hit/Miss Rate"
       query: "rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))"
-    
+
     - title: "Cache Operations/sec"
       query: "rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])"
-    
+
     - title: "Evictions by Reason"
       query: "rate(cache_evictions_total[5m])"
       group_by: "reason"
-    
+
     - title: "Cache Performance by Name"
       query: "rate(cache_hits_total[5m])"
       group_by: "cache_name"
@@ -276,7 +280,7 @@ groups:
         for: 5m
         annotations:
           summary: "Cache hit rate is below 70%"
-      
+
       - alert: CacheEvictionRateHigh
         expr: rate(cache_evictions_total[5m]) > 10
         for: 2m
@@ -295,7 +299,7 @@ public class HierarchicalCacheService
 {
     private readonly IMemoryCache _l1Cache; // Fast, small
     private readonly IMemoryCache _l2Cache; // Larger, longer TTL
-    
+
     public async Task<T> GetAsync<T>(string key)
     {
         // L1 Cache - Fast lookup
@@ -303,7 +307,7 @@ public class HierarchicalCacheService
         {
             return l1Value;
         }
-        
+
         // L2 Cache - Secondary lookup
         if (_l2Cache.TryGetValue(key, out T l2Value))
         {
@@ -311,14 +315,14 @@ public class HierarchicalCacheService
             _l1Cache.Set(key, l2Value, TimeSpan.FromMinutes(5));
             return l2Value;
         }
-        
+
         // Cache miss - fetch from source
         var value = await FetchFromSourceAsync<T>(key);
-        
+
         // Store in both layers
         _l1Cache.Set(key, value, TimeSpan.FromMinutes(5));
         _l2Cache.Set(key, value, TimeSpan.FromHours(1));
-        
+
         return value;
     }
 }
@@ -358,7 +362,7 @@ public class CoordinatedCacheService
 {
     private readonly IMemoryCache _userCache;
     private readonly IMemoryCache _profileCache;
-    
+
     public async Task InvalidateUserAsync(int userId)
     {
         // Coordinate invalidation across related caches
@@ -368,7 +372,7 @@ public class CoordinatedCacheService
             Task.Run(() => _profileCache.Remove($"profile:{userId}")),
             Task.Run(() => InvalidateUserPermissions(userId))
         };
-        
+
         await Task.WhenAll(tasks);
     }
 }
@@ -381,6 +385,7 @@ public class CoordinatedCacheService
 Avoid exposing sensitive information in cache keys:
 
 ✅ **Secure Pattern**:
+
 ```csharp
 // Use hashed keys for sensitive data
 public string CreateSecureKey(string sensitiveData)
@@ -392,6 +397,7 @@ public string CreateSecureKey(string sensitiveData)
 ```
 
 ❌ **Insecure Pattern**:
+
 ```csharp
 // Never expose PII or sensitive data in keys
 var key = $"user-cache:{user.SocialSecurityNumber}:{user.Email}";
@@ -423,13 +429,13 @@ public class TenantAwareCacheService
 {
     private readonly IMemoryCache _cache;
     private readonly ITenantContext _tenantContext;
-    
+
     public T Get<T>(string key)
     {
         var tenantKey = $"tenant:{_tenantContext.TenantId}:{key}";
         return _cache.Get<T>(tenantKey);
     }
-    
+
     public void Set<T>(string key, T value, TimeSpan expiry)
     {
         var tenantKey = $"tenant:{_tenantContext.TenantId}:{key}";
@@ -452,11 +458,11 @@ public void Cache_StoresAndRetrievesValues()
     var cache = new MemoryCache(new MemoryCacheOptions());
     var meter = new Meter("test");
     var meteredCache = new MeteredMemoryCache(cache, meter, "test-cache");
-    
+
     // Act
     meteredCache.Set("key", "value", TimeSpan.FromMinutes(1));
     var retrieved = meteredCache.TryGetValue("key", out string result);
-    
+
     // Assert
     Assert.IsTrue(retrieved);
     Assert.AreEqual("value", result);
@@ -475,16 +481,16 @@ public async Task Cache_EmitsCorrectMetrics()
     using var meterProvider = Sdk.CreateMeterProviderBuilder()
         .AddMeter("test")
         .Build();
-    
+
     var exportedItems = new List<Metric>();
     using var meter = new Meter("test");
     var cache = new MeteredMemoryCache(new MemoryCache(new MemoryCacheOptions()), meter);
-    
+
     // Act
     cache.Set("key", "value");
     cache.TryGetValue("key", out _); // Hit
     cache.TryGetValue("missing", out _); // Miss
-    
+
     // Assert
     // Verify hit and miss metrics were emitted
     Assert.That(exportedItems, Has.Some.Property("Name").EqualTo("cache_hits_total"));
@@ -503,7 +509,7 @@ public class CachePerformanceBenchmark
 {
     private IMemoryCache _rawCache;
     private IMemoryCache _meteredCache;
-    
+
     [GlobalSetup]
     public void Setup()
     {
@@ -511,10 +517,10 @@ public class CachePerformanceBenchmark
         var meter = new Meter("benchmark");
         _meteredCache = new MeteredMemoryCache(_rawCache, meter);
     }
-    
+
     [Benchmark(Baseline = true)]
     public bool RawCache_TryGet() => _rawCache.TryGetValue("key", out _);
-    
+
     [Benchmark]
     public bool MeteredCache_TryGet() => _meteredCache.TryGetValue("key", out _);
 }
@@ -531,13 +537,13 @@ Deploy MeteredMemoryCache incrementally:
 services.AddSingleton<IMemoryCache>(sp =>
 {
     var cache = new MemoryCache(new MemoryCacheOptions());
-    
+
     if (ShouldEnableMetrics(0.1)) // 10% chance
     {
         var meter = sp.GetRequiredService<Meter>();
         return new MeteredMemoryCache(cache, meter, "gradual-rollout");
     }
-    
+
     return cache;
 });
 ```
@@ -594,8 +600,8 @@ services.AddHealthChecks()
     .AddCheck("cache-metrics", () =>
     {
         // Verify metrics are being exported
-        return _metricsExporter.IsHealthy() 
-            ? HealthCheckResult.Healthy() 
+        return _metricsExporter.IsHealthy()
+            ? HealthCheckResult.Healthy()
             : HealthCheckResult.Degraded("Metrics export issues");
     });
 ```
@@ -605,11 +611,12 @@ services.AddHealthChecks()
 ### Pitfall 1: Tag Cardinality Explosion
 
 ❌ **Problem**: Adding high-cardinality data to tags
+
 ```csharp
 // DON'T: This creates millions of unique metric series
 var options = new MeteredMemoryCacheOptions
 {
-    AdditionalTags = 
+    AdditionalTags =
     {
         ["user_id"] = userId.ToString(), // High cardinality!
         ["timestamp"] = DateTime.Now.ToString() // Infinite cardinality!
@@ -618,10 +625,11 @@ var options = new MeteredMemoryCacheOptions
 ```
 
 ✅ **Solution**: Use low-cardinality dimensional tags
+
 ```csharp
 var options = new MeteredMemoryCacheOptions
 {
-    AdditionalTags = 
+    AdditionalTags =
     {
         ["cache_type"] = "user-data", // Low cardinality
         ["region"] = "us-west",       // Low cardinality
@@ -633,6 +641,7 @@ var options = new MeteredMemoryCacheOptions
 ### Pitfall 2: Inappropriate Cache Sizes
 
 ❌ **Problem**: One-size-fits-all cache configuration
+
 ```csharp
 // DON'T: Same settings for all cache types
 services.AddNamedMeteredMemoryCache("user-cache", options => options.SizeLimit = 1000);
@@ -640,14 +649,15 @@ services.AddNamedMeteredMemoryCache("large-files", options => options.SizeLimit 
 ```
 
 ✅ **Solution**: Size caches based on object characteristics
+
 ```csharp
-services.AddNamedMeteredMemoryCache("user-profiles", options => 
+services.AddNamedMeteredMemoryCache("user-profiles", options =>
 {
     options.SizeLimit = 10000; // Small objects, many items
     options.CompactionPercentage = 0.25;
 });
 
-services.AddNamedMeteredMemoryCache("document-cache", options => 
+services.AddNamedMeteredMemoryCache("document-cache", options =>
 {
     options.SizeLimit = 100; // Large objects, few items
     options.CompactionPercentage = 0.1;
@@ -657,12 +667,14 @@ services.AddNamedMeteredMemoryCache("document-cache", options =>
 ### Pitfall 3: Ignoring Eviction Patterns
 
 ❌ **Problem**: Not monitoring or responding to evictions
+
 ```csharp
 // DON'T: Set and forget
 _cache.Set(key, largeObject, TimeSpan.FromHours(24)); // May be evicted due to pressure
 ```
 
 ✅ **Solution**: Monitor eviction metrics and adjust strategy
+
 ```csharp
 // Monitor eviction rates and adjust TTL accordingly
 var options = new MemoryCacheEntryOptions
@@ -677,6 +689,7 @@ _cache.Set(key, data, options);
 ### Pitfall 4: Synchronous Operations in Async Context
 
 ❌ **Problem**: Blocking async context with synchronous cache operations
+
 ```csharp
 public async Task<User> GetUserAsync(int id)
 {
@@ -689,6 +702,7 @@ public async Task<User> GetUserAsync(int id)
 ```
 
 ✅ **Solution**: Use async patterns consistently
+
 ```csharp
 public async Task<User> GetUserAsync(int id)
 {
