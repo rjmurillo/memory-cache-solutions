@@ -92,13 +92,30 @@ Create comprehensive documentation for usage patterns, integration guides, and O
 - [x] Create docs/OpenTelemetryIntegration.md setup guide with various OTel exporters
 - [x] Document multi-cache scenarios and naming conventions
 - [x] Add performance characteristics documentation with benchmark results
-- [ ] Document troubleshooting common configuration issues
-- [ ] Add API reference documentation for all public methods and options
+- [x] Document troubleshooting common configuration issues
+- [x] Add API reference documentation for all public methods and options
 - [ ] Update repository README with MeteredMemoryCache overview
 - [ ] Add inline code documentation for complex metric emission logic
 - [ ] Review all XML and Markdown documentation for clarity, accuracy, and cross reference opportunity
 - [ ] Create migration guide from existing custom metrics solutions
 - [ ] Create sample applications demonstrating various usage patterns
+
+---
+
+## TODO Items
+
+### Thread-Safety Investigation
+**Priority**: High  
+**Type**: Bug Investigation  
+
+Investigate and fix thread-safety issues in MeteredMemoryCache related to TagList enumeration in concurrent scenarios. Three tests are currently failing due to concurrent access to TagList.
+
+#### Sub-tasks:
+- [ ] Write comprehensive tests to reproduce TagList enumeration thread-safety issues
+- [ ] Analyze root cause of concurrent TagList access failures
+- [ ] Implement thread-safe solution for TagList usage in metric emission
+- [ ] Validate fix with stress testing and concurrent scenarios
+- [ ] Ensure no performance regression from thread-safety changes
 
 ---
 
@@ -127,7 +144,6 @@ Create comprehensive documentation for usage patterns, integration guides, and O
 - `src/CacheImplementations/CacheImplementations.csproj` - Add Microsoft.Extensions.DependencyInjection reference
 - `tests/Unit/Unit.csproj` - Add Microsoft.Extensions.Hosting.Testing reference
 - `tests/Integration/Integration.csproj` - Create if needed, add OTel testing packages
-- `benchmarks/baseline/CacheBenchmarks.windows-latest.x64.json` - Update baseline after changes
 - `README.md` - Add MeteredMemoryCache overview section
 
 ### Notes

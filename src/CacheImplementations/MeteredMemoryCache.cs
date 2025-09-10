@@ -184,14 +184,14 @@ public sealed class MeteredMemoryCache : IMemoryCache
     private static TagList CreateEvictionTags(TagList baseTags, string reason)
     {
         var tags = new TagList();
-        
+
         // Copy base tags in a thread-safe manner
         // TagList implements IEnumerable<KeyValuePair<string, object?>> thread-safely
         foreach (var tag in baseTags)
         {
             tags.Add(tag.Key, tag.Value);
         }
-        
+
         tags.Add("reason", reason);
         return tags;
     }
