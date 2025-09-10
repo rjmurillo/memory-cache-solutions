@@ -676,12 +676,14 @@ I appreciate your diligence and attention to detail! Let me know if you need any
 When writing XML documentation comments for C# code, follow these best practices to ensure clarity, consistency, and compatibility with documentation tools:
 
 ### General Principles
+
 - **Document all public types and members** with XML comments. Private/internal members may be documented if useful.
 - **Always use complete sentences** ending with periods.
 - **XML must be well-formed**; invalid XML will cause compiler warnings.
 - **At a minimum, every type and member should have a `<summary>` tag.**
 
 ### Tag Usage and Structure
+
 - Use `<summary>` to briefly describe the purpose of a type or member.
 - Use `<remarks>` for additional or supplemental information.
 - Use `<param name="paramName">` to describe each method parameter. The name must match the method signature.
@@ -694,15 +696,17 @@ When writing XML documentation comments for C# code, follow these best practices
 - Use `<inheritdoc/>` to inherit documentation from base members or interfaces when appropriate.
 
 ### Referencing Types, Members, and Keywords
+
 - **Whenever referencing a type, member, or exception in documentation, you MUST use `<see cref="..."/>` or `<seealso cref="..."/>`.**
-   - Example: `See <see cref="System.String"/> for details.`
-   - Example: `Throws <see cref="ArgumentNullException"/> if <paramref name="foo"/> is null.`
+  - Example: `See <see cref="System.String"/> for details.`
+  - Example: `Throws <see cref="ArgumentNullException"/> if <paramref name="foo"/> is null.`
 - **When referencing C# language keywords (such as `true`, `false`, `null`, `async`, etc.), use `<see langword="keyword"/>`.**
-   - Example: `Returns <see langword="true"/> if the operation succeeds; otherwise, <see langword="false"/>.`
+  - Example: `Returns <see langword="true"/> if the operation succeeds; otherwise, <see langword="false"/>.`
 - **Do NOT use plain text for code elements or keywords.** Always use the appropriate XML tag for references.
 - For inline code or identifiers that are not references, use `<c>code</c>`.
 
 ### Additional Best Practices
+
 - Use `<paramref name="paramName"/>` to refer to parameters in documentation text.
 - Use `<typeparamref name="T"/>` to refer to generic type parameters in text.
 - For external URLs, use `<see href="https://example.com">Link Text</see>` or `<seealso href="https://example.com">Link Text</seealso>`.
@@ -723,3 +727,16 @@ When writing XML documentation comments for C# code, follow these best practices
 ```
 
 For more details, see the [Microsoft Learn XML documentation tags guide](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/xmldoc/recommended-tags).
+
+---
+
+## #region Usage Policy (Non-Negotiable)
+
+**NEVER use `#region` in any code written for this repository.**
+
+- The use of `#region` is strictly prohibited.
+- `#region` is considered a code smell and a sign of multiple responsibilities or unnecessary complication.
+- If you encounter code that uses `#region`, refactor to eliminate it by improving structure, cohesion, and clarity.
+- All agents and contributors must avoid introducing `#region` in any new or modified code.
+
+---
