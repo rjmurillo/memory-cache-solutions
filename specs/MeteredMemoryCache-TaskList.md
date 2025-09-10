@@ -88,8 +88,8 @@ Develop complete test coverage including unit tests, integration tests, and benc
 Create comprehensive documentation for usage patterns, integration guides, and OpenTelemetry setup.
 
 #### Sub-tasks:
-- [ ] Create docs/MeteredMemoryCache.md usage documentation with code examples
-- [ ] Create docs/OpenTelemetryIntegration.md setup guide with various OTel exporters
+- [x] Create docs/MeteredMemoryCache.md usage documentation with code examples
+- [x] Create docs/OpenTelemetryIntegration.md setup guide with various OTel exporters
 - [ ] Document multi-cache scenarios and naming conventions
 - [ ] Add performance characteristics documentation with benchmark results
 - [ ] Create migration guide from existing custom metrics solutions
