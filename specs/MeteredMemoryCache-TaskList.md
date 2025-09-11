@@ -187,10 +187,10 @@ Each task completion must include:
 - `af72868` - Fix TagList mutation bug on readonly field
 - `e8dc146` - Fix TagList initialization bug in options constructor
 
-**GitHub PR Responses**: 
+**GitHub PR Responses**: ✅ **POSTED**
 
 ### Response to Comment #2331684850 (TagList mutation bug)
-✅ **RESOLVED** in commit `af72868`
+✅ **RESOLVED** in commit `af72868` | **POSTED**: [Comment #3280527016](https://github.com/rjmurillo/memory-cache-solutions/pull/15#issuecomment-3280527016)
 
 The TagList mutation bug has been fixed. The issue where cache.name tags could be lost due to defensive copy mutation when the readonly `_baseTags` field was passed directly to Counter operations has been resolved.
 
@@ -206,7 +206,7 @@ The TagList mutation bug has been fixed. The issue where cache.name tags could b
 - Validation: All MeteredMemoryCache tests passing (25/26, 1 skipped)
 
 ### Response to Comment #2334230089 (Options constructor LINQ allocation)
-✅ **RESOLVED** in commit `e8dc146`
+✅ **RESOLVED** in commit `e8dc146` | **POSTED**: [Comment #3280528565](https://github.com/rjmurillo/memory-cache-solutions/pull/15#issuecomment-3280528565)
 
 The TagList initialization bug in the options constructor has been fixed. The LINQ `Where()` allocation issue during AdditionalTags processing has been eliminated.
 
