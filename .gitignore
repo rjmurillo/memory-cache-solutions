@@ -485,3 +485,6 @@ $RECYCLE.BIN/
 
 # specs
 specs/
+
+#Ignore cursor AI rules
+.cursor\rules\codacy.mdc
