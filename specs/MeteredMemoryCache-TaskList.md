@@ -182,10 +182,11 @@ Each task completion must include:
 
 ## Progress Summary
 
-**Completed Sub-tasks**: 2/200+ items
+**Completed Sub-tasks**: 3/200+ items
 **Latest Commits**: 
 - `af72868` - Fix TagList mutation bug on readonly field
 - `e8dc146` - Fix TagList initialization bug in options constructor
+- `[PENDING]` - Add volatile keyword to _disposed field for thread visibility
 
 **GitHub PR Responses**: ✅ **POSTED**
 
@@ -237,7 +238,7 @@ Address critical runtime bugs that affect core functionality.
 #### Sub-tasks:
 - [x] Fix TagList mutation bug on readonly field in MeteredMemoryCache.cs - cache.name tags are lost due to defensive copy mutation (Comment: [#2331684850](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684850))
 - [x] Fix TagList initialization in options constructor - same mutation bug as basic constructor (Comment: [#2334230089](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230089))
-- [ ] Add volatile keyword to _disposed field for proper visibility across threads (Comment: Multiple reviews)
+- [x] Add volatile keyword to _disposed field for proper visibility across threads (Comment: Multiple reviews)
 - [ ] Fix thread-safety issue with static HashSet fields in ServiceCollectionExtensions.cs - replace with ConcurrentDictionary (Comment: [#2331660655](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331660655))
 - [ ] Replace static HashSet with ConcurrentDictionary for thread-safe duplicate validation (Comment: [#2331684858](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684858))
 - [ ] Add thread-safe duplicate guards using ConcurrentDictionary.TryAdd (Comment: Multiple reviews)

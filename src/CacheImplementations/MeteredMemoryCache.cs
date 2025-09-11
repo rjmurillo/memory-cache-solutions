@@ -21,7 +21,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
     private readonly Counter<long> _misses;
     private readonly Counter<long> _evictions;
     private readonly TagList _baseTags;
-    private bool _disposed;
+    private volatile bool _disposed;
 
     /// <summary>
     /// Gets the logical name of this cache instance, if provided.
