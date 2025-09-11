@@ -174,3 +174,308 @@ Each task completion must include:
 - BenchGate: PASS validation plus synthetic FAIL simulation
 - Performance: Before/after metrics table for any performance-affecting changes
 - Format: `dotnet format` and `dotnet tool run pprettier --write .` applied
+
+---
+
+## PR Feedback Items
+
+The following items address specific reviewer feedback from PR #15 comments. Each item corresponds to actionable feedback from Copilot and CodeRabbit reviewers across all changed files.
+
+### Critical Bug Fixes
+**Type**: Critical Issues  
+**Priority**: High  
+**Dependencies**: None  
+
+Address critical runtime bugs that affect core functionality.
+
+#### Sub-tasks:
+- [ ] Fix TagList mutation bug on readonly field in MeteredMemoryCache.cs - cache.name tags are lost due to defensive copy mutation (Comment: [#2331684850](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684850))
+- [ ] Fix TagList initialization in options constructor - same mutation bug as basic constructor (Comment: [#2334230089](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230089))
+- [ ] Add volatile keyword to _disposed field for proper visibility across threads (Comment: Multiple reviews)
+- [ ] Fix thread-safety issue with static HashSet fields in ServiceCollectionExtensions.cs - replace with ConcurrentDictionary (Comment: [#2331660655](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331660655))
+- [ ] Replace static HashSet with ConcurrentDictionary for thread-safe duplicate validation (Comment: [#2331684858](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684858))
+- [ ] Add thread-safe duplicate guards using ConcurrentDictionary.TryAdd (Comment: Multiple reviews)
+- [ ] Fix data race on shared Exception variable in parallel test TagListCopyIsThreadSafeForConcurrentAdd (Comment: [#2331684869](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684869))
+- [ ] Fix concurrent modification exceptions in TagList usage (Comment: Multiple reviews)
+- [ ] Fix concurrent access patterns in TagList thread safety tests (Comment: Multiple reviews)
+
+### Build and Compilation Fixes
+**Type**: Build Issues  
+**Priority**: High  
+**Dependencies**: None  
+
+Resolve compilation failures and missing dependencies.
+
+#### Sub-tasks:
+- [ ] Add missing using statement for Scrutor's Decorate extension method in ServiceCollectionExtensions.cs (Comment: [#2331660646](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331660646))
+- [ ] Add missing using statements (System, System.Collections.Generic) in ServiceCollectionExtensions.cs (Comment: [#2331684855](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684855))
+- [ ] Fix missing LINQ import in MeteredMemoryCacheTests.cs for Select/Any methods (Comment: [#2331684866](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684866))
+- [ ] Add missing System and System.Linq usings to ServiceCollectionExtensions.cs for build reliability (Comment: [#2334230105](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230105))
+- [ ] Fix missing using directives causing build breaks in multiple files (Comment: Multiple reviews)
+- [ ] Add Microsoft.Extensions.DependencyInjection.Abstractions package reference to CacheImplementations.csproj (Comment: [#2331684844](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684844))
+- [ ] Add explicit DI Abstractions reference to avoid transitive dependency issues (Comment: [#2334230075](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230075))
+- [ ] Remove unused LINQ import from MeteredMemoryCache.cs after fixing TagList initialization (Comment: Multiple reviews)
+
+### Configuration and Package Issues
+**Type**: Configuration  
+**Priority**: High  
+**Dependencies**: None  
+
+Fix package version conflicts and project configuration issues.
+
+#### Sub-tasks:
+- [ ] Remove incorrect WarningsAsErrors boolean setting from Directory.Build.props (Comment: [#2331684837](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684837))
+- [ ] Add C# language version 13 to Directory.Build.props (Comment: [#2334230063](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230063))
+- [ ] Fix DiagnosticSource package version conflict - remove 8.0.0 pin or upgrade to 9.0.8 (Comment: [#2331684839](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684839))
+- [ ] Add central package version for Microsoft.Extensions.DependencyInjection.Abstractions in Directory.Packages.props (Comment: [#2334230075](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230075))
+- [ ] Add essential .NET project properties to tests/Unit/Unit.csproj (Comment: Copilot Review)
+- [ ] Add essential .NET project properties to tests/Benchmarks/Benchmarks.csproj (Comment: Copilot Review)
+- [ ] Fix .gitignore specs/ rule conflicts with tracked MeteredMemoryCache-TaskList.md file (Comment: [#2331684830](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684830))
+
+### Dependency Injection Implementation Fixes
+**Type**: API Design  
+**Priority**: High  
+**Dependencies**: Build fixes  
+
+Fix service registration patterns and DI implementation issues.
+
+#### Sub-tasks:
+- [ ] Fix PostConfigure misuse and remove unreachable private registry in ServiceCollectionExtensions.cs (Comment: [#2331684859](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684859))
+- [ ] Remove unused NamedMemoryCacheRegistry private class (Comment: [#2331684864](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684864))
+- [ ] Fix named-cache registration broken implementation - switch to keyed DI (Comment: [#2334230111](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230111))
+- [ ] Add guard against meter-name conflicts in DecorateMemoryCacheWithMetrics (Comment: [#2331684862](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684862))
+- [ ] Fix meter singleton conflicts in multiple registration scenarios (Comment: Multiple reviews)
+- [ ] Add meter-name conflict detection and validation in DI registration (Comment: [#2334230119](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230119))
+- [ ] Fix global Configure<TOptions> usage in decorator to prevent cross-call contamination (Comment: [#2334230119](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230119))
+- [ ] Set DisposeInner=true for owned caches in AddNamedMeteredMemoryCache to prevent memory leaks (Comment: Multiple reviews)
+- [ ] Remove surprising default IMemoryCache aliasing or make it opt-in (Comment: Multiple reviews)
+- [ ] Add leak prevention for inner MemoryCache in named cache registrations (Comment: Multiple reviews)
+- [ ] Fix options pattern implementation in DI extensions (Comment: Multiple reviews)
+- [ ] Add proper service lifetime management in keyed registrations (Comment: Multiple reviews)
+- [ ] Fix meter instance reuse patterns to prevent duplicates (Comment: Multiple reviews)
+- [ ] Add comprehensive validation for meter name conflicts (Comment: Multiple reviews)
+
+### Test Suite Improvements
+**Type**: Testing  
+**Priority**: High  
+**Dependencies**: Critical bug fixes  
+
+Fix test reliability, isolation, and coverage issues.
+
+#### Sub-tasks:
+- [ ] Add using var for Meter instances in all test methods to prevent cross-test interference (Comment: [#2331684872](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684872))
+- [ ] Strengthen assertions in ServiceCollectionExtensionsTests - resolve and assert registry availability (Comment: [#2331684874](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684874))
+- [ ] Add ParamName assertion for ArgumentException in AddNamedMeteredMemoryCache_ThrowsOnEmptyName test (Comment: [#2331684882](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684882))
+- [ ] Filter MetricCollectionHarness by Meter instance to prevent cross-test contamination
+- [ ] Make eviction tests deterministic by removing compaction/sleeps and using metric waiting
+- [ ] Fix exact tag-count assertions to be more flexible
+- [ ] Remove unused test data and operations to reduce noise
+- [ ] Add thread-safe snapshots to MetricCollectionHarness instead of live collections
+- [ ] Add deterministic wait helper to replace Thread.Sleep in tests
+- [ ] Remove process-wide duplicate validation or make it per-provider scoped
+- [ ] Fix test isolation issues - unique meter/cache names per test run
+- [ ] Add proper service provider disposal in all test methods
+- [ ] Assert cache name preservation in decorator tests (Comment: [#2331684881](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684881))
+- [ ] Fix eviction callback timing dependencies in flaky tests (Comment: [#2331684876](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684876))
+- [ ] Add comprehensive options validation error message testing
+- [ ] Add proper exception parameter validation in negative configuration tests
+- [ ] Fix null factory result handling and validation
+- [ ] Add comprehensive multi-cache scenario validation
+- [ ] Fix OpenTelemetry integration test host management
+- [ ] Add proper metric emission validation in integration tests
+- [ ] Fix concurrency test patterns to avoid random-driven flakiness
+- [ ] Fix MetricCollectionHarness thread-safety - add proper locking for measurements
+- [ ] Add WaitForAtLeast helper method to replace Thread.Sleep in metric tests
+- [ ] Fix integration test metric validation - ensure proper metric emission verification
+- [ ] Add comprehensive negative configuration test coverage
+- [ ] Fix eviction reason validation in tests - expect multiple distinct reasons
+- [ ] Add proper metric aggregation validation in accuracy tests
+- [ ] Fix test method naming consistency and descriptiveness
+- [ ] Add comprehensive options validation testing with edge cases
+- [ ] Fix ServiceCollectionExtensions test assertions - verify actual functionality
+- [ ] Add proper exception message validation in all exception tests
+- [ ] Fix concurrent access patterns in TagList thread safety tests
+- [ ] Add comprehensive multi-cache isolation validation
+- [ ] Fix OpenTelemetry exporter configuration in integration tests
+- [ ] Add proper host lifecycle management in integration tests
+- [ ] Fix test harness isolation and metric collection accuracy
+- [ ] Add comprehensive metric emission accuracy validation
+- [ ] Fix test timing dependencies and flaky patterns
+- [ ] Add proper resource cleanup in all test scenarios
+- [ ] Add comprehensive thread-safety validation tests
+- [ ] Fix integration test configuration and setup
+- [ ] Add comprehensive OpenTelemetry exporter testing
+- [ ] Fix multi-cache scenario test coverage
+- [ ] Add proper cache isolation and independence validation
+- [ ] Remove #region usage from all test files per repository policy
+
+### Benchmark and Performance Issues
+**Type**: Performance  
+**Priority**: Medium  
+**Dependencies**: Critical fixes  
+
+Fix benchmark configuration and performance measurement accuracy.
+
+#### Sub-tasks:
+- [ ] Add JsonExporter.Full to benchmark configuration for BenchGate compatibility
+- [ ] Precompute benchmark keys to reduce noise and bound memory growth
+- [ ] Enable wrapper ownership in benchmark setup to prevent inner-cache disposal leak
+- [ ] Remove duplicate diagnoser attributes from benchmark configuration
+- [ ] Fix stress test CI stability by lowering operation counts and removing random delays
+- [ ] Add memory allocation guards and disposal patterns in benchmarks
+- [ ] Fix benchmark key generation patterns to avoid unbounded growth
+- [ ] Add ThreadingDiagnoser configuration for contention metrics
+- [ ] Fix benchmark CI configuration for deterministic results
+- [ ] Add proper BenchGate integration and validation
+- [ ] Fix performance regression detection thresholds
+- [ ] Add comprehensive benchmark baseline management
+- [ ] Fix cache entry size estimation and configuration in benchmarks
+- [ ] Fix benchmark methodology for accurate overhead measurement
+- [ ] Add proper baseline comparison and regression detection
+
+### API Design and Implementation Improvements
+**Type**: API Enhancement  
+**Priority**: Medium  
+**Dependencies**: DI fixes  
+
+Improve API design, validation, and error handling.
+
+#### Sub-tasks:
+- [ ] Fix input validation message punctuation consistency in ServiceCollectionExtensions.cs
+- [ ] Add comprehensive null safety checks for factory results in GetOrCreate
+- [ ] Fix eviction metric ToString allocation - pass enum directly to avoid string conversion
+- [ ] Add proper ObjectDisposedException checks in all public methods
+- [ ] Fix CacheName normalization to handle whitespace and prevent tag cardinality issues
+- [ ] Clone and normalize AdditionalTags dictionary to prevent aliasing and comparer drift
+- [ ] Harden MeteredMemoryCacheOptionsValidator with null AdditionalTags guard and reserve 'cache.name' key
+- [ ] Add proper metric name validation in DI extensions
+- [ ] Add proper eviction reason enum handling without string conversion
+- [ ] Fix CreateEvictionTags helper method allocation patterns
+- [ ] Add comprehensive tag validation in options validator
+- [ ] Fix reserved key validation in AdditionalTags
+- [ ] Add proper null checking for AdditionalTags in validator
+- [ ] Fix service collection extension method parameter validation
+- [ ] Add proper error handling in service resolution scenarios
+
+### Code Quality and Consistency
+**Type**: Code Quality  
+**Priority**: Medium  
+**Dependencies**: API fixes  
+
+Improve code quality, consistency, and maintainability.
+
+#### Sub-tasks:
+- [ ] Add DebuggerDisplay attribute to MeteredMemoryCache class for better debugging experience (Comment: [#2331684848](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684848))
+- [ ] Deduplicate eviction metric logic across three identical blocks in MeteredMemoryCache.cs (Comment: [#2334230089](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230089))
+- [ ] Fix miss classification race condition in GetOrCreate method - only count miss when factory actually runs (Comment: Multiple reviews)
+- [ ] Fix parameter name mismatch in examples - 'configure' should be 'configureOptions' (Comment: Copilot Review)
+- [ ] Fix renovate.json formatting - restore multi-line array format for better readability (Comment: Copilot Review)
+- [ ] Fix XML documentation enum reference - use PostEvictionReason instead of EvictionReason (Comment: Multiple reviews)
+- [ ] Remove LINQ Where allocation in options constructor AdditionalTags processing (Comment: Multiple reviews)
+
+### Documentation Fixes
+**Type**: Documentation  
+**Priority**: Medium  
+**Dependencies**: API fixes  
+
+Fix documentation issues, formatting, and content accuracy.
+
+#### Sub-tasks:
+- [ ] Fix markdownlint violations in specs/MeteredMemoryCache-TaskList.md - add blank lines, remove trailing colons (Comment: [#2331684842](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684842))
+- [ ] Create missing specs/MeteredMemoryCache-PRD.md file referenced in task list (Comment: [#2331684842](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684842))
+- [ ] Remove duplicated 'When reviewing C# code' section from .github/copilot-instructions.md (Comment: [#2334230056](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230056))
+- [ ] Escape generic type parameters in markdown headings to fix MD033 violations
+- [ ] Fix broken internal links and cross-references in documentation
+- [ ] Standardize performance numbers across all documentation files
+- [ ] Add missing XML documentation with proper <see cref> and <see langword> usage
+- [ ] Fix ordered list numbering in OpenTelemetryIntegration.md
+- [ ] Add blank lines around fenced code blocks in FAQ.md and MigrationGuide.md
+- [ ] Fix table column count issues in PerformanceCharacteristics.md
+- [ ] Add language specifications to fenced code blocks throughout documentation
+- [ ] Fix link fragment validation issues in README.md
+- [ ] Fix meter name alignment between DI extensions and documentation examples
+- [ ] Add .NET 8+ requirement note for FromKeyedServices usage in examples
+- [ ] Fix DecorateMemoryCacheWithMetrics parameter binding in documentation examples
+- [ ] Remove invalid ValidateDataAnnotations/ValidateOnStart chaining in documentation
+- [ ] Add comprehensive XML parameter documentation for all public methods
+- [ ] Fix missing <typeparam> documentation for generic methods
+- [ ] Add missing <exception> documentation for all thrown exceptions
+- [ ] Replace plain text keywords with <see langword> references in XML docs
+- [ ] Fix README.md table of contents with proper section linking
+- [ ] Add performance impact citations or soften claims without benchmark data
+- [ ] Fix MeteredMemoryCache overview organization in README
+- [ ] Add documentation navigation section with comprehensive cross-links
+- [ ] Fix API reference formatting and escape generic types properly
+- [ ] Add note about Prometheus tag name transformation (dots to underscores)
+- [ ] Add blank lines around headings in all documentation files
+- [ ] Fix trailing punctuation in all markdown headings
+- [ ] Add blank lines around lists in all documentation files
+- [ ] Escape all inline HTML elements in markdown files
+- [ ] Fix fenced code block language specifications throughout documentation
+- [ ] Add proper cross-reference links between related documentation
+- [ ] Fix broken relative path references in documentation
+- [ ] Standardize code example formatting across all documentation
+- [ ] Add missing error handling examples in documentation
+- [ ] Fix inconsistent naming conventions in code examples
+- [ ] Add missing using statements in standalone documentation examples
+- [ ] Create comprehensive FAQ section covering common integration patterns
+- [ ] Add migration guides from other caching libraries
+- [ ] Consolidate scattered best practices into dedicated guide
+- [ ] Fix metric name inconsistencies across documentation files
+- [ ] Fix duplicate layer numbering in Implementation Order section
+- [ ] Remove duplicate bullet points in Task 5 documentation section
+- [ ] Fix all MD022 violations - add blank lines around headings
+- [ ] Fix all MD032 violations - add blank lines around lists
+- [ ] Fix all MD026 violations - remove trailing colons from headings
+- [ ] Fix all MD033 violations - escape generic types in markdown
+- [ ] Fix documentation cross-reference matrix completeness
+- [ ] Add missing documentation sections (FAQ, migration, best practices)
+- [ ] Fix code example consistency across all documentation files
+- [ ] Add proper error handling patterns in all documentation examples
+- [ ] Fix technical accuracy inconsistencies across documentation
+- [ ] Add comprehensive troubleshooting guide with specific solutions
+- [ ] Fix missing space in closed ATX style heading in .github/copilot-instructions.md
+- [ ] Fix documentation formatting consistency across all files
+- [ ] Add comprehensive API documentation with examples
+- [ ] Fix performance characteristics documentation accuracy
+- [ ] Add proper troubleshooting procedures and diagnostics
+- [ ] Fix all remaining markdownlint violations across documentation
+
+### Validation and Testing Improvements
+**Type**: Quality Assurance  
+**Priority**: Medium  
+**Dependencies**: Critical fixes  
+
+Improve validation, testing patterns, and quality assurance.
+
+#### Sub-tasks:
+- [ ] Add BenchGate validation tests with PASS/FAIL scenarios
+- [ ] Fix CLI-style integration coverage in validation tests
+- [ ] Add comprehensive validation of all reviewer feedback implementation
+
+### Notes
+- Each item corresponds to specific reviewer comments from PR #15 (https://github.com/rjmurillo/memory-cache-solutions/pull/15)
+- Comment identifiers link directly to the GitHub PR discussion threads for context
+- Items are organized by priority and dependency relationships
+- Critical issues must be addressed before proceeding to other categories
+- All changes must maintain backward compatibility
+- Follow repository coding standards and validation workflows
+
+### Comment ID Reference
+**Key Comment Sources:**
+- **Copilot Reviews**: General review comments without specific IDs
+- **CodeRabbit Reviews**: Detailed comments with specific discussion IDs (format: #2331684XXX, #2334230XXX)
+- **Multiple Reviews**: Issues identified across multiple review iterations
+
+**Comment ID Format**: `#[comment_id]` links to `https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r[comment_id]`
+
+**Progress Tracking**: When implementing fixes, update the corresponding GitHub comment thread to indicate:
+- ✅ **Addressed**: Issue has been resolved
+- 🔄 **In Progress**: Currently being worked on  
+- 📝 **Needs Clarification**: Requires additional input from reviewer
+
+**Critical Comment IDs** (must be addressed first):
+- [#2331684850](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684850): TagList mutation bug (breaks core functionality)
+- [#2331660655](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331660655): Thread-safety issues (concurrency bugs)
+- [#2331684855](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684855): Build failures (missing usings)
+- [#2334230111](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230111): DI registration broken (runtime failures)
