@@ -148,6 +148,167 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
+    public void TagListMutationBug_DocumentsInconsistentPatternUsage()
+    {
+        // This test documents the inconsistent pattern in MeteredMemoryCache:
+        // - Eviction callbacks use CreateEvictionTags() to create a copy (CORRECT)
+        // - Hit/miss metrics pass _baseTags directly (POTENTIALLY PROBLEMATIC)
+        //
+        // PR comment #2331684850 identifies this as a bug where cache.name tags
+        // are lost due to defensive copy mutation on the readonly field.
+        //
+        // The fix is to use the same copy pattern for all metric emissions.
+
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        var meter = new Meter($"test.pattern.inconsistency.{Guid.NewGuid()}");
+        
+        var cache = new MeteredMemoryCache(inner, meter, cacheName: "pattern-test-cache");
+
+        // This test passes with current implementation, but documents the issue
+        // The real fix is to change the implementation to use consistent copying
+
+        var emittedMetrics = new List<(string InstrumentName, KeyValuePair<string, object?>[] Tags)>();
+        using var listener = new MeterListener();
+
+        listener.InstrumentPublished = (inst, meterListener) =>
+        {
+            if (inst.Name.StartsWith("cache_"))
+            {
+                meterListener.EnableMeasurementEvents(inst);
+            }
+        };
+
+        listener.SetMeasurementEventCallback<long>((inst, measurement, tags, state) =>
+        {
+            emittedMetrics.Add((inst.Name, tags.ToArray()));
+        });
+        listener.Start();
+
+        // Operations that demonstrate the pattern inconsistency:
+        cache.TryGetValue("miss", out _);    // Uses _baseTags directly (line 120, 225)
+        cache.Set("hit", "value");           // Sets up hit + eviction callback
+        cache.TryGetValue("hit", out _);     // Uses _baseTags directly (line 116, 176)
+
+        // Force eviction to trigger CreateEvictionTags pattern
+        using var cts = new CancellationTokenSource();
+        var options = new MemoryCacheEntryOptions();
+        options.AddExpirationToken(new Microsoft.Extensions.Primitives.CancellationChangeToken(cts.Token));
+        cache.Set("evict-me", "value", options);
+        cts.Cancel();
+        cache.TryGetValue("evict-me", out _); // Trigger eviction processing
+        inner.Compact(0.0);
+        Thread.Sleep(10); // Allow eviction callback to execute
+
+        // All metrics should have cache.name tag, but they use different patterns
+        var metricsWithCacheName = emittedMetrics.Count(m => 
+            m.Tags != null && m.Tags.Any(t => t.Key == "cache.name" && (string?)t.Value == "pattern-test-cache"));
+
+        // This assertion documents current behavior - it should pass
+        // The issue is that different code paths use different patterns for TagList handling
+        Assert.True(metricsWithCacheName >= 2,
+            $"Expected metrics with cache.name tag, but only {metricsWithCacheName} found out of {emittedMetrics.Count} total");
+
+        // Document the pattern inconsistency in the test output
+        var hitMissMetrics = emittedMetrics.Where(m => m.InstrumentName.Contains("hits") || m.InstrumentName.Contains("misses"));
+        var evictionMetrics = emittedMetrics.Where(m => m.InstrumentName.Contains("evictions"));
+
+        Assert.True(hitMissMetrics.Any(), "Should have hit/miss metrics that use _baseTags directly");
+        // Eviction metrics may or may not be present due to timing, but the pattern difference exists in the code
+    }
+
+    [Fact]
+    public void TagListMutationBug_ReadonlyFieldDefensiveCopyLosesTagsInDirectUsage()
+    {
+        // This test demonstrates the actual bug: when a readonly TagList field is passed
+        // directly to Counter<T>.Add(), the defensive copy behavior can cause issues.
+        // The problem is that _baseTags is passed directly in lines like:
+        // _hits.Add(1, _baseTags); // Line 116, 176
+        // _misses.Add(1, _baseTags); // Line 120, 182, 225
+        //
+        // Instead of using the CreateEvictionTags pattern that creates a copy.
+
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        var meter = new Meter("test.readonly.field.bug");
+
+        // Create a cache with both cache name and additional tags to maximize the TagList content
+        var options = new MeteredMemoryCacheOptions
+        {
+            CacheName = "test-cache-name",
+            AdditionalTags = { ["environment"] = "test", ["version"] = "1.0" }
+        };
+        var cache = new MeteredMemoryCache(inner, meter, options);
+
+        // Track all emitted tag sets to verify consistency
+        var allEmittedTags = new List<KeyValuePair<string, object?>[]>();
+        using var listener = new MeterListener();
+
+        listener.InstrumentPublished = (inst, meterListener) =>
+        {
+            if (inst.Name.StartsWith("cache_"))
+            {
+                meterListener.EnableMeasurementEvents(inst);
+            }
+        };
+
+        listener.SetMeasurementEventCallback<long>((inst, measurement, tags, state) =>
+        {
+            // Capture all emitted tags for analysis
+            allEmittedTags.Add(tags.ToArray());
+        });
+        listener.Start();
+
+        // Perform operations that directly pass _baseTags to Counter<T>.Add()
+        cache.TryGetValue("miss1", out _);  // Should emit miss with _baseTags directly
+        cache.Set("hit1", "value1");        // Sets up for hit
+        cache.TryGetValue("hit1", out _);   // Should emit hit with _baseTags directly
+        cache.TryGetValue("miss2", out _);  // Another miss with _baseTags directly
+
+        // Verify we captured metrics
+        Assert.True(allEmittedTags.Count >= 3, $"Expected at least 3 metrics, got {allEmittedTags.Count}");
+
+        // The bug would manifest as inconsistent tag sets or missing tags
+        // All metrics should have the same base tags (cache.name, environment, version)
+        var expectedBaseTags = new[] { "cache.name", "environment", "version" };
+
+        foreach (var tagSet in allEmittedTags)
+        {
+            foreach (var expectedTag in expectedBaseTags)
+            {
+                var hasTag = tagSet.Any(t => t.Key == expectedTag);
+                Assert.True(hasTag,
+                    $"Missing expected tag '{expectedTag}' in metric emission. " +
+                    $"Present tags: {string.Join(", ", tagSet.Select(t => $"{t.Key}={t.Value}"))}");
+            }
+
+            // Verify specific tag values
+            var cacheNameTag = tagSet.First(t => t.Key == "cache.name");
+            var environmentTag = tagSet.First(t => t.Key == "environment");
+            var versionTag = tagSet.First(t => t.Key == "version");
+
+            Assert.Equal("test-cache-name", cacheNameTag.Value);
+            Assert.Equal("test", environmentTag.Value);
+            Assert.Equal("1.0", versionTag.Value);
+        }
+
+        // Additional check: All tag sets should be identical for base tags
+        // (excluding eviction-specific tags like "reason")
+        var baseTagSets = allEmittedTags
+            .Select(tags => tags.Where(t => expectedBaseTags.Contains(t.Key)).OrderBy(t => t.Key).ToArray())
+            .ToList();
+
+        var firstBaseTagSet = baseTagSets[0];
+        foreach (var tagSet in baseTagSets.Skip(1))
+        {
+            Assert.Equal(firstBaseTagSet.Length, tagSet.Length);
+            for (int i = 0; i < firstBaseTagSet.Length; i++)
+            {
+                Assert.Equal(firstBaseTagSet[i].Key, tagSet[i].Key);
+                Assert.Equal(firstBaseTagSet[i].Value, tagSet[i].Value);
+            }
+        }
+    }
+
+    [Fact]
     public void OptionsConstructor_WithCacheName_SetsNameProperty()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());

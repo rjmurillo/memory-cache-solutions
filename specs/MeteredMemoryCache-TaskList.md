@@ -189,7 +189,7 @@ The following items address specific reviewer feedback from PR #15 comments. Eac
 Address critical runtime bugs that affect core functionality.
 
 #### Sub-tasks:
-- [ ] Fix TagList mutation bug on readonly field in MeteredMemoryCache.cs - cache.name tags are lost due to defensive copy mutation (Comment: [#2331684850](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684850))
+- [x] Fix TagList mutation bug on readonly field in MeteredMemoryCache.cs - cache.name tags are lost due to defensive copy mutation (Comment: [#2331684850](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684850))
 - [ ] Fix TagList initialization in options constructor - same mutation bug as basic constructor (Comment: [#2334230089](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230089))
 - [ ] Add volatile keyword to _disposed field for proper visibility across threads (Comment: Multiple reviews)
 - [ ] Fix thread-safety issue with static HashSet fields in ServiceCollectionExtensions.cs - replace with ConcurrentDictionary (Comment: [#2331660655](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331660655))

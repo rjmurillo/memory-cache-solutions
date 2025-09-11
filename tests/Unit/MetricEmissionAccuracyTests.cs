@@ -464,19 +464,19 @@ public class MetricEmissionAccuracyTests
 
         // Wait for expiration and force cleanup with more aggressive approach
         Thread.Sleep(50); // Longer wait for expiration
-        
+
         // Try multiple access attempts to trigger cleanup
         for (int i = 0; i < 5; i++)
         {
             cache.TryGetValue("manual-entry", out _);
             cache.TryGetValue($"trigger-cleanup-{i}", out _); // Additional access to trigger internal cleanup
         }
-        
+
         // Force compact multiple times to ensure eviction processing
         inner.Compact(0.0);
         inner.Compact(0.5);
         Thread.Sleep(100); // Allow more time for callback processing
-        
+
         // Additional trigger attempts after compact
         cache.TryGetValue("manual-entry", out _);
         Thread.Sleep(50);

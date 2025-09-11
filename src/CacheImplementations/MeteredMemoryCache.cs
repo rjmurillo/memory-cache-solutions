@@ -113,11 +113,11 @@ public sealed class MeteredMemoryCache : IMemoryCache
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_inner.TryGetValue(key, out var obj) && obj is T t)
         {
-            _hits.Add(1, _baseTags);
+            _hits.Add(1, CreateBaseTags(_baseTags));
             value = t;
             return true;
         }
-        _misses.Add(1, _baseTags);
+        _misses.Add(1, CreateBaseTags(_baseTags));
         value = default!;
         return false;
     }
@@ -173,13 +173,13 @@ public sealed class MeteredMemoryCache : IMemoryCache
         // First attempt: check if key exists and value is correct type (cache hit scenario)
         if (_inner.TryGetValue(key, out var existing) && existing is T hit)
         {
-            _hits.Add(1, _baseTags);
+            _hits.Add(1, CreateBaseTags(_baseTags));
             return hit;
         }
 
         // Cache miss: record miss metric and delegate to inner cache for creation
         // This ensures accurate hit/miss ratios even with concurrent access patterns
-        _misses.Add(1, _baseTags);
+        _misses.Add(1, CreateBaseTags(_baseTags));
         var created = _inner.GetOrCreate(key, entry =>
         {
             // Register eviction tracking for the newly created entry
@@ -222,7 +222,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
         // Delegate to inner cache and emit appropriate metric based on result
         // This pattern ensures consistent hit/miss tracking across all access methods
         var hit = _inner.TryGetValue(key, out value);
-        if (hit) _hits.Add(1, _baseTags); else _misses.Add(1, _baseTags);
+        if (hit) _hits.Add(1, CreateBaseTags(_baseTags)); else _misses.Add(1, CreateBaseTags(_baseTags));
         return hit;
     }
 
@@ -264,6 +264,28 @@ public sealed class MeteredMemoryCache : IMemoryCache
         ArgumentNullException.ThrowIfNull(key);
         ObjectDisposedException.ThrowIf(_disposed, this);
         _inner.Remove(key); // eviction callback (if any) will record eviction metric
+    }
+
+    /// <summary>
+    /// Thread-safe helper to create base tags copy for hit/miss metric emissions.
+    /// This method creates a new TagList instance to prevent defensive copy issues
+    /// that could occur when the readonly _baseTags field is passed directly to Counter operations.
+    /// </summary>
+    private static TagList CreateBaseTags(TagList baseTags)
+    {
+        var tags = new TagList();
+
+        // Copy base tags in a thread-safe manner by creating a new TagList
+        // This approach prevents defensive copy mutation issues when readonly fields
+        // are passed directly to Counter<T>.Add() operations
+        // TagList enumeration is thread-safe for reading, but we create a new instance
+        // to ensure consistent behavior across all metric emission patterns
+        foreach (var tag in baseTags)
+        {
+            tags.Add(tag.Key, tag.Value);
+        }
+
+        return tags;
     }
 
     /// <summary>
