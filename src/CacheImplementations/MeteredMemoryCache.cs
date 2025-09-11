@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace CacheImplementations;
 
@@ -92,10 +91,18 @@ public sealed class MeteredMemoryCache : IMemoryCache
 
         // Add user-defined custom tags while preventing cache.name override
         // This filtering ensures cache.name remains consistent if set via CacheName property
-        foreach (var kvp in options.AdditionalTags.Where(kvp => !string.Equals(kvp.Key, "cache.name", System.StringComparison.Ordinal)))
+        // Note: Using explicit foreach instead of LINQ Where() to avoid allocation overhead
+        // as identified in PR feedback for high-performance metric emission scenarios
+#pragma warning disable S3267 // Intentionally avoiding LINQ Where() allocation
+        foreach (var kvp in options.AdditionalTags)
         {
-            _baseTags.Add(kvp.Key, kvp.Value);
+            // Skip cache.name to prevent override of the value set from CacheName property
+            if (!string.Equals(kvp.Key, "cache.name", System.StringComparison.Ordinal))
+            {
+                _baseTags.Add(kvp.Key, kvp.Value);
+            }
         }
+#pragma warning restore S3267
     }
 
     /// <summary>

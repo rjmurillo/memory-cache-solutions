@@ -161,7 +161,7 @@ public class MeteredMemoryCacheTests
 
         using var inner = new MemoryCache(new MemoryCacheOptions());
         var meter = new Meter($"test.pattern.inconsistency.{Guid.NewGuid()}");
-        
+
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "pattern-test-cache");
 
         // This test passes with current implementation, but documents the issue
@@ -200,7 +200,7 @@ public class MeteredMemoryCacheTests
         Thread.Sleep(10); // Allow eviction callback to execute
 
         // All metrics should have cache.name tag, but they use different patterns
-        var metricsWithCacheName = emittedMetrics.Count(m => 
+        var metricsWithCacheName = emittedMetrics.Count(m =>
             m.Tags != null && m.Tags.Any(t => t.Key == "cache.name" && (string?)t.Value == "pattern-test-cache"));
 
         // This assertion documents current behavior - it should pass
@@ -321,6 +321,84 @@ public class MeteredMemoryCacheTests
         var cache = new MeteredMemoryCache(inner, meter, options);
 
         Assert.Equal("named-cache", cache.Name);
+    }
+
+    [Fact]
+    public void TagListInitializationBug_OptionsConstructor_SameMutationBugAsBasicConstructor()
+    {
+        // This test demonstrates the TagList initialization issue in the options constructor
+        // mentioned in PR comment #2334230089: "same mutation bug as basic constructor"
+        //
+        // The issue is that the options constructor uses LINQ filtering on line 95 which
+        // could have similar defensive copy issues as the basic constructor had.
+
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        var meter = new Meter($"test.options.taglist.bug.{Guid.NewGuid()}");
+
+        // Create options with both cache name and additional tags to test the LINQ filtering
+        var options = new MeteredMemoryCacheOptions
+        {
+            CacheName = "options-test-cache",
+            AdditionalTags =
+            {
+                ["environment"] = "test",
+                ["version"] = "1.0",
+                ["cache.name"] = "should-be-filtered-out" // This should be ignored
+            }
+        };
+
+        var cache = new MeteredMemoryCache(inner, meter, options);
+
+        // Capture emitted metrics to verify TagList initialization worked correctly
+        var emittedMetrics = new List<(string InstrumentName, KeyValuePair<string, object?>[] Tags)>();
+        using var listener = new MeterListener();
+
+        listener.InstrumentPublished = (inst, meterListener) =>
+        {
+            if (inst.Name.StartsWith("cache_"))
+            {
+                meterListener.EnableMeasurementEvents(inst);
+            }
+        };
+
+        listener.SetMeasurementEventCallback<long>((inst, measurement, tags, state) =>
+        {
+            emittedMetrics.Add((inst.Name, tags.ToArray()));
+        });
+        listener.Start();
+
+        // Perform operations that should emit metrics with properly initialized tags
+        cache.TryGetValue("miss", out _);    // Miss metric
+        cache.Set("hit", "value");           // Set for hit
+        cache.TryGetValue("hit", out _);     // Hit metric
+
+        // Verify that metrics contain expected tags and proper filtering occurred
+        Assert.True(emittedMetrics.Count >= 2, "Should have at least hit and miss metrics");
+
+        foreach (var (instrumentName, tags) in emittedMetrics)
+        {
+            // Verify cache.name is present and correct (not the filtered-out value)
+            var cacheNameTag = tags.FirstOrDefault(t => t.Key == "cache.name");
+            Assert.Equal("cache.name", cacheNameTag.Key);
+            Assert.Equal("options-test-cache", cacheNameTag.Value);
+            Assert.NotEqual("should-be-filtered-out", cacheNameTag.Value);
+
+            // Verify additional tags are present
+            var environmentTag = tags.FirstOrDefault(t => t.Key == "environment");
+            Assert.Equal("environment", environmentTag.Key);
+            Assert.Equal("test", environmentTag.Value);
+
+            var versionTag = tags.FirstOrDefault(t => t.Key == "version");
+            Assert.Equal("version", versionTag.Key);
+            Assert.Equal("1.0", versionTag.Value);
+
+            // Verify that we have exactly the expected number of tags (no duplicates)
+            var uniqueKeys = tags.Select(t => t.Key).Distinct().ToList();
+            Assert.Equal(tags.Length, uniqueKeys.Count);
+        }
+
+        // Additional verification: ensure Name property is set correctly
+        Assert.Equal("options-test-cache", cache.Name);
     }
 
     [Fact]
