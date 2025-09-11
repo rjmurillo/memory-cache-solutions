@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Primitives;
 using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
+using System.Linq;
 using Xunit;
 using System.Diagnostics;
 

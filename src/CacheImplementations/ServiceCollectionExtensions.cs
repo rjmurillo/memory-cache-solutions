@@ -1,5 +1,7 @@
 // Copyright (c) 2025, MeteredMemoryCache contributors
+using System;
 using System.Diagnostics.Metrics;
+using System.Linq;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
