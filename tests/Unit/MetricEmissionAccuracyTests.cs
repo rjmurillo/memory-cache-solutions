@@ -614,6 +614,160 @@ public class MetricEmissionAccuracyTests
     }
 
     [Fact]
+    public async Task ComprehensiveMultiCacheScenario_CompleteIsolationValidation_ValidatesAllOperations()
+    {
+        using var inner1 = new MemoryCache(new MemoryCacheOptions());
+        using var inner2 = new MemoryCache(new MemoryCacheOptions());
+        using var inner3 = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter("test.accuracy.multicache");
+        using var harness = new MetricCollectionHarness("test.accuracy.multicache", 
+            "cache_hits_total", "cache_misses_total", "cache_evictions_total");
+
+        // Create 3 caches with different configurations
+        var options1 = new MeteredMemoryCacheOptions
+        {
+            CacheName = "service-cache",
+            AdditionalTags = { ["service"] = "user-service", ["environment"] = "test" }
+        };
+        
+        var options2 = new MeteredMemoryCacheOptions
+        {
+            CacheName = "data-cache", 
+            AdditionalTags = { ["service"] = "data-service", ["tier"] = "backend" }
+        };
+
+        var cache1 = new MeteredMemoryCache(inner1, meter, options1);
+        var cache2 = new MeteredMemoryCache(inner2, meter, options2);
+        var cache3 = new MeteredMemoryCache(inner3, meter, cacheName: "simple-cache"); // Basic configuration
+
+        // Scenario 1: Different hit/miss patterns per cache
+        // Cache1: 2 hits, 1 miss
+        cache1.Set("user:1", "data1");
+        cache1.Set("user:2", "data2");
+        cache1.TryGetValue("user:1", out _); // hit
+        cache1.TryGetValue("user:2", out _); // hit
+        cache1.TryGetValue("user:3", out _); // miss
+
+        // Cache2: 1 hit, 3 misses
+        cache2.TryGetValue("query:1", out _); // miss
+        cache2.TryGetValue("query:2", out _); // miss
+        cache2.Set("query:1", "result1");
+        cache2.TryGetValue("query:1", out _); // hit
+        cache2.TryGetValue("query:3", out _); // miss
+
+        // Cache3: 3 hits, 2 misses
+        cache3.Set("key1", "value1");
+        cache3.Set("key2", "value2");
+        cache3.Set("key3", "value3");
+        cache3.TryGetValue("key1", out _); // hit
+        cache3.TryGetValue("key2", out _); // hit
+        cache3.TryGetValue("key3", out _); // hit
+        cache3.TryGetValue("key4", out _); // miss
+        cache3.TryGetValue("key5", out _); // miss
+
+        // Scenario 2: Eviction scenarios for each cache
+        using (var entry1 = cache1.CreateEntry("temp:1"))
+        {
+            entry1.Value = "temp-data";
+            entry1.AbsoluteExpirationRelativeToNow = TimeSpan.FromMilliseconds(10);
+        }
+
+        using (var entry2 = cache2.CreateEntry("temp:2"))
+        {
+            entry2.Value = "temp-query";
+            entry2.AbsoluteExpirationRelativeToNow = TimeSpan.FromMilliseconds(10);
+        }
+
+        cache3.Set("manual-remove", "will-be-removed");
+        
+        // Wait for expiration
+        await Task.Delay(50);
+        inner1.Compact(0.0);
+        inner2.Compact(0.0);
+        cache3.Remove("manual-remove"); // Manual eviction
+
+        // Wait for eviction metrics
+        var evictionDetected = await harness.WaitForMetricAsync("cache_evictions_total", 3, TimeSpan.FromSeconds(5));
+        Assert.True(evictionDetected, "Expected eviction metrics from all 3 caches");
+
+        // Validate hit/miss isolation per cache
+        var cache1Hits = harness.GetAggregatedCount("cache_hits_total",
+            new KeyValuePair<string, object?>("cache.name", "service-cache"));
+        var cache1Misses = harness.GetAggregatedCount("cache_misses_total",
+            new KeyValuePair<string, object?>("cache.name", "service-cache"));
+
+        var cache2Hits = harness.GetAggregatedCount("cache_hits_total",
+            new KeyValuePair<string, object?>("cache.name", "data-cache"));
+        var cache2Misses = harness.GetAggregatedCount("cache_misses_total",
+            new KeyValuePair<string, object?>("cache.name", "data-cache"));
+
+        var cache3Hits = harness.GetAggregatedCount("cache_hits_total",
+            new KeyValuePair<string, object?>("cache.name", "simple-cache"));
+        var cache3Misses = harness.GetAggregatedCount("cache_misses_total",
+            new KeyValuePair<string, object?>("cache.name", "simple-cache"));
+
+        // Assert expected counts
+        Assert.Equal(2, cache1Hits);
+        Assert.Equal(1, cache1Misses);
+        Assert.Equal(1, cache2Hits);
+        Assert.Equal(3, cache2Misses);
+        Assert.Equal(3, cache3Hits);
+        Assert.Equal(2, cache3Misses);
+
+        // Validate eviction isolation
+        var cache1Evictions = harness.GetMeasurementsWithTags("cache_evictions_total",
+            new KeyValuePair<string, object?>("cache.name", "service-cache"));
+        var cache2Evictions = harness.GetMeasurementsWithTags("cache_evictions_total",
+            new KeyValuePair<string, object?>("cache.name", "data-cache"));
+        var cache3Evictions = harness.GetMeasurementsWithTags("cache_evictions_total",
+            new KeyValuePair<string, object?>("cache.name", "simple-cache"));
+
+        Assert.True(cache1Evictions.Count >= 1, "Cache1 should have eviction metrics");
+        Assert.True(cache2Evictions.Count >= 1, "Cache2 should have eviction metrics");
+        Assert.True(cache3Evictions.Count >= 1, "Cache3 should have eviction metrics");
+
+        // Validate additional tags isolation
+        var cache1Measurements = harness.GetMeasurementsWithTags("cache_hits_total",
+            new KeyValuePair<string, object?>("cache.name", "service-cache"));
+        var cache2Measurements = harness.GetMeasurementsWithTags("cache_hits_total",
+            new KeyValuePair<string, object?>("cache.name", "data-cache"));
+
+        // Verify cache1 has service-specific tags
+        Assert.All(cache1Measurements, m =>
+        {
+            Assert.Equal("user-service", m.Tags["service"]);
+            Assert.Equal("test", m.Tags["environment"]);
+        });
+
+        // Verify cache2 has different service-specific tags
+        Assert.All(cache2Measurements, m =>
+        {
+            Assert.Equal("data-service", m.Tags["service"]);
+            Assert.Equal("backend", m.Tags["tier"]);
+        });
+
+        // Validate no cross-contamination: cache names should be distinct
+        var allMeasurements = harness.AllMeasurements;
+        var cacheNames = allMeasurements
+            .Where(m => m.Tags.ContainsKey("cache.name"))
+            .Select(m => m.Tags["cache.name"]?.ToString())
+            .Distinct()
+            .ToList();
+
+        Assert.Equal(3, cacheNames.Count);
+        Assert.Contains("service-cache", cacheNames);
+        Assert.Contains("data-cache", cacheNames);
+        Assert.Contains("simple-cache", cacheNames);
+
+        // Validate total aggregation
+        var totalHits = cache1Hits + cache2Hits + cache3Hits;
+        var totalMisses = cache1Misses + cache2Misses + cache3Misses;
+        
+        harness.AssertAggregatedCount("cache_hits_total", totalHits);
+        harness.AssertAggregatedCount("cache_misses_total", totalMisses);
+    }
+
+    [Fact]
     public void HighVolumeOperations_AccurateAggregation_ValidatesScalability()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
