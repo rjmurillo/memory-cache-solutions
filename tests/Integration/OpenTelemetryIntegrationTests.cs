@@ -26,7 +26,7 @@ public class OpenTelemetryIntegrationTests
         await host.StartAsync();
 
         var cache = host.Services.GetRequiredService<IMemoryCache>();
-
+        
         // Pre-populate cache
         cache.Set("test-key", "test-value");
 
@@ -39,7 +39,7 @@ public class OpenTelemetryIntegrationTests
         // Assert
         Assert.True(result);
         Assert.Equal("test-value", value);
-
+        
         var hitMetric = FindMetric(exportedItems, "cache_hits_total");
         Assert.NotNull(hitMetric);
         AssertMetricValue(hitMetric, 1);
@@ -67,7 +67,7 @@ public class OpenTelemetryIntegrationTests
         // Assert
         Assert.False(result);
         Assert.Null(value);
-
+        
         var missMetric = FindMetric(exportedItems, "cache_misses_total");
         Assert.NotNull(missMetric);
         AssertMetricValue(missMetric, 1);
@@ -81,7 +81,7 @@ public class OpenTelemetryIntegrationTests
     {
         // Arrange
         var exportedItems = new List<Metric>();
-        using var host = CreateHostWithMetrics(exportedItems, cacheOptions: opt =>
+        using var host = CreateHostWithMetrics(exportedItems, cacheOptions: opt => 
         {
             opt.SizeLimit = 1; // Force eviction after one item
         });
@@ -130,7 +130,7 @@ public class OpenTelemetryIntegrationTests
         var hitMetric = FindMetric(exportedItems, "cache_hits_total");
         Assert.NotNull(hitMetric);
         AssertMetricHasTag(hitMetric, "cache.name", "user-cache");
-
+        
         var missMetric = FindMetric(exportedItems, "cache_misses_total");
         Assert.NotNull(missMetric);
         AssertMetricHasTag(missMetric, "cache.name", "user-cache");
@@ -154,7 +154,7 @@ public class OpenTelemetryIntegrationTests
         // Act
         userCache.Set("user1", "data1");
         userCache.TryGetValue("user1", out _); // Hit for user-cache
-
+        
         productCache.Set("product1", "data1");
         productCache.TryGetValue("missing", out _); // Miss for product-cache
 
@@ -165,13 +165,13 @@ public class OpenTelemetryIntegrationTests
         var hitMetrics = FindMetrics(exportedItems, "cache_hits_total");
         var userCacheHits = hitMetrics.Where(m => HasTag(m, "cache.name", "user-cache"));
         var productCacheHits = hitMetrics.Where(m => HasTag(m, "cache.name", "product-cache"));
-
+        
         Assert.Single(userCacheHits);
         Assert.Empty(productCacheHits); // No hits for product cache
-
+        
         var missMetrics = FindMetrics(exportedItems, "cache_misses_total");
         var productCacheMisses = missMetrics.Where(m => HasTag(m, "cache.name", "product-cache"));
-
+        
         Assert.Single(productCacheMisses);
     }
 
@@ -247,10 +247,10 @@ public class OpenTelemetryIntegrationTests
         // Assert
         var hitMetric = FindMetric(exportedItems, "cache_hits_total");
         var missMetric = FindMetric(exportedItems, "cache_misses_total");
-
+        
         Assert.NotNull(hitMetric);
         Assert.NotNull(missMetric);
-
+        
         AssertMetricValue(hitMetric, operationsPerType / 2);
         AssertMetricValue(missMetric, operationsPerType / 2);
     }
@@ -258,11 +258,11 @@ public class OpenTelemetryIntegrationTests
     #region Helper Methods
 
     private static IHost CreateHostWithMetrics(
-        List<Metric> exportedItems,
+        List<Metric> exportedItems, 
         Action<MemoryCacheOptions>? cacheOptions = null)
     {
         var builder = new HostApplicationBuilder();
-
+        
         // Add memory cache
         if (cacheOptions != null)
         {
@@ -346,7 +346,7 @@ public class OpenTelemetryIntegrationTests
         {
             meterProvider.ForceFlush(5000); // 5000ms = 5 seconds
         }
-
+        
         // Give additional time for async operations
         await Task.Delay(50);
     }
@@ -388,7 +388,7 @@ public class OpenTelemetryIntegrationTests
             }
             if (hasTag) break;
         }
-
+        
         Assert.True(hasTag, $"Metric should have tag '{tagKey}' with value '{expectedValue}'");
     }
 
