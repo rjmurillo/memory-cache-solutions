@@ -15,6 +15,8 @@ namespace CacheImplementations;
 /// publication guarantees of <see cref="Lazy{T}"/> with <see cref="LazyThreadSafetyMode.ExecutionAndPublication"/>.
 /// This keeps contention minimal while still preventing duplicate work.
 /// </remarks>
+/// <param name="cache">The underlying <see cref="IMemoryCache"/> used for storing produced values. Cannot be <see langword="null"/>.</param>
+/// <exception cref="ArgumentNullException">Thrown when <paramref name="cache"/> is <see langword="null"/>.</exception>
 public sealed class SingleFlightLazyCache(IMemoryCache cache)
 {
     private readonly IMemoryCache _cache = cache ?? throw new ArgumentNullException(nameof(cache));

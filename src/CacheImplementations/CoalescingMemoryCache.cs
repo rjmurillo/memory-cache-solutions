@@ -17,6 +17,12 @@ public sealed class CoalescingMemoryCache : IMemoryCache
     private readonly IMemoryCache _inner;
     private readonly bool _disposeInner;
 
+    /// <summary>
+    /// Initializes a new instance of <see cref="CoalescingMemoryCache"/> that decorates the specified <see cref="IMemoryCache"/> with single-flight coalescing behavior.
+    /// </summary>
+    /// <param name="inner">The <see cref="IMemoryCache"/> implementation to decorate with coalescing behavior. Cannot be <see langword="null"/>.</param>
+    /// <param name="disposeInner">Whether to dispose the <paramref name="inner"/> cache when this instance is disposed. Defaults to <see langword="false"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="inner"/> is <see langword="null"/>.</exception>
     public CoalescingMemoryCache(IMemoryCache inner, bool disposeInner = false)
     {
         ArgumentNullException.ThrowIfNull(inner);
@@ -28,6 +34,11 @@ public sealed class CoalescingMemoryCache : IMemoryCache
     /// Gets the cached value for <paramref name="key"/> if present; otherwise executes the asynchronous
     /// <paramref name="createAsync"/> exactly once for all concurrent callers, caches its result, and returns it.
     /// </summary>
+    /// <typeparam name="T">The type of the cached value.</typeparam>
+    /// <param name="key">The cache key to retrieve or create. Cannot be <see langword="null"/>.</param>
+    /// <param name="createAsync">The asynchronous factory function to create a new cache entry if the key is not found. Cannot be <see langword="null"/>.</param>
+    /// <returns>The cached value if found, or the newly created value from the factory.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> or <paramref name="createAsync"/> is <see langword="null"/>.</exception>
     public async Task<T> GetOrCreateAsync<T>(object key, Func<ICacheEntry, Task<T>> createAsync)
     {
         ArgumentNullException.ThrowIfNull(key);
