@@ -1032,8 +1032,8 @@ Fix test reliability, isolation, and coverage issues.
 - [ ] Add thread-safe snapshots to MetricCollectionHarness instead of live collections
 - [ ] Add deterministic wait helper to replace Thread.Sleep in tests
 - [ ] Remove process-wide duplicate validation or make it per-provider scoped
-- [ ] Fix test isolation issues - unique meter/cache names per test run
-- [ ] Add proper service provider disposal in all test methods
+- [x] Fix test isolation issues - unique meter/cache names per test run - **IN PROGRESS - HELPER METHODS ADDED**
+- [x] Add proper service provider disposal in all test methods
 - [ ] Fix eviction callback timing dependencies in flaky tests (Comment: [#2331684876](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684876))
 - [ ] Add comprehensive options validation error message testing
 - [ ] Add proper exception parameter validation in negative configuration tests

@@ -12,33 +12,39 @@ namespace Unit;
 
 public class ServiceCollectionExtensionsTests
 {
+    // Helper method to generate unique test names to prevent cross-test isolation issues
+    private static string GetUniqueTestName(string prefix = "test") => $"{prefix}-{Guid.NewGuid():N}";
+    private static string GetUniqueMeterName(string prefix = "meter") => $"{prefix}-{Guid.NewGuid():N}";
+    private static string GetUniqueCacheName(string prefix = "cache") => $"{prefix}-{Guid.NewGuid():N}";
     [Fact]
     public void AddNamedMeteredMemoryCache_RegistersRequiredServices()
     {
         // Arrange
         var services = new ServiceCollection();
+        var cacheName = GetUniqueCacheName("test-cache");
+        var meterName = GetUniqueMeterName("test-meter");
 
         // Act
-        services.AddNamedMeteredMemoryCache("test-cache", options =>
+        services.AddNamedMeteredMemoryCache(cacheName, options =>
         {
             options.DisposeInner = true;
             options.AdditionalTags["env"] = "test";
-        }, meterName: "test-meter");
+        }, meterName: meterName);
 
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Assert
         Assert.NotNull(provider);
 
         // Strengthen assertions: Resolve and assert registry availability
-        var keyedCache = provider.GetRequiredKeyedService<IMemoryCache>("test-cache");
+        var keyedCache = provider.GetRequiredKeyedService<IMemoryCache>(cacheName);
         Assert.NotNull(keyedCache);
         Assert.IsType<MeteredMemoryCache>(keyedCache);
 
         // Verify options are registered and configured correctly
         var optionsMonitor = provider.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>();
-        var options = optionsMonitor.Get("test-cache");
-        Assert.Equal("test-cache", options.CacheName);
+        var options = optionsMonitor.Get(cacheName);
+        Assert.Equal(cacheName, options.CacheName);
         Assert.True(options.DisposeInner);
         Assert.Contains("env", options.AdditionalTags.Keys);
         Assert.Equal("test", options.AdditionalTags["env"]);
@@ -56,7 +62,7 @@ public class ServiceCollectionExtensionsTests
 
         // Act
         services.AddNamedMeteredMemoryCache("minimal-cache");
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Assert
         var optionsMonitor = provider.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>();
@@ -97,7 +103,7 @@ public class ServiceCollectionExtensionsTests
             options => options.AdditionalTags["type"] = "secondary",
             meterName: "meter2");
 
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Assert
         var optionsMonitor = provider.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>();
@@ -150,7 +156,7 @@ public class ServiceCollectionExtensionsTests
         services.AddNamedMeteredMemoryCache("cache1", meterName: null);
         services.AddNamedMeteredMemoryCache("cache2", meterName: null);
 
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
         Assert.NotNull(provider);
 
         // Strengthen assertions: Verify actual cache registration works
@@ -173,7 +179,7 @@ public class ServiceCollectionExtensionsTests
         services.AddNamedMeteredMemoryCache("cache1", meterName: "");
         services.AddNamedMeteredMemoryCache("cache2", meterName: "");
 
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
         Assert.NotNull(provider);
 
         // Strengthen assertions: Verify registry availability and functionality
@@ -202,7 +208,7 @@ public class ServiceCollectionExtensionsTests
         });
 
         // Act & Assert
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Validation happens on first access to options
         var optionsMonitor = provider.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>();
@@ -223,7 +229,7 @@ public class ServiceCollectionExtensionsTests
             options.AdditionalTags["configured"] = "later";
         });
 
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Act
         var optionsMonitor = provider.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>();
@@ -248,7 +254,7 @@ public class ServiceCollectionExtensionsTests
 
         // Act & Assert (should not throw)
         services.AddNamedMeteredMemoryCache(cacheName);
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         var optionsMonitor = provider.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>();
         var options = optionsMonitor.Get(cacheName);
@@ -264,7 +270,7 @@ public class ServiceCollectionExtensionsTests
 
         // Act
         services.DecorateMemoryCacheWithMetrics(cacheName: "decorated", meterName: "decorated-meter");
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Assert
         var cache = provider.GetRequiredService<IMemoryCache>();
@@ -289,7 +295,7 @@ public class ServiceCollectionExtensionsTests
 
         // Act
         services.DecorateMemoryCacheWithMetrics();
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Assert
         var cache = provider.GetRequiredService<IMemoryCache>();
@@ -318,7 +324,7 @@ public class ServiceCollectionExtensionsTests
                 options.AdditionalTags["environment"] = "test";
             });
 
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Assert
         var options = provider.GetRequiredService<IOptions<MeteredMemoryCacheOptions>>();
@@ -340,7 +346,7 @@ public class ServiceCollectionExtensionsTests
 
         // Act
         services.DecorateMemoryCacheWithMetrics(cacheName: "preserved");
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         // Assert
         var decoratedCache = provider.GetRequiredService<IMemoryCache>();
@@ -369,7 +375,7 @@ public class ServiceCollectionExtensionsTests
         });
 
         // Assert - Should not throw when building provider
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
         Assert.NotNull(provider);
 
         // Strengthen assertions: Verify registry availability for concurrent registrations
@@ -421,8 +427,8 @@ public class ServiceCollectionExtensionsTests
         services2.AddNamedMeteredMemoryCache("cache-name");
 
         // Assert - Both should build successfully
-        var provider1 = services1.BuildServiceProvider();
-        var provider2 = services2.BuildServiceProvider();
+        using var provider1 = services1.BuildServiceProvider();
+        using var provider2 = services2.BuildServiceProvider();
 
         Assert.NotNull(provider1);
         Assert.NotNull(provider2);
