@@ -33,6 +33,7 @@ public static class SwrCacheExtensions
     /// <param name="factory">Asynchronous value factory. Only one foreground call executes it on a miss; only one background refresh runs while stale.</param>
     /// <param name="ct">Cancellation token for the foreground factory execution (miss path). Background refresh uses <see cref="CancellationToken.None"/> so it is not tied to the caller's token.</param>
     /// <returns>The fresh or stale value.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="opt"/> has invalid TTL or Stale values (TTL must be > 0, Stale must be >= 0).</exception>
     public static async Task<T> GetOrCreateSwrAsync<T>(
         this IMemoryCache cache,
         string key,
