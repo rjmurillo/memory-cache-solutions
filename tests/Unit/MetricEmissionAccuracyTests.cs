@@ -17,6 +17,7 @@ public class MetricEmissionAccuracyTests
     /// <summary>
     /// Enhanced metric collection harness that provides detailed validation capabilities
     /// for testing accurate metric emission from <see cref="MeteredMemoryCache"/>.
+    /// Thread-safe implementation using proper locking and defensive copying.
     /// </summary>
     private sealed class MetricCollectionHarness : IDisposable
     {
@@ -26,9 +27,35 @@ public class MetricEmissionAccuracyTests
         private readonly Dictionary<string, long> _aggregatedCounters = new();
         private readonly string[] _instrumentNames;
         private readonly string? _meterNameFilter;
+        private readonly object _lock = new object();
 
-        public IReadOnlyList<MetricMeasurement> AllMeasurements => _measurements;
-        public IReadOnlyDictionary<string, long> AggregatedCounters => _aggregatedCounters;
+        /// <summary>
+        /// Gets a thread-safe snapshot of all measurements collected so far.
+        /// </summary>
+        public IReadOnlyList<MetricMeasurement> AllMeasurements
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _measurements.ToArray();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets a thread-safe snapshot of aggregated counters.
+        /// </summary>
+        public IReadOnlyDictionary<string, long> AggregatedCounters
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return new Dictionary<string, long>(_aggregatedCounters);
+                }
+            }
+        }
 
         public MetricCollectionHarness(params string[] instrumentNames) : this(null, instrumentNames)
         {
@@ -53,7 +80,7 @@ public class MetricEmissionAccuracyTests
                 var tagDict = tags.ToArray().ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
                 var metricMeasurement = new MetricMeasurement(inst.Name, measurement, tagDict, DateTime.UtcNow);
 
-                lock (_measurements)
+                lock (_lock)
                 {
                     _measurements.Add(metricMeasurement);
 
@@ -68,13 +95,13 @@ public class MetricEmissionAccuracyTests
         }
 
         /// <summary>
-        /// Gets all measurements for a specific instrument name.
+        /// Gets a thread-safe snapshot of all measurements for a specific instrument name.
         /// </summary>
         public IReadOnlyList<MetricMeasurement> GetMeasurements(string instrumentName)
         {
-            lock (_measurements)
+            lock (_lock)
             {
-                return _measurementsByInstrument.GetValueOrDefault(instrumentName, new List<MetricMeasurement>()).ToList();
+                return _measurementsByInstrument.GetValueOrDefault(instrumentName, new List<MetricMeasurement>()).ToArray();
             }
         }
 
