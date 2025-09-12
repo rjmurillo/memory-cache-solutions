@@ -75,37 +75,37 @@ public class Program
         // User profile cache - frequently accessed, medium size
         services.AddNamedMeteredMemoryCache("user-profiles", 
             meterName: "AspNetCore.Cache",
-            configure: options =>
+            configureOptions: options =>
             {
-                options.SizeLimit = 5000;
-                options.CompactionPercentage = 0.1;
+                options.AdditionalTags["cache_type"] = "user_profiles";
+                options.AdditionalTags["environment"] = "development";
             });
 
         // Product catalog cache - less frequent updates, larger size
         services.AddNamedMeteredMemoryCache("product-catalog", 
             meterName: "AspNetCore.Cache",
-            configure: options =>
+            configureOptions: options =>
             {
-                options.SizeLimit = 10000;
-                options.CompactionPercentage = 0.2;
+                options.AdditionalTags["cache_type"] = "product_catalog";
+                options.AdditionalTags["environment"] = "development";
             });
 
         // Session data cache - small, frequent evictions
         services.AddNamedMeteredMemoryCache("session-data", 
             meterName: "AspNetCore.Cache",
-            configure: options =>
+            configureOptions: options =>
             {
-                options.SizeLimit = 1000;
-                options.CompactionPercentage = 0.3;
+                options.AdditionalTags["cache_type"] = "session_data";
+                options.AdditionalTags["environment"] = "development";
             });
 
         // API response cache - for external API responses
         services.AddNamedMeteredMemoryCache("api-responses", 
             meterName: "AspNetCore.Cache",
-            configure: options =>
+            configureOptions: options =>
             {
-                options.SizeLimit = 2000;
-                options.CompactionPercentage = 0.2;
+                options.AdditionalTags["cache_type"] = "api_responses";
+                options.AdditionalTags["environment"] = "development";
             });
     }
 
@@ -355,7 +355,7 @@ public class UserService : IUserService
     {
         var cacheKey = $"user:{id}";
         
-        if (_cache.TryGetValue(cacheKey, out UserDto cachedUser))
+        if (_cache.TryGetValue(cacheKey, out UserDto? cachedUser) && cachedUser is not null)
         {
             _logger.LogDebug("User {UserId} found in cache", id);
             return cachedUser;
@@ -387,7 +387,7 @@ public class UserService : IUserService
         foreach (var id in ids)
         {
             var cacheKey = $"user:{id}";
-            if (_cache.TryGetValue(cacheKey, out UserDto cachedUser))
+            if (_cache.TryGetValue(cacheKey, out UserDto? cachedUser) && cachedUser is not null)
             {
                 users.Add(cachedUser);
                 _logger.LogDebug("User {UserId} found in cache", id);
@@ -469,7 +469,7 @@ public class ProductService : IProductService
     {
         var cacheKey = $"product:{id}";
         
-        if (_cache.TryGetValue(cacheKey, out ProductDto cachedProduct))
+        if (_cache.TryGetValue(cacheKey, out ProductDto? cachedProduct) && cachedProduct is not null)
         {
             return cachedProduct;
         }
@@ -493,7 +493,7 @@ public class ProductService : IProductService
     {
         var cacheKey = $"products:category:{categoryId}";
         
-        if (_cache.TryGetValue(cacheKey, out IEnumerable<ProductDto> cachedProducts))
+        if (_cache.TryGetValue(cacheKey, out IEnumerable<ProductDto>? cachedProducts) && cachedProducts is not null)
         {
             return cachedProducts;
         }
@@ -515,7 +515,7 @@ public class ProductService : IProductService
         // Cache search results with query, page, and pageSize in key
         var cacheKey = $"search:products:{query.ToLowerInvariant()}:{page}:{pageSize}";
         
-        if (_cache.TryGetValue(cacheKey, out IEnumerable<ProductDto> cachedResults))
+        if (_cache.TryGetValue(cacheKey, out IEnumerable<ProductDto>? cachedResults) && cachedResults is not null)
         {
             return cachedResults;
         }

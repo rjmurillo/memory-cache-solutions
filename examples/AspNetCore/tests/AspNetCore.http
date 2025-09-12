@@ -1,0 +1,496 @@
+# ASP.NET Core MeteredMemoryCache API Tests
+# This file contains comprehensive tests for all API endpoints
+# Based on the ASP.NET Core example project with MeteredMemoryCache integration
+
+# Variables for common values
+@userId = 1
+@productId = 100
+@categoryId = 5
+@searchQuery = laptop
+@page = 1
+@pageSize = 10
+
+### Health Check - Verify application is running
+GET {{HostAddress}}/health
+Accept: {{Accept}}
+
+### Metrics Demo Endpoint - Check metrics endpoint
+GET {{HostAddress}}/metrics-demo
+Accept: {{Accept}}
+
+### Prometheus Metrics - Check OpenTelemetry metrics
+GET {{HostAddress}}/metrics
+Accept: text/plain
+
+### Swagger UI - API Documentation (Development only)
+GET {{HostAddress}}/swagger
+Accept: text/html
+
+### Swagger JSON - API Schema
+GET {{HostAddress}}/swagger/v1/swagger.json
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# USER API ENDPOINTS
+# ===========================================
+
+### Get Single User - Test cache hit/miss behavior
+GET {{HostAddress}}/api/users/{{userId}}
+Accept: {{Accept}}
+
+### Get Single User - Different ID to test cache miss
+GET {{HostAddress}}/api/users/2
+Accept: {{Accept}}
+
+### Get Single User - Non-existent user (404 test)
+GET {{HostAddress}}/api/users/99999
+Accept: {{Accept}}
+
+### Get Multiple Users - Batch request with cache optimization
+GET {{HostAddress}}/api/users?ids=1&ids=2&ids=3&ids=4&ids=5
+Accept: {{Accept}}
+
+### Get Multiple Users - Single ID in batch
+GET {{HostAddress}}/api/users?ids={{userId}}
+Accept: {{Accept}}
+
+### Get Multiple Users - Empty request (400 test)
+GET {{HostAddress}}/api/users
+Accept: {{Accept}}
+
+### Update User - Test cache invalidation
+PUT {{HostAddress}}/api/users/{{userId}}
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "name": "Updated User {{userId}}",
+  "email": "updated{{userId}}@example.com"
+}
+
+### Update User - Invalid data (400 test)
+PUT {{HostAddress}}/api/users/{{userId}}
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "name": "",
+  "email": "invalid-email"
+}
+
+### Update User - Non-existent user (404 test)
+PUT {{HostAddress}}/api/users/99999
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "name": "Non-existent User",
+  "email": "nonexistent@example.com"
+}
+
+###
+
+# ===========================================
+# PRODUCT API ENDPOINTS
+# ===========================================
+
+### Get Single Product - Test product cache
+GET {{HostAddress}}/api/products/{{productId}}
+Accept: {{Accept}}
+
+### Get Single Product - Different ID
+GET {{HostAddress}}/api/products/101
+Accept: {{Accept}}
+
+### Get Single Product - Non-existent product (404 test)
+GET {{HostAddress}}/api/products/99999
+Accept: {{Accept}}
+
+### Get Products by Category - Test category cache
+GET {{HostAddress}}/api/products/category/{{categoryId}}
+Accept: {{Accept}}
+
+### Get Products by Category - Different category
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Get Products by Category - Non-existent category
+GET {{HostAddress}}/api/products/category/999
+Accept: {{Accept}}
+
+### Search Products - Test search cache
+GET {{HostAddress}}/api/products/search?query={{searchQuery}}&page={{page}}&pageSize={{pageSize}}
+Accept: {{Accept}}
+
+### Search Products - Different query
+GET {{HostAddress}}/api/products/search?query=phone&page=1&pageSize=5
+Accept: {{Accept}}
+
+### Search Products - Page 2
+GET {{HostAddress}}/api/products/search?query={{searchQuery}}&page=2&pageSize={{pageSize}}
+Accept: {{Accept}}
+
+### Search Products - Empty query (400 test)
+GET {{HostAddress}}/api/products/search
+Accept: {{Accept}}
+
+### Search Products - Whitespace query (400 test)
+GET {{HostAddress}}/api/products/search?query=   
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE MANAGEMENT ENDPOINTS
+# ===========================================
+
+### Get Cache Statistics - Monitor cache performance
+GET {{HostAddress}}/api/cache/stats
+Accept: {{Accept}}
+
+### Clear User Profiles Cache - Test cache clearing
+DELETE {{HostAddress}}/api/cache/user-profiles
+Accept: {{Accept}}
+
+### Clear Product Catalog Cache - Test cache clearing
+DELETE {{HostAddress}}/api/cache/product-catalog
+Accept: {{Accept}}
+
+### Clear Session Data Cache - Test cache clearing
+DELETE {{HostAddress}}/api/cache/session-data
+Accept: {{Accept}}
+
+### Clear API Responses Cache - Test cache clearing
+DELETE {{HostAddress}}/api/cache/api-responses
+Accept: {{Accept}}
+
+### Clear Non-existent Cache - Test error handling
+DELETE {{HostAddress}}/api/cache/non-existent-cache
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE PERFORMANCE TESTING
+# ===========================================
+
+### Cache Hit Test - Request same user multiple times
+GET {{HostAddress}}/api/users/{{userId}}
+Accept: {{Accept}}
+
+### Cache Hit Test - Same user again (should be faster)
+GET {{HostAddress}}/api/users/{{userId}}
+Accept: {{Accept}}
+
+### Cache Hit Test - Same user third time
+GET {{HostAddress}}/api/users/{{userId}}
+Accept: {{Accept}}
+
+### Cache Miss Test - New user after cache hits
+GET {{HostAddress}}/api/users/10
+Accept: {{Accept}}
+
+### Product Cache Hit Test - Same product multiple times
+GET {{HostAddress}}/api/products/{{productId}}
+Accept: {{Accept}}
+
+### Product Cache Hit Test - Same product again
+GET {{HostAddress}}/api/products/{{productId}}
+Accept: {{Accept}}
+
+### Category Cache Test - Same category multiple times
+GET {{HostAddress}}/api/products/category/{{categoryId}}
+Accept: {{Accept}}
+
+### Category Cache Test - Same category again
+GET {{HostAddress}}/api/products/category/{{categoryId}}
+Accept: {{Accept}}
+
+### Search Cache Test - Same search multiple times
+GET {{HostAddress}}/api/products/search?query={{searchQuery}}&page={{page}}&pageSize={{pageSize}}
+Accept: {{Accept}}
+
+### Search Cache Test - Same search again
+GET {{HostAddress}}/api/products/search?query={{searchQuery}}&page={{page}}&pageSize={{pageSize}}
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE INVALIDATION TESTING
+# ===========================================
+
+### Pre-Update: Get user to populate cache
+GET {{HostAddress}}/api/users/{{userId}}
+Accept: {{Accept}}
+
+### Update User: This should invalidate cache
+PUT {{HostAddress}}/api/users/{{userId}}
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "name": "Cache Invalidation Test User",
+  "email": "cache-test@example.com"
+}
+
+### Post-Update: Get user again (should fetch fresh data)
+GET {{HostAddress}}/api/users/{{userId}}
+Accept: {{Accept}}
+
+### Clear Cache: Manually clear user cache
+DELETE {{HostAddress}}/api/cache/user-profiles
+Accept: {{Accept}}
+
+### Post-Clear: Get user after cache clear (should fetch fresh data)
+GET {{HostAddress}}/api/users/{{userId}}
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# METRICS VERIFICATION
+# ===========================================
+
+### Check Prometheus Metrics - Verify cache metrics are being emitted
+GET {{HostAddress}}/metrics
+Accept: text/plain
+
+### Check Cache Stats - Verify cache statistics
+GET {{HostAddress}}/api/cache/stats
+Accept: {{Accept}}
+
+### Generate Some Activity - Create cache activity for metrics
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Generate More Activity - More cache operations
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Check Metrics Again - Verify metrics after activity
+GET {{HostAddress}}/metrics
+Accept: text/plain
+
+###
+
+# ===========================================
+# ERROR HANDLING TESTS
+# ===========================================
+
+### Invalid User ID - Non-numeric ID
+GET {{HostAddress}}/api/users/invalid
+Accept: {{Accept}}
+
+### Invalid Product ID - Non-numeric ID
+GET {{HostAddress}}/api/products/invalid
+Accept: {{Accept}}
+
+### Invalid Category ID - Non-numeric ID
+GET {{HostAddress}}/api/products/category/invalid
+Accept: {{Accept}}
+
+### Missing Content-Type - POST without proper headers
+PUT {{HostAddress}}/api/users/{{userId}}
+Accept: {{Accept}}
+
+{
+  "name": "Test User",
+  "email": "test@example.com"
+}
+
+### Malformed JSON - Invalid JSON in request body
+PUT {{HostAddress}}/api/users/{{userId}}
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "name": "Test User",
+  "email": "test@example.com"
+  // Missing closing brace
+
+### Very Large Page Size - Test pagination limits
+GET {{HostAddress}}/api/products/search?query=test&page=1&pageSize=10000
+Accept: {{Accept}}
+
+### Negative Page Number - Test pagination validation
+GET {{HostAddress}}/api/products/search?query=test&page=-1&pageSize=10
+Accept: {{Accept}}
+
+### Zero Page Size - Test pagination validation
+GET {{HostAddress}}/api/products/search?query=test&page=1&pageSize=0
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CONCURRENT ACCESS TESTS
+# ===========================================
+
+### Concurrent User Request 1
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Concurrent User Request 2
+GET {{HostAddress}}/api/users/2
+Accept: {{Accept}}
+
+### Concurrent User Request 3
+GET {{HostAddress}}/api/users/3
+Accept: {{Accept}}
+
+### Concurrent Product Request 1
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Concurrent Product Request 2
+GET {{HostAddress}}/api/products/101
+Accept: {{Accept}}
+
+### Concurrent Product Request 3
+GET {{HostAddress}}/api/products/102
+Accept: {{Accept}}
+
+### Concurrent Category Request 1
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Concurrent Category Request 2
+GET {{HostAddress}}/api/products/category/2
+Accept: {{Accept}}
+
+### Concurrent Category Request 3
+GET {{HostAddress}}/api/products/category/3
+Accept: {{Accept}}
+
+### Concurrent Search Request 1
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Concurrent Search Request 2
+GET {{HostAddress}}/api/products/search?query=phone&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Concurrent Search Request 3
+GET {{HostAddress}}/api/products/search?query=tablet&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Concurrent Cache Stats Request 1
+GET {{HostAddress}}/api/cache/stats
+Accept: {{Accept}}
+
+### Concurrent Cache Stats Request 2
+GET {{HostAddress}}/api/cache/stats
+Accept: {{Accept}}
+
+### Concurrent Cache Stats Request 3
+GET {{HostAddress}}/api/cache/stats
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# BATCH OPERATIONS TESTING
+# ===========================================
+
+### Large Batch User Request - Test batch optimization
+GET {{HostAddress}}/api/users?ids=1&ids=2&ids=3&ids=4&ids=5&ids=6&ids=7&ids=8&ids=9&ids=10
+Accept: {{Accept}}
+
+### Mixed Cache State Batch - Some cached, some not
+GET {{HostAddress}}/api/users?ids=1&ids=2&ids=15&ids=16&ids=17
+Accept: {{Accept}}
+
+### Single User in Batch - Edge case
+GET {{HostAddress}}/api/users?ids=1
+Accept: {{Accept}}
+
+### Duplicate IDs in Batch - Test deduplication
+GET {{HostAddress}}/api/users?ids=1&ids=1&ids=2&ids=2&ids=3
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE SIZE AND EVICTION TESTING
+# ===========================================
+
+### Fill User Cache - Create cache pressure
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Fill User Cache - More entries
+GET {{HostAddress}}/api/users/2
+Accept: {{Accept}}
+
+### Fill User Cache - Even more entries
+GET {{HostAddress}}/api/users/3
+Accept: {{Accept}}
+
+### Fill User Cache - Continue filling
+GET {{HostAddress}}/api/users/4
+Accept: {{Accept}}
+
+### Fill User Cache - More entries
+GET {{HostAddress}}/api/users/5
+Accept: {{Accept}}
+
+### Fill User Cache - Continue
+GET {{HostAddress}}/api/users/6
+Accept: {{Accept}}
+
+### Fill User Cache - More
+GET {{HostAddress}}/api/users/7
+Accept: {{Accept}}
+
+### Fill User Cache - Continue
+GET {{HostAddress}}/api/users/8
+Accept: {{Accept}}
+
+### Fill User Cache - More
+GET {{HostAddress}}/api/users/9
+Accept: {{Accept}}
+
+### Fill User Cache - Continue
+GET {{HostAddress}}/api/users/10
+Accept: {{Accept}}
+
+### Check Cache Stats - After filling cache
+GET {{HostAddress}}/api/cache/stats
+Accept: {{Accept}}
+
+### Test Cache Hit - Should still work
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Test Cache Hit - Another hit
+GET {{HostAddress}}/api/users/2
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# FINAL VERIFICATION
+# ===========================================
+
+### Final Health Check - Ensure application is still healthy
+GET {{HostAddress}}/health
+Accept: {{Accept}}
+
+### Final Metrics Check - Verify all metrics are working
+GET {{HostAddress}}/metrics
+Accept: text/plain
+
+### Final Cache Stats - Check final cache state
+GET {{HostAddress}}/api/cache/stats
+Accept: {{Accept}}
+
+### Final User Test - Ensure basic functionality still works
+GET {{HostAddress}}/api/users/{{userId}}
+Accept: {{Accept}}
+
+### Final Product Test - Ensure basic functionality still works
+GET {{HostAddress}}/api/products/{{productId}}
+Accept: {{Accept}}

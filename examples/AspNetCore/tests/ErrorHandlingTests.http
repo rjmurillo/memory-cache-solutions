@@ -1,0 +1,566 @@
+# Error Handling Test Scenarios
+# This file focuses on testing error conditions and edge cases
+# Based on the ASP.NET Core example with MeteredMemoryCache
+
+# Error test variables
+@invalidUserId = invalid
+@nonExistentUserId = 99999
+@invalidProductId = invalid
+@nonExistentProductId = 99999
+@invalidCategoryId = invalid
+@nonExistentCategoryId = 99999
+
+### Health Check - Ensure application is running before error tests
+GET {{HostAddress}}/health
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# INVALID INPUT VALIDATION TESTS
+# ===========================================
+
+### Invalid User ID - Non-numeric ID (400 Bad Request)
+GET {{HostAddress}}/api/users/{{invalidUserId}}
+Accept: {{Accept}}
+
+### Invalid Product ID - Non-numeric ID (400 Bad Request)
+GET {{HostAddress}}/api/products/{{invalidProductId}}
+Accept: {{Accept}}
+
+### Invalid Category ID - Non-numeric ID (400 Bad Request)
+GET {{HostAddress}}/api/products/category/{{invalidCategoryId}}
+Accept: {{Accept}}
+
+### Invalid User ID - Negative ID (400 Bad Request)
+GET {{HostAddress}}/api/users/-1
+Accept: {{Accept}}
+
+### Invalid Product ID - Negative ID (400 Bad Request)
+GET {{HostAddress}}/api/products/-1
+Accept: {{Accept}}
+
+### Invalid Category ID - Negative ID (400 Bad Request)
+GET {{HostAddress}}/api/products/category/-1
+Accept: {{Accept}}
+
+### Invalid User ID - Zero ID (400 Bad Request)
+GET {{HostAddress}}/api/users/0
+Accept: {{Accept}}
+
+### Invalid Product ID - Zero ID (400 Bad Request)
+GET {{HostAddress}}/api/products/0
+Accept: {{Accept}}
+
+### Invalid Category ID - Zero ID (400 Bad Request)
+GET {{HostAddress}}/api/products/category/0
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# NOT FOUND ERROR TESTS
+# ===========================================
+
+### Non-existent User - Should return 404
+GET {{HostAddress}}/api/users/{{nonExistentUserId}}
+Accept: {{Accept}}
+
+### Non-existent Product - Should return 404
+GET {{HostAddress}}/api/products/{{nonExistentProductId}}
+Accept: {{Accept}}
+
+### Non-existent Category - Should return 404
+GET {{HostAddress}}/api/products/category/{{nonExistentCategoryId}}
+Accept: {{Accept}}
+
+### Non-existent Cache - Should return 404
+DELETE {{HostAddress}}/api/cache/non-existent-cache
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# REQUEST BODY VALIDATION TESTS
+# ===========================================
+
+### Update User - Missing Content-Type header
+PUT {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+{
+  "name": "Test User",
+  "email": "test@example.com"
+}
+
+### Update User - Invalid JSON format
+PUT {{HostAddress}}/api/users/1
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "name": "Test User",
+  "email": "test@example.com"
+  // Missing closing brace
+
+### Update User - Empty request body
+PUT {{HostAddress}}/api/users/1
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+### Update User - Null request body
+PUT {{HostAddress}}/api/users/1
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+null
+
+### Update User - Invalid JSON structure
+PUT {{HostAddress}}/api/users/1
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "invalidField": "value"
+}
+
+### Update User - Missing required fields
+PUT {{HostAddress}}/api/users/1
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "name": ""
+}
+
+### Update User - Invalid email format
+PUT {{HostAddress}}/api/users/1
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "name": "Test User",
+  "email": "invalid-email-format"
+}
+
+### Update User - Empty name
+PUT {{HostAddress}}/api/users/1
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "name": "",
+  "email": "test@example.com"
+}
+
+### Update User - Whitespace name
+PUT {{HostAddress}}/api/users/1
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "name": "   ",
+  "email": "test@example.com"
+}
+
+### Update User - Very long name
+PUT {{HostAddress}}/api/users/1
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "name": "This is a very long name that exceeds normal limits and should be validated by the application to ensure it doesn't cause issues with the database or display",
+  "email": "test@example.com"
+}
+
+### Update User - Very long email
+PUT {{HostAddress}}/api/users/1
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "name": "Test User",
+  "email": "this.is.a.very.long.email.address.that.exceeds.normal.limits.and.should.be.validated.by.the.application@example.com"
+}
+
+###
+
+# ===========================================
+# QUERY PARAMETER VALIDATION TESTS
+# ===========================================
+
+### Get Users - Empty IDs array
+GET {{HostAddress}}/api/users
+Accept: {{Accept}}
+
+### Get Users - Invalid ID format
+GET {{HostAddress}}/api/users?ids=invalid
+Accept: {{Accept}}
+
+### Get Users - Mixed valid and invalid IDs
+GET {{HostAddress}}/api/users?ids=1&ids=invalid&ids=3
+Accept: {{Accept}}
+
+### Get Users - Negative IDs
+GET {{HostAddress}}/api/users?ids=-1&ids=-2
+Accept: {{Accept}}
+
+### Get Users - Zero IDs
+GET {{HostAddress}}/api/users?ids=0&ids=0
+Accept: {{Accept}}
+
+### Search Products - Empty query
+GET {{HostAddress}}/api/products/search
+Accept: {{Accept}}
+
+### Search Products - Whitespace query
+GET {{HostAddress}}/api/products/search?query=   
+Accept: {{Accept}}
+
+### Search Products - Very long query
+GET {{HostAddress}}/api/products/search?query=this-is-a-very-long-search-query-that-exceeds-normal-limits-and-should-be-validated
+Accept: {{Accept}}
+
+### Search Products - Invalid page number
+GET {{HostAddress}}/api/products/search?query=test&page=-1
+Accept: {{Accept}}
+
+### Search Products - Zero page number
+GET {{HostAddress}}/api/products/search?query=test&page=0
+Accept: {{Accept}}
+
+### Search Products - Very large page number
+GET {{HostAddress}}/api/products/search?query=test&page=999999
+Accept: {{Accept}}
+
+### Search Products - Invalid page size
+GET {{HostAddress}}/api/products/search?query=test&pageSize=-1
+Accept: {{Accept}}
+
+### Search Products - Zero page size
+GET {{HostAddress}}/api/products/search?query=test&pageSize=0
+Accept: {{Accept}}
+
+### Search Products - Very large page size
+GET {{HostAddress}}/api/products/search?query=test&pageSize=10000
+Accept: {{Accept}}
+
+### Search Products - Non-numeric page
+GET {{HostAddress}}/api/products/search?query=test&page=invalid
+Accept: {{Accept}}
+
+### Search Products - Non-numeric page size
+GET {{HostAddress}}/api/products/search?query=test&pageSize=invalid
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# HTTP METHOD VALIDATION TESTS
+# ===========================================
+
+### Invalid Method - POST to GET endpoint
+POST {{HostAddress}}/api/users/1
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "name": "Test User",
+  "email": "test@example.com"
+}
+
+### Invalid Method - DELETE to GET endpoint
+DELETE {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Invalid Method - GET to PUT endpoint
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Invalid Method - POST to DELETE endpoint
+POST {{HostAddress}}/api/cache/user-profiles
+Accept: {{Accept}}
+
+### Invalid Method - PUT to DELETE endpoint
+PUT {{HostAddress}}/api/cache/user-profiles
+Accept: {{Accept}}
+
+### Invalid Method - GET to DELETE endpoint
+GET {{HostAddress}}/api/cache/user-profiles
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# HEADER VALIDATION TESTS
+# ===========================================
+
+### Missing Accept Header
+GET {{HostAddress}}/api/users/1
+
+### Invalid Accept Header
+GET {{HostAddress}}/api/users/1
+Accept: text/html
+
+### Invalid Content-Type for JSON
+PUT {{HostAddress}}/api/users/1
+Content-Type: text/plain
+Accept: {{Accept}}
+
+{
+  "name": "Test User",
+  "email": "test@example.com"
+}
+
+### Invalid Content-Type for JSON
+PUT {{HostAddress}}/api/users/1
+Content-Type: application/xml
+Accept: {{Accept}}
+
+{
+  "name": "Test User",
+  "email": "test@example.com"
+}
+
+### Missing Content-Type for PUT
+PUT {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+{
+  "name": "Test User",
+  "email": "test@example.com"
+}
+
+###
+
+# ===========================================
+# CACHE ERROR HANDLING TESTS
+# ===========================================
+
+### Clear Cache - Invalid cache name format
+DELETE {{HostAddress}}/api/cache/
+Accept: {{Accept}}
+
+### Clear Cache - Empty cache name
+DELETE {{HostAddress}}/api/cache/
+Accept: {{Accept}}
+
+### Clear Cache - Cache name with special characters
+DELETE {{HostAddress}}/api/cache/user-profiles@#$%
+Accept: {{Accept}}
+
+### Clear Cache - Cache name with spaces
+DELETE {{HostAddress}}/api/cache/user profiles
+Accept: {{Accept}}
+
+### Clear Cache - Very long cache name
+DELETE {{HostAddress}}/api/cache/this-is-a-very-long-cache-name-that-exceeds-normal-limits
+Accept: {{Accept}}
+
+### Clear Cache - Cache name with SQL injection attempt
+DELETE {{HostAddress}}/api/cache/user-profiles'; DROP TABLE users; --
+Accept: {{Accept}}
+
+### Clear Cache - Cache name with XSS attempt
+DELETE {{HostAddress}}/api/cache/user-profiles<script>alert('xss')</script>
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# EDGE CASE TESTS
+# ===========================================
+
+### Very Large User ID - Test integer overflow handling
+GET {{HostAddress}}/api/users/2147483647
+Accept: {{Accept}}
+
+### Very Large Product ID - Test integer overflow handling
+GET {{HostAddress}}/api/products/2147483647
+Accept: {{Accept}}
+
+### Very Large Category ID - Test integer overflow handling
+GET {{HostAddress}}/api/products/category/2147483647
+Accept: {{Accept}}
+
+### Unicode in Search Query - Test Unicode handling
+GET {{HostAddress}}/api/products/search?query=测试&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Special Characters in Search Query
+GET {{HostAddress}}/api/products/search?query=!@#$%^&*()&page=1&pageSize=10
+Accept: {{Accept}}
+
+### SQL Injection in Search Query
+GET {{HostAddress}}/api/products/search?query='; DROP TABLE products; --&page=1&pageSize=10
+Accept: {{Accept}}
+
+### XSS in Search Query
+GET {{HostAddress}}/api/products/search?query=<script>alert('xss')</script>&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Unicode in User Update
+PUT {{HostAddress}}/api/users/1
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "name": "测试用户",
+  "email": "test@example.com"
+}
+
+### Special Characters in User Update
+PUT {{HostAddress}}/api/users/1
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "name": "User!@#$%^&*()",
+  "email": "test@example.com"
+}
+
+###
+
+# ===========================================
+# CONCURRENT ERROR HANDLING TESTS
+# ===========================================
+
+### Concurrent Invalid Requests - User
+GET {{HostAddress}}/api/users/invalid
+Accept: {{Accept}}
+
+### Concurrent Invalid Requests - User
+GET {{HostAddress}}/api/users/invalid
+Accept: {{Accept}}
+
+### Concurrent Invalid Requests - User
+GET {{HostAddress}}/api/users/invalid
+Accept: {{Accept}}
+
+### Concurrent Invalid Requests - Product
+GET {{HostAddress}}/api/products/invalid
+Accept: {{Accept}}
+
+### Concurrent Invalid Requests - Product
+GET {{HostAddress}}/api/products/invalid
+Accept: {{Accept}}
+
+### Concurrent Invalid Requests - Product
+GET {{HostAddress}}/api/products/invalid
+Accept: {{Accept}}
+
+### Concurrent Invalid Requests - Category
+GET {{HostAddress}}/api/products/category/invalid
+Accept: {{Accept}}
+
+### Concurrent Invalid Requests - Category
+GET {{HostAddress}}/api/products/category/invalid
+Accept: {{Accept}}
+
+### Concurrent Invalid Requests - Category
+GET {{HostAddress}}/api/products/category/invalid
+Accept: {{Accept}}
+
+### Concurrent Invalid Requests - Search
+GET {{HostAddress}}/api/products/search
+Accept: {{Accept}}
+
+### Concurrent Invalid Requests - Search
+GET {{HostAddress}}/api/products/search
+Accept: {{Accept}}
+
+### Concurrent Invalid Requests - Search
+GET {{HostAddress}}/api/products/search
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# RESILIENCE TESTS
+# ===========================================
+
+### Resilience Test - Rapid invalid requests
+GET {{HostAddress}}/api/users/invalid
+Accept: {{Accept}}
+
+### Resilience Test - Rapid invalid requests
+GET {{HostAddress}}/api/users/invalid
+Accept: {{Accept}}
+
+### Resilience Test - Rapid invalid requests
+GET {{HostAddress}}/api/users/invalid
+Accept: {{Accept}}
+
+### Resilience Test - Rapid invalid requests
+GET {{HostAddress}}/api/users/invalid
+Accept: {{Accept}}
+
+### Resilience Test - Rapid invalid requests
+GET {{HostAddress}}/api/users/invalid
+Accept: {{Accept}}
+
+### Resilience Test - Rapid invalid requests
+GET {{HostAddress}}/api/users/invalid
+Accept: {{Accept}}
+
+### Resilience Test - Rapid invalid requests
+GET {{HostAddress}}/api/users/invalid
+Accept: {{Accept}}
+
+### Resilience Test - Rapid invalid requests
+GET {{HostAddress}}/api/users/invalid
+Accept: {{Accept}}
+
+### Resilience Test - Rapid invalid requests
+GET {{HostAddress}}/api/users/invalid
+Accept: {{Accept}}
+
+### Resilience Test - Rapid invalid requests
+GET {{HostAddress}}/api/users/invalid
+Accept: {{Accept}}
+
+### Resilience Test - Check if application still responds to valid requests
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Resilience Test - Check health endpoint
+GET {{HostAddress}}/health
+Accept: {{Accept}}
+
+### Resilience Test - Check metrics endpoint
+GET {{HostAddress}}/metrics
+Accept: text/plain
+
+###
+
+# ===========================================
+# FINAL ERROR HANDLING VERIFICATION
+# ===========================================
+
+### Final Health Check - Ensure application is still healthy
+GET {{HostAddress}}/health
+Accept: {{Accept}}
+
+### Final Valid Request - Ensure normal operation still works
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Final Valid Request - Product endpoint
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Final Valid Request - Category endpoint
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Final Valid Request - Search endpoint
+GET {{HostAddress}}/api/products/search?query=final&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Final Cache Stats - Check cache health
+GET {{HostAddress}}/api/cache/stats
+Accept: {{Accept}}
+
+### Final Metrics Check - Verify error metrics
+GET {{HostAddress}}/metrics
+Accept: text/plain
