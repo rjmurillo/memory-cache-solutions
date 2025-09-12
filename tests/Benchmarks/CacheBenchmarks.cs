@@ -29,6 +29,10 @@ public class CacheBenchmarks
     private const string TestValue = "test-value-with-some-length-to-simulate-realistic-cache-entries";
     private const string CacheName = "benchmark-cache";
 
+    // Precomputed keys to reduce allocation noise in benchmarks
+    private static readonly string[] PrecomputedSetKeys = GeneratePrecomputedKeys("set-key", 10000);
+    private static readonly string[] PrecomputedCreateKeys = GeneratePrecomputedKeys("create-key", 10000);
+
     [GlobalSetup]
     public void Setup()
     {
@@ -130,6 +134,7 @@ public class CacheBenchmarks
     #region Cache Set Benchmarks
 
     private int _setCounter = 0;
+    private int _createCounter = 0;
 
     /// <summary>
     /// Baseline: Raw MemoryCache set performance without any metrics overhead.
@@ -137,7 +142,7 @@ public class CacheBenchmarks
     [Benchmark]
     public void RawCache_Set()
     {
-        _rawCache.Set($"set-key-{++_setCounter}", TestValue);
+        _rawCache.Set(PrecomputedSetKeys[++_setCounter % PrecomputedSetKeys.Length], TestValue);
     }
 
     /// <summary>
@@ -147,7 +152,7 @@ public class CacheBenchmarks
     [Benchmark]
     public void MeteredCache_Unnamed_Set()
     {
-        _meteredUnnamedCache.Set($"set-key-{++_setCounter}", TestValue);
+        _meteredUnnamedCache.Set(PrecomputedSetKeys[++_setCounter % PrecomputedSetKeys.Length], TestValue);
     }
 
     /// <summary>
@@ -157,7 +162,7 @@ public class CacheBenchmarks
     [Benchmark]
     public void MeteredCache_Named_Set()
     {
-        _meteredNamedCache.Set($"set-key-{++_setCounter}", TestValue);
+        _meteredNamedCache.Set(PrecomputedSetKeys[++_setCounter % PrecomputedSetKeys.Length], TestValue);
     }
 
     #endregion
@@ -222,15 +227,13 @@ public class CacheBenchmarks
 
     #region CreateEntry Benchmarks
 
-    private int _createCounter = 0;
-
     /// <summary>
     /// Baseline: Raw MemoryCache CreateEntry performance.
     /// </summary>
     [Benchmark]
     public void RawCache_CreateEntry()
     {
-        using var entry = _rawCache.CreateEntry($"create-key-{++_createCounter}");
+        using var entry = _rawCache.CreateEntry(PrecomputedCreateKeys[++_createCounter % PrecomputedCreateKeys.Length]);
         entry.Value = TestValue;
     }
 
@@ -241,7 +244,7 @@ public class CacheBenchmarks
     [Benchmark]
     public void MeteredCache_Unnamed_CreateEntry()
     {
-        using var entry = _meteredUnnamedCache.CreateEntry($"create-key-{++_createCounter}");
+        using var entry = _meteredUnnamedCache.CreateEntry(PrecomputedCreateKeys[++_createCounter % PrecomputedCreateKeys.Length]);
         entry.Value = TestValue;
     }
 
@@ -252,11 +255,27 @@ public class CacheBenchmarks
     [Benchmark]
     public void MeteredCache_Named_CreateEntry()
     {
-        using var entry = _meteredNamedCache.CreateEntry($"create-key-{++_createCounter}");
+        using var entry = _meteredNamedCache.CreateEntry(PrecomputedCreateKeys[++_createCounter % PrecomputedCreateKeys.Length]);
         entry.Value = TestValue;
     }
 
     #endregion
+
+    /// <summary>
+    /// Generates precomputed keys to reduce allocation noise in benchmarks.
+    /// </summary>
+    /// <param name="prefix">The key prefix.</param>
+    /// <param name="count">The number of keys to generate.</param>
+    /// <returns>Array of precomputed keys.</returns>
+    private static string[] GeneratePrecomputedKeys(string prefix, int count)
+    {
+        var keys = new string[count];
+        for (int i = 0; i < count; i++)
+        {
+            keys[i] = $"{prefix}-{i}";
+        }
+        return keys;
+    }
 }
 
 /// <summary>
