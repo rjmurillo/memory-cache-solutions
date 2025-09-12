@@ -98,7 +98,7 @@ public class ServiceCollectionExtensionsTests
         // Act
         var meterName1 = GetUniqueMeterName("meter1");
         var meterName2 = GetUniqueMeterName("meter2");
-        
+
         services.AddNamedMeteredMemoryCache("cache1",
             options => options.AdditionalTags["type"] = "primary",
             meterName: meterName1);

@@ -331,10 +331,10 @@ public class MetricEmissionAccuracyTests
             var reason = m.Tags["reason"]?.ToString();
             Assert.True(!string.IsNullOrEmpty(reason), "Eviction reason should not be null or empty");
             // Verify it's a valid eviction reason (flexible approach)
-            Assert.True(Enum.TryParse<EvictionReason>(reason, out _), 
+            Assert.True(Enum.TryParse<EvictionReason>(reason, out _),
                 $"Eviction reason '{reason}' should be a valid EvictionReason enum value");
         });
-        
+
         // Additional eviction reasons may be present depending on MemoryCache internal timing
         // This flexible approach allows for implementation changes without breaking tests
     }

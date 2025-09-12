@@ -33,16 +33,19 @@ dotnet run
 ```
 
 The application will start on:
+
 - HTTPS: https://localhost:64494
 - HTTP: http://localhost:64495
 
 ### 2. Test the Application
 
 #### Using HTTP Files (Visual Studio/Rider)
+
 - Open any `.http` file in the `tests/` directory
 - Click "Send Request" to test individual endpoints
 
 #### Using k6 Performance Tests
+
 ```bash
 cd tests
 
@@ -65,6 +68,7 @@ npm run test:all
 ## Features Demonstrated
 
 ### ASP.NET Core Application (`src/`)
+
 - **MeteredMemoryCache Integration**: Shows how to register and use named caches
 - **OpenTelemetry Metrics**: Comprehensive metrics collection and export
 - **RESTful API**: User and product management endpoints
@@ -73,43 +77,52 @@ npm run test:all
 - **Swagger Documentation**: API documentation at `/swagger`
 
 ### Performance Testing (`tests/`)
+
 - **k6 Load Tests**: Comprehensive performance testing suite
 - **HTTP Test Files**: Manual API testing with Visual Studio/Rider
 - **Cross-Platform Support**: PowerShell Core scripts for all platforms
 - **Multiple Test Types**: Smoke, load, stress, soak, spike, and breakpoint tests
 
 ### Documentation (`docs/`)
+
 - **HTTP Tests Guide**: How to use the HTTP test files
 - **k6 Tests Guide**: Comprehensive k6 performance testing documentation
 
 ## API Endpoints
 
 ### Health & Metrics
+
 - `GET /health` - Application health check
 - `GET /metrics` - Prometheus metrics endpoint
 
 ### User Management
+
 - `GET /api/users/{id}` - Get user by ID
 - `GET /api/users?ids={ids}` - Get multiple users
 - `PUT /api/users/{id}` - Update user
 
 ### Product Management
+
 - `GET /api/products/{id}` - Get product by ID
 - `GET /api/products/category/{categoryId}` - Get products by category
 - `GET /api/products/search?query={query}` - Search products
 
 ### Cache Management
+
 - `GET /api/cache/stats` - Get cache statistics
 - `DELETE /api/cache/{cacheName}` - Clear specific cache
 
 ## Configuration
 
 ### Environment Variables
+
 - `BASE_URL`: Application base URL (default: https://localhost:64494)
 - `HTTP_HOST_URL`: HTTP host URL (default: http://localhost:64495)
 
 ### Cache Configuration
+
 The application demonstrates multiple named caches:
+
 - `user-profiles`: User data caching
 - `product-catalog`: Product data caching
 - `session-data`: Session information caching
@@ -118,6 +131,7 @@ The application demonstrates multiple named caches:
 ## Performance Testing
 
 ### Test Types
+
 1. **Smoke Tests**: Basic functionality verification (1 minute, 1 VU)
 2. **Average Load Tests**: Normal usage patterns (5 minutes, 10 VUs)
 3. **Stress Tests**: Breaking point identification (9 minutes, 1-20 VUs)
@@ -126,6 +140,7 @@ The application demonstrates multiple named caches:
 6. **Breakpoint Tests**: Capacity planning (10 minutes, 10-50 VUs)
 
 ### Running Tests
+
 ```bash
 # Cross-platform PowerShell Core (recommended)
 pwsh run-k6-tests.ps1
@@ -143,6 +158,7 @@ npm run test:load
 ## Metrics and Monitoring
 
 ### OpenTelemetry Metrics
+
 - Cache hit/miss rates
 - Response times
 - Request counts
@@ -150,28 +166,33 @@ npm run test:load
 - Memory usage
 
 ### Prometheus Integration
+
 Metrics are available at `/metrics` endpoint in Prometheus format for integration with monitoring systems.
 
 ## Development
 
 ### Prerequisites
+
 - .NET 9.0 SDK
 - k6 (for performance testing)
 - PowerShell Core (for cross-platform scripts)
 
 ### Building
+
 ```bash
 cd src
 dotnet build
 ```
 
 ### Running
+
 ```bash
 cd src
 dotnet run
 ```
 
 ### Testing
+
 ```bash
 cd tests
 pwsh run-k6-tests.ps1 -TestName smoke
