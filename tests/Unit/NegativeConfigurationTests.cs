@@ -588,7 +588,7 @@ public class NegativeConfigurationTests
         // Arrange
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter("test.normalization");
-        
+
         // Act - cache name with leading/trailing whitespace
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "  cache-name  ");
 
@@ -607,7 +607,7 @@ public class NegativeConfigurationTests
 
         // Act & Assert - Adding null key should throw
         Assert.Throws<ArgumentNullException>(() => options.AdditionalTags.Add(null!, "value"));
-        
+
         // Adding duplicate keys should throw
         options.AdditionalTags.Add("duplicate", "value1");
         Assert.Throws<ArgumentException>(() => options.AdditionalTags.Add("duplicate", "value2"));

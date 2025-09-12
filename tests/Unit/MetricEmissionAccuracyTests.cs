@@ -322,11 +322,11 @@ public class MetricEmissionAccuracyTests
             .Distinct()
             .ToList();
         Assert.True(uniqueReasons.Count >= 1, "Expected at least 1 unique eviction reason");
-        
+
         // Validate presence of expected eviction reasons instead of exact counts
-        Assert.Contains(evictionMeasurements, m => 
+        Assert.Contains(evictionMeasurements, m =>
             m.Tags.ContainsKey("reason") && m.Tags["reason"]?.ToString() == "Removed");
-        
+
         // Additional eviction reasons may be present depending on MemoryCache internal timing
         // This flexible approach allows for implementation changes without breaking tests
     }
@@ -620,7 +620,7 @@ public class MetricEmissionAccuracyTests
         using var inner2 = new MemoryCache(new MemoryCacheOptions());
         using var inner3 = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter("test.accuracy.multicache");
-        using var harness = new MetricCollectionHarness("test.accuracy.multicache", 
+        using var harness = new MetricCollectionHarness("test.accuracy.multicache",
             "cache_hits_total", "cache_misses_total", "cache_evictions_total");
 
         // Create 3 caches with different configurations
@@ -629,10 +629,10 @@ public class MetricEmissionAccuracyTests
             CacheName = "service-cache",
             AdditionalTags = { ["service"] = "user-service", ["environment"] = "test" }
         };
-        
+
         var options2 = new MeteredMemoryCacheOptions
         {
-            CacheName = "data-cache", 
+            CacheName = "data-cache",
             AdditionalTags = { ["service"] = "data-service", ["tier"] = "backend" }
         };
 
@@ -679,7 +679,7 @@ public class MetricEmissionAccuracyTests
         }
 
         cache3.Set("manual-remove", "will-be-removed");
-        
+
         // Wait for expiration
         await Task.Delay(50);
         inner1.Compact(0.0);
@@ -762,7 +762,7 @@ public class MetricEmissionAccuracyTests
         // Validate total aggregation
         var totalHits = cache1Hits + cache2Hits + cache3Hits;
         var totalMisses = cache1Misses + cache2Misses + cache3Misses;
-        
+
         harness.AssertAggregatedCount("cache_hits_total", totalHits);
         harness.AssertAggregatedCount("cache_misses_total", totalMisses);
     }
