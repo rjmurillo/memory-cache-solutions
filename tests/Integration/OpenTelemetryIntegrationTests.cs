@@ -23,26 +23,29 @@ public class OpenTelemetryIntegrationTests
         // Arrange
         var exportedItems = new List<Metric>();
         using var host = CreateHostWithMetrics(exportedItems);
-        await host.StartAsync();
-
-        var cache = host.Services.GetRequiredService<IMemoryCache>();
         
-        // Pre-populate cache
-        cache.Set("test-key", "test-value");
+        // Act & Assert - using improved host lifecycle management
+        await ExecuteWithHostAsync(host, async h =>
+        {
+            var cache = h.Services.GetRequiredService<IMemoryCache>();
+            
+            // Pre-populate cache
+            cache.Set("test-key", "test-value");
 
-        // Act - perform cache hit
-        var result = cache.TryGetValue("test-key", out var value);
+            // Act - perform cache hit
+            var result = cache.TryGetValue("test-key", out var value);
 
-        // Force metrics collection
-        await FlushMetricsAsync(host);
+            // Force metrics collection
+            await FlushMetricsAsync(h);
 
-        // Assert
-        Assert.True(result);
-        Assert.Equal("test-value", value);
-        
-        var hitMetric = FindMetric(exportedItems, "cache_hits_total");
-        Assert.NotNull(hitMetric);
-        AssertMetricValue(hitMetric, 1);
+            // Assert
+            Assert.True(result);
+            Assert.Equal("test-value", value);
+            
+            var hitMetric = FindMetric(exportedItems, "cache_hits_total");
+            Assert.NotNull(hitMetric);
+            AssertMetricValue(hitMetric, 1);
+        });
     }
 
     /// <summary>
@@ -255,7 +258,24 @@ public class OpenTelemetryIntegrationTests
         AssertMetricValue(missMetric, operationsPerType / 2);
     }
 
-    #region Helper Methods
+    // Helper Methods
+
+    /// <summary>
+    /// Executes a test action with proper host lifecycle management.
+    /// Ensures host is started before test execution and stopped after completion.
+    /// </summary>
+    private static async Task ExecuteWithHostAsync(IHost host, Func<IHost, Task> testAction)
+    {
+        try
+        {
+            await host.StartAsync();
+            await testAction(host);
+        }
+        finally
+        {
+            await host.StopAsync();
+        }
+    }
 
     private static IHost CreateHostWithMetrics(
         List<Metric> exportedItems, 
@@ -406,6 +426,4 @@ public class OpenTelemetryIntegrationTests
         }
         return false;
     }
-
-    #endregion
 }
