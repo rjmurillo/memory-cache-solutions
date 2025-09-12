@@ -291,20 +291,20 @@ Fix package version conflicts and project configuration issues.
 Fix service registration patterns and DI implementation issues.
 
 #### Sub-tasks:
-- [ ] Fix PostConfigure misuse and remove unreachable private registry in ServiceCollectionExtensions.cs (Comment: [#2331684859](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684859))
-- [ ] Remove unused NamedMemoryCacheRegistry private class (Comment: [#2331684864](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684864))
-- [ ] Fix named-cache registration broken implementation - switch to keyed DI (Comment: [#2334230111](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230111))
-- [ ] Add guard against meter-name conflicts in DecorateMemoryCacheWithMetrics (Comment: [#2331684862](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684862))
-- [ ] Fix meter singleton conflicts in multiple registration scenarios (Comment: Multiple reviews)
-- [ ] Add meter-name conflict detection and validation in DI registration (Comment: [#2334230119](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230119))
-- [ ] Fix global Configure<TOptions> usage in decorator to prevent cross-call contamination (Comment: [#2334230119](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230119))
-- [ ] Set DisposeInner=true for owned caches in AddNamedMeteredMemoryCache to prevent memory leaks (Comment: Multiple reviews)
-- [ ] Remove surprising default IMemoryCache aliasing or make it opt-in (Comment: Multiple reviews)
-- [ ] Add leak prevention for inner MemoryCache in named cache registrations (Comment: Multiple reviews)
-- [ ] Fix options pattern implementation in DI extensions (Comment: Multiple reviews)
-- [ ] Add proper service lifetime management in keyed registrations (Comment: Multiple reviews)
-- [ ] Fix meter instance reuse patterns to prevent duplicates (Comment: Multiple reviews)
-- [ ] Add comprehensive validation for meter name conflicts (Comment: Multiple reviews)
+- [x] Fix PostConfigure misuse and remove unreachable private registry in ServiceCollectionExtensions.cs (Comment: [#2331684859](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684859)) - **NO POSTCONFIGURE USAGE FOUND**
+- [x] Remove unused NamedMemoryCacheRegistry private class (Comment: [#2331684864](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684864)) - **NO SUCH CLASS FOUND**
+- [x] Fix named-cache registration broken implementation - switch to keyed DI (Comment: [#2334230111](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230111)) - **ALREADY USING KEYED DI**
+- [x] Add guard against meter-name conflicts in DecorateMemoryCacheWithMetrics (Comment: [#2331684862](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684862)) - **FIXED WITH KEYED METERS**
+- [x] Fix meter singleton conflicts in multiple registration scenarios (Comment: Multiple reviews) - **FIXED WITH KEYED METERS**
+- [x] Add meter-name conflict detection and validation in DI registration (Comment: [#2334230119](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230119)) - **FIXED WITH KEYED METERS**
+- [x] Fix global Configure<TOptions> usage in decorator to prevent cross-call contamination (Comment: [#2334230119](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230119)) - **FIXED WITH NAMED OPTIONS**
+- [x] Set DisposeInner=true for owned caches in AddNamedMeteredMemoryCache to prevent memory leaks (Comment: Multiple reviews)
+- [x] Remove surprising default IMemoryCache aliasing or make it opt-in (Comment: Multiple reviews) - **REMOVED DEFAULT ALIASING**
+- [x] Add leak prevention for inner MemoryCache in named cache registrations (Comment: Multiple reviews) - **FIXED WITH DISPOSEINNER=TRUE**
+- [x] Fix options pattern implementation in DI extensions (Comment: Multiple reviews) - **FIXED WITH PROPER NAMED OPTIONS**
+- [x] Add proper service lifetime management in keyed registrations (Comment: Multiple reviews) - **IMPLEMENTED WITH KEYED SERVICES**
+- [x] Fix meter instance reuse patterns to prevent duplicates (Comment: Multiple reviews) - **FIXED WITH KEYED METERS**
+- [x] Add comprehensive validation for meter name conflicts (Comment: Multiple reviews) - **FIXED WITH KEYED METERS**
 
 ### Test Suite Improvements
 **Type**: Testing  

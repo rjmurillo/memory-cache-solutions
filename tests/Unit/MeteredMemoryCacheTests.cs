@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Primitives;
 using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using System.Linq;
 using Xunit;
 using System.Diagnostics;
@@ -561,6 +562,66 @@ public class MeteredMemoryCacheTests
         Assert.NotSame(cache1, cache2);
         Assert.IsType<MeteredMemoryCache>(cache1);
         Assert.IsType<MeteredMemoryCache>(cache2);
+    }
+
+    [Fact]
+    public void DependencyInjectionFixes_ValidateResolvedIssues()
+    {
+        // This test validates that the DI implementation fixes work correctly
+        var services = new ServiceCollection();
+
+        // Test meter isolation
+        services.AddNamedMeteredMemoryCache("cache1", meterName: "meter1");
+
+        var provider = services.BuildServiceProvider();
+
+        // Test 1: Meter registration works with keyed approach
+        var meter1 = provider.GetRequiredKeyedService<Meter>("meter1");
+        Assert.Equal("meter1", meter1.Name);
+
+        // Test 2: Options are properly configured
+        var namedOptions = provider.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>().Get("cache1");
+        Assert.Equal("cache1", namedOptions.CacheName);
+        Assert.True(namedOptions.DisposeInner); // Should be true for owned caches
+
+        // Test 3: Cache registration works correctly
+        var cache1 = provider.GetRequiredKeyedService<IMemoryCache>("cache1");
+        Assert.IsType<MeteredMemoryCache>(cache1);
+
+        // Test 4: Verify DisposeInner is properly set using reflection
+        var cache1Type = cache1.GetType();
+        var disposeInnerField = cache1Type.GetField("_disposeInner",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        Assert.NotNull(disposeInnerField);
+        var disposeInnerValue = (bool)disposeInnerField.GetValue(cache1)!;
+        Assert.True(disposeInnerValue, "DisposeInner should be true for owned caches to prevent memory leaks");
+
+        provider.Dispose();
+    }
+
+    [Fact]
+    public void DecoratorDIFixes_ValidateIsolatedConfiguration()
+    {
+        // Test that DecorateMemoryCacheWithMetrics fixes work correctly
+        var services = new ServiceCollection();
+
+        // Register base cache first
+        services.AddMemoryCache();
+
+        // Decorate with metrics
+        services.DecorateMemoryCacheWithMetrics("decorated-cache", meterName: "decorator-meter");
+
+        var provider = services.BuildServiceProvider();
+
+        // Test 1: Decorated cache works
+        var decoratedCache = provider.GetRequiredService<IMemoryCache>();
+        Assert.IsType<MeteredMemoryCache>(decoratedCache);
+
+        // Test 2: Meter is properly isolated
+        var decoratorMeter = provider.GetRequiredKeyedService<Meter>("decorator-meter");
+        Assert.Equal("decorator-meter", decoratorMeter.Name);
+
+        provider.Dispose();
     }
 
     [Fact]
