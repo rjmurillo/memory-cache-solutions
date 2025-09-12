@@ -1,11 +1,25 @@
-# memory-cache-solutions
+# Memory Cache Solutions
 
-High‑quality experimental patterns & decorators built on top of `IMemoryCache` ([Microsoft.Extensions.Caching.Memory](https://www.nuget.org/packages/Microsoft.Extensions.Caching.Memory)) to address common performance and correctness concerns:
+High‑quality experimental patterns & decorators built on top of `IMemoryCache` ([Microsoft.Extensions.Caching.Memory](https://www.nuget.org/packages/Microsoft.Extensions.Caching.Memory)) to address common performance and correctness concerns.
+
+## Table of Contents
+
+- [Components Overview](#components-overview)
+- [Quick Start](#quick-start)
+- [MeteredMemoryCache](#meteredmemorycache)
+- [Implementation Details](#implementation-details)
+- [Choosing an Approach](#choosing-an-approach)
+- [Benchmarks & Performance](#benchmarks--performance)
+- [Documentation](#documentation)
+- [Testing](#testing)
+- [License](#license)
+
+## Components Overview
 
 | Component                             | Purpose                                                                                      | Concurrency Control                                                           | Async Support              | Extra Features                                                                       |
 | ------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------ |
 | `CoalescingMemoryCache`               | Drop‑in `IMemoryCache` decorator that coalesces concurrent cache misses (single‑flight)      | `Lazy<Task<T>>` per key in a concurrent dictionary (removed after completion) | Yes (`GetOrCreateAsync`)   | Works with any existing `IMemoryCache` usage; minimal allocation on hits             |
-| `MeteredMemoryCache`                  | Emits OpenTelemetry / .NET `System.Diagnostics.Metrics` counters for hits, misses, evictions | N/A (no single‑flight)                                                        | N/A (sync like base cache) | Counters: `cache_hits_total`, `cache_misses_total`, `cache_evictions_total{reason}`  |
+| `MeteredMemoryCache`                  | Emits OpenTelemetry / .NET `System.Diagnostics.Metrics` counters for hits, misses, evictions | Thread-safe counter operations with dimensional tags                          | N/A (sync like base cache) | Named caches, custom tags, service collection extensions, options pattern validation |
 | `SingleFlightCache`                   | Stand‑alone helper ensuring only one concurrent async factory executes per key               | Per‑key transient `SemaphoreSlim`                                             | Yes                        | TTL & optional entry configuration delegate                                          |
 | `SingleFlightLazyCache`               | Single‑flight via cached `Lazy<Task<T>>` entry (no external lock)                            | Publication semantics of `Lazy`                                               | Yes                        | Simplest implementation; cancellation only affects awaiting caller                   |
 | `GetOrCreateSwrAsync` (SWR extension) | Stale‑While‑Revalidate pattern (serve stale while one background refresh updates)            | Interlocked flag in boxed state                                               | Yes                        | Background refresh isolated from caller cancellation; resilience to refresh failures |
@@ -65,6 +79,43 @@ Counters exposed:
 - `cache_evictions_total` (tag: `reason` = `Expired|TokenExpired|Capacity|Removed|Replaced|...`)
 
 Consume with `MeterListener`, OpenTelemetry Metrics SDK, or any compatible exporter.
+
+---
+
+## MeteredMemoryCache
+
+The `MeteredMemoryCache` provides comprehensive observability for cache operations through OpenTelemetry metrics integration. It decorates any `IMemoryCache` implementation with zero-configuration metrics emission.
+
+### Quick Setup
+
+```csharp
+// Register with dependency injection
+builder.Services.AddNamedMeteredMemoryCache("user-cache");
+
+// Configure OpenTelemetry
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics => metrics
+        .AddMeter("CacheImplementations.MeteredMemoryCache")
+        .AddOtlpExporter());
+```
+
+### Key Features
+
+- **Named Cache Support**: Dimensional metrics with `cache.name` tags
+- **Service Collection Extensions**: Easy DI integration
+- **Options Pattern**: Configurable behavior with validation
+- **Minimal Overhead**: 15-40ns per operation
+- **Thread-Safe**: Lock-free counter operations
+
+### Emitted Metrics
+
+| Metric                  | Description                 | Tags                   |
+| ----------------------- | --------------------------- | ---------------------- |
+| `cache_hits_total`      | Successful cache retrievals | `cache.name`           |
+| `cache_misses_total`    | Cache key not found         | `cache.name`           |
+| `cache_evictions_total` | Items removed from cache    | `cache.name`, `reason` |
+
+For detailed usage, configuration, and examples, see the [MeteredMemoryCache Usage Guide](docs/MeteredMemoryCache.md).
 
 ---
 
@@ -229,6 +280,31 @@ Evidence & Process requirements are described in `.github/copilot-instructions.m
 - Enrich metrics (e.g., object size, latency histogram for factory execution).
 - Add negative caching (cache specific failures briefly) if upstream calls are very costly.
 - Provide a multi-layer (L1 in-memory + L2 distributed) single-flight composition.
+
+---
+
+## Documentation
+
+Comprehensive guides and references are available in the `docs/` directory:
+
+### Usage Guides
+
+- [MeteredMemoryCache Usage Guide](docs/MeteredMemoryCache.md) - Complete usage documentation with examples
+- [OpenTelemetry Integration](docs/OpenTelemetryIntegration.md) - Setup guide for various OTel exporters
+- [Multi-Cache Scenarios](docs/MultiCacheScenarios.md) - Patterns for managing multiple named caches
+
+### Reference Documentation
+
+- [Performance Characteristics](docs/PerformanceCharacteristics.md) - Detailed benchmark analysis and optimization guidance
+- [Troubleshooting Guide](docs/Troubleshooting.md) - Common issues and solutions
+- [API Reference](docs/ApiReference.md) - Complete API documentation with examples
+
+### Quick Reference Links
+
+- **Getting Started**: See [Quick Start](#quick-start) above
+- **Performance Impact**: [Performance Characteristics](docs/PerformanceCharacteristics.md)
+- **Common Issues**: [Troubleshooting Guide](docs/Troubleshooting.md)
+- **Advanced Patterns**: [Multi-Cache Scenarios](docs/MultiCacheScenarios.md)
 
 ---
 

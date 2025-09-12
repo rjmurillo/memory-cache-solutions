@@ -482,3 +482,10 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# specs (but allow task tracking files)
+specs/
+!specs/MeteredMemoryCache-TaskList.md
+
+#Ignore cursor AI rules
+.cursor\rules\codacy.mdc

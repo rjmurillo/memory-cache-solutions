@@ -1,142 +1,286 @@
+using System.Diagnostics.Metrics;
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Diagnosers;
+using BenchmarkDotNet.Exporters;
 using BenchmarkDotNet.Jobs;
-using Microsoft.Extensions.Caching.Memory;
+using BenchmarkDotNet.Toolchains.InProcess.Emit;
 using CacheImplementations;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Benchmarks;
 
+/// <summary>
+/// Benchmarks comparing performance overhead of named vs unnamed MeteredMemoryCache instances.
+/// Tests the impact of dimensional metrics (cache.name tags) on cache operation performance.
+/// </summary>
+[Config(typeof(BenchmarkConfig))]
 [MemoryDiagnoser]
 [ThreadingDiagnoser]
-[SimpleJob(RuntimeMoniker.Net90, id: "ThroughputNet90")]
 [JsonExporter]
 public class CacheBenchmarks
 {
-    private MemoryCache _raw = null!; // recreated per iteration
-    private CoalescingMemoryCache _coalescing = null!;
-    private MeteredMemoryCache _metered = null!;
-    private SingleFlightCache _singleFlight = null!;
-    private SingleFlightLazyCache _singleFlightLazy = null!;
+    private IMemoryCache _rawCache = null!;
+    private IMemoryCache _meteredUnnamedCache = null!;
+    private IMemoryCache _meteredNamedCache = null!;
+    private Meter _meter = null!;
 
-    private const string HitKey = "hit_key";
-    private const string MissKey = "miss_key";
-    private const int ChurnKeyCount = 4096; // power-of-two for bitmasking
+    private const string TestKey = "test-key";
+    private const string TestValue = "test-value-with-some-length-to-simulate-realistic-cache-entries";
+    private const string CacheName = "benchmark-cache";
 
-    private readonly string[] _churnKeys;
-    private int _churnIdx = -1; // first Interlocked.Increment -> 0
-    private int _counter;
-
-    // Cached delegates to avoid per-call lambda allocations
-    private readonly Func<Task<int>> _incrementTaskFactory;
-    private readonly Func<object, Task<int>> _incrementWithStateTaskFactory;
-    private readonly Func<ICacheEntry, int> _incrementSyncFactory;
-
-    // Reuse a single process-wide Meter to avoid repeated registrations
-    private static readonly System.Diagnostics.Metrics.Meter BenchMeter = new("bench.meter");
-
-    public CacheBenchmarks()
+    [GlobalSetup]
+    public void Setup()
     {
-        // Stable data that does not depend on per-iteration cache instances.
-        _churnKeys = Enumerable.Range(0, ChurnKeyCount).Select(i => $"k_{i}").ToArray();
+        // Raw MemoryCache for baseline comparison
+        _rawCache = new MemoryCache(new MemoryCacheOptions());
 
-        // Initialize cached delegates to avoid per-call lambda allocations while preserving the work
-        _incrementTaskFactory = () => Task.FromResult(Interlocked.Increment(ref _counter));
-        _incrementWithStateTaskFactory = _ => Task.FromResult(Interlocked.Increment(ref _counter));
-        _incrementSyncFactory = _ => Interlocked.Increment(ref _counter);
+        // Meter for MeteredMemoryCache instances
+        _meter = new Meter("BenchmarkMeter");
+
+        // MeteredMemoryCache without cache name (unnamed)
+        var unnamedInnerCache = new MemoryCache(new MemoryCacheOptions());
+        _meteredUnnamedCache = new MeteredMemoryCache(unnamedInnerCache, _meter);
+
+        // MeteredMemoryCache with cache name (named/dimensional metrics)
+        var namedInnerCache = new MemoryCache(new MemoryCacheOptions());
+        _meteredNamedCache = new MeteredMemoryCache(namedInnerCache, _meter, CacheName);
+
+        // Pre-populate caches for hit scenarios
+        _rawCache.Set(TestKey, TestValue);
+        _meteredUnnamedCache.Set(TestKey, TestValue);
+        _meteredNamedCache.Set(TestKey, TestValue);
     }
 
-    [IterationSetup]
-    public void IterationSetup()
+    [GlobalCleanup]
+    public void Cleanup()
     {
-        _raw = new MemoryCache(new MemoryCacheOptions());
-        _coalescing = new CoalescingMemoryCache(_raw);
-        _metered = new MeteredMemoryCache(_raw, BenchMeter);
-        _singleFlight = new SingleFlightCache(_raw);
-        _singleFlightLazy = new SingleFlightLazyCache(_raw);
-        _raw.Set(HitKey, 42, TimeSpan.FromMinutes(5));
-        _counter = 0;
-        _churnIdx = -1; // first Interlocked.Increment -> 0
+        _rawCache?.Dispose();
+        _meteredUnnamedCache?.Dispose();
+        _meteredNamedCache?.Dispose();
+        _meter?.Dispose();
     }
 
-    [IterationCleanup]
-    public void IterationCleanup()
-    {
-        // Dispose the underlying cache to release resources between iterations.
-        _raw.Dispose();
-    }
+    #region Cache Hit Benchmarks
 
-    // Baselines
+    /// <summary>
+    /// Baseline: Raw MemoryCache hit performance without any metrics overhead.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    public int RawMemoryCache_Hit()
+    public object? RawCache_Hit()
     {
-        _raw.TryGetValue(HitKey, out var obj);
-        return obj is int v ? v : 0;
+        return _rawCache.Get(TestKey);
     }
 
+    /// <summary>
+    /// MeteredMemoryCache hit performance without cache name (no dimensional tags).
+    /// Tests overhead of basic metric emission without tag processing.
+    /// </summary>
     [Benchmark]
-    public int RawMemoryCache_Miss()
+    public object? MeteredCache_Unnamed_Hit()
     {
-        _raw.Remove(MissKey);
-        _raw.TryGetValue(MissKey, out var obj); // obj will be null/default
-        return obj is int v ? v : 0;
+        return _meteredUnnamedCache.Get(TestKey);
     }
 
-    // HIT PATHS (no artificial Task.Yield)
+    /// <summary>
+    /// MeteredMemoryCache hit performance with cache name (dimensional tags).
+    /// Tests additional overhead of tag processing and dimensional metrics.
+    /// </summary>
     [Benchmark]
-    public async Task<int> SingleFlight_Hit() => await _singleFlight.GetOrCreateAsync(HitKey, TimeSpan.FromMinutes(5), _incrementTaskFactory);
-
-    [Benchmark]
-    public async Task<int> SingleFlightLazy_Hit() => await _singleFlightLazy.GetOrCreateAsync(HitKey, TimeSpan.FromMinutes(5), _incrementTaskFactory);
-
-    [Benchmark]
-    public async Task<int> Coalescing_Hit() => await _coalescing.GetOrCreateAsync(HitKey, _incrementWithStateTaskFactory);
-
-    [Benchmark]
-    public int Metered_Hit() => _metered.GetOrCreate(HitKey, _incrementSyncFactory);
-
-    // MISS PATHS (factory returns quickly)
-    [Benchmark]
-    public async Task<int> SingleFlight_Miss()
+    public object? MeteredCache_Named_Hit()
     {
-        var key = MissKey;
-        _raw.Remove(key);
-        return await _singleFlight.GetOrCreateAsync(key, TimeSpan.FromMinutes(5), _incrementTaskFactory);
+        return _meteredNamedCache.Get(TestKey);
     }
 
+    #endregion
+
+    #region Cache Miss Benchmarks
+
+    /// <summary>
+    /// Baseline: Raw MemoryCache miss performance without any metrics overhead.
+    /// </summary>
     [Benchmark]
-    public async Task<int> SingleFlightLazy_Miss()
+    public object? RawCache_Miss()
     {
-        var key = MissKey + "_lazy";
-        _raw.Remove(key);
-        return await _singleFlightLazy.GetOrCreateAsync(key, TimeSpan.FromMinutes(5), _incrementTaskFactory);
+        return _rawCache.Get("nonexistent-key");
     }
 
+    /// <summary>
+    /// MeteredMemoryCache miss performance without cache name.
+    /// Tests metric emission overhead on cache misses.
+    /// </summary>
     [Benchmark]
-    public async Task<int> Coalescing_Miss()
+    public object? MeteredCache_Unnamed_Miss()
     {
-        var key = MissKey + "_coal";
-        _raw.Remove(key);
-        return await _coalescing.GetOrCreateAsync(key, _incrementWithStateTaskFactory);
+        return _meteredUnnamedCache.Get("nonexistent-key");
     }
 
-    // CHURN / HIGH CARDINALITY (semaphore dictionary growth)
+    /// <summary>
+    /// MeteredMemoryCache miss performance with cache name.
+    /// Tests dimensional metric overhead on cache misses.
+    /// </summary>
     [Benchmark]
-    public async Task<int> SingleFlight_Churn()
+    public object? MeteredCache_Named_Miss()
     {
-        var idx = Interlocked.Increment(ref _churnIdx) & (ChurnKeyCount - 1); // 0..ChurnKeyCount-1
-        var key = _churnKeys[idx];
-        _raw.Remove(key);
-        return await _singleFlight.GetOrCreateAsync(key, TimeSpan.FromSeconds(30), _incrementTaskFactory);
+        return _meteredNamedCache.Get("nonexistent-key");
     }
 
-    // Simulated heavier work (to compare overhead proportionally)
-    private static Task<int> SimulatedWorkFactory()
+    #endregion
+
+    #region Cache Set Benchmarks
+
+    private int _setCounter = 0;
+
+    /// <summary>
+    /// Baseline: Raw MemoryCache set performance without any metrics overhead.
+    /// </summary>
+    [Benchmark]
+    public void RawCache_Set()
     {
-        // cheap deterministic pseudo work
-        int sum = 0;
-        for (int i = 0; i < 32; i++) sum += i;
-        return Task.FromResult(sum);
+        _rawCache.Set($"set-key-{++_setCounter}", TestValue);
     }
 
+    /// <summary>
+    /// MeteredMemoryCache set performance without cache name.
+    /// Tests eviction callback registration overhead without dimensional tags.
+    /// </summary>
     [Benchmark]
-    public async Task<int> SingleFlight_Hit_SimulatedWork() => await _singleFlight.GetOrCreateAsync(HitKey, TimeSpan.FromMinutes(5), SimulatedWorkFactory);
+    public void MeteredCache_Unnamed_Set()
+    {
+        _meteredUnnamedCache.Set($"set-key-{++_setCounter}", TestValue);
+    }
+
+    /// <summary>
+    /// MeteredMemoryCache set performance with cache name.
+    /// Tests eviction callback registration overhead with dimensional tags.
+    /// </summary>
+    [Benchmark]
+    public void MeteredCache_Named_Set()
+    {
+        _meteredNamedCache.Set($"set-key-{++_setCounter}", TestValue);
+    }
+
+    #endregion
+
+    #region TryGetValue Benchmarks
+
+    /// <summary>
+    /// Baseline: Raw MemoryCache TryGetValue hit performance.
+    /// </summary>
+    [Benchmark]
+    public bool RawCache_TryGetValue_Hit()
+    {
+        return _rawCache.TryGetValue(TestKey, out _);
+    }
+
+    /// <summary>
+    /// MeteredMemoryCache TryGetValue hit performance without cache name.
+    /// </summary>
+    [Benchmark]
+    public bool MeteredCache_Unnamed_TryGetValue_Hit()
+    {
+        return _meteredUnnamedCache.TryGetValue(TestKey, out _);
+    }
+
+    /// <summary>
+    /// MeteredMemoryCache TryGetValue hit performance with cache name.
+    /// </summary>
+    [Benchmark]
+    public bool MeteredCache_Named_TryGetValue_Hit()
+    {
+        return _meteredNamedCache.TryGetValue(TestKey, out _);
+    }
+
+    /// <summary>
+    /// Baseline: Raw MemoryCache TryGetValue miss performance.
+    /// </summary>
+    [Benchmark]
+    public bool RawCache_TryGetValue_Miss()
+    {
+        return _rawCache.TryGetValue("nonexistent-key", out _);
+    }
+
+    /// <summary>
+    /// MeteredMemoryCache TryGetValue miss performance without cache name.
+    /// </summary>
+    [Benchmark]
+    public bool MeteredCache_Unnamed_TryGetValue_Miss()
+    {
+        return _meteredUnnamedCache.TryGetValue("nonexistent-key", out _);
+    }
+
+    /// <summary>
+    /// MeteredMemoryCache TryGetValue miss performance with cache name.
+    /// </summary>
+    [Benchmark]
+    public bool MeteredCache_Named_TryGetValue_Miss()
+    {
+        return _meteredNamedCache.TryGetValue("nonexistent-key", out _);
+    }
+
+    #endregion
+
+    #region CreateEntry Benchmarks
+
+    private int _createCounter = 0;
+
+    /// <summary>
+    /// Baseline: Raw MemoryCache CreateEntry performance.
+    /// </summary>
+    [Benchmark]
+    public void RawCache_CreateEntry()
+    {
+        using var entry = _rawCache.CreateEntry($"create-key-{++_createCounter}");
+        entry.Value = TestValue;
+    }
+
+    /// <summary>
+    /// MeteredMemoryCache CreateEntry performance without cache name.
+    /// Tests eviction callback overhead during entry creation.
+    /// </summary>
+    [Benchmark]
+    public void MeteredCache_Unnamed_CreateEntry()
+    {
+        using var entry = _meteredUnnamedCache.CreateEntry($"create-key-{++_createCounter}");
+        entry.Value = TestValue;
+    }
+
+    /// <summary>
+    /// MeteredMemoryCache CreateEntry performance with cache name.
+    /// Tests dimensional eviction callback overhead during entry creation.
+    /// </summary>
+    [Benchmark]
+    public void MeteredCache_Named_CreateEntry()
+    {
+        using var entry = _meteredNamedCache.CreateEntry($"create-key-{++_createCounter}");
+        entry.Value = TestValue;
+    }
+
+    #endregion
+}
+
+/// <summary>
+/// BenchmarkDotNet configuration for cache performance testing.
+/// Configured for CI-friendly execution with reduced memory usage while maintaining accuracy.
+/// </summary>
+public class BenchmarkConfig : ManualConfig
+{
+    public BenchmarkConfig()
+    {
+        AddExporter(MarkdownExporter.GitHub);
+        AddExporter(HtmlExporter.Default);
+        // JSON output will be generated by default
+        AddDiagnoser(MemoryDiagnoser.Default);
+        AddDiagnoser(ThreadingDiagnoser.Default);
+
+        // CI-friendly job configuration: reduced memory usage, faster execution
+        var ciJob = Job.Default
+            .WithToolchain(InProcessEmitToolchain.Instance)  // In-process execution
+            .WithWarmupCount(3)           // Reduced from default 6-15
+            .WithIterationCount(10)       // Reduced from default 15-100  
+            .WithInvocationCount(16384)   // Reduced from default 1M+
+            .WithUnrollFactor(1)          // Minimal unrolling
+            .WithId("CIJob");
+        AddJob(ciJob);
+    }
 }
