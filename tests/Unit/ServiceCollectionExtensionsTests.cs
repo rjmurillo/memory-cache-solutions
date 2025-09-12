@@ -96,12 +96,15 @@ public class ServiceCollectionExtensionsTests
         var services = new ServiceCollection();
 
         // Act
+        var meterName1 = GetUniqueMeterName("meter1");
+        var meterName2 = GetUniqueMeterName("meter2");
+        
         services.AddNamedMeteredMemoryCache("cache1",
             options => options.AdditionalTags["type"] = "primary",
-            meterName: "meter1");
+            meterName: meterName1);
         services.AddNamedMeteredMemoryCache("cache2",
             options => options.AdditionalTags["type"] = "secondary",
-            meterName: "meter2");
+            meterName: meterName2);
 
         using var provider = services.BuildServiceProvider();
 
@@ -269,7 +272,8 @@ public class ServiceCollectionExtensionsTests
         services.AddSingleton<IMemoryCache>(sp => new MemoryCache(new MemoryCacheOptions()));
 
         // Act
-        services.DecorateMemoryCacheWithMetrics(cacheName: "decorated", meterName: "decorated-meter");
+        var decoratedMeterName = GetUniqueMeterName("decorated-meter");
+        services.DecorateMemoryCacheWithMetrics(cacheName: "decorated", meterName: decoratedMeterName);
         using var provider = services.BuildServiceProvider();
 
         // Assert
@@ -278,7 +282,7 @@ public class ServiceCollectionExtensionsTests
 
         Assert.NotNull(cache);
         Assert.NotNull(meter);
-        Assert.Equal("decorated-meter", meter.Name);
+        Assert.Equal(decoratedMeterName, meter.Name);
         Assert.IsType<MeteredMemoryCache>(cache);
 
         // Assert cache name preservation in decorator
@@ -315,9 +319,10 @@ public class ServiceCollectionExtensionsTests
         services.AddSingleton<IMemoryCache>(sp => new MemoryCache(new MemoryCacheOptions()));
 
         // Act
+        var customMeterName = GetUniqueMeterName("custom-meter");
         services.DecorateMemoryCacheWithMetrics(
             cacheName: "decorated-cache",
-            meterName: "custom-meter",
+            meterName: customMeterName,
             configureOptions: options =>
             {
                 options.DisposeInner = true;
@@ -335,7 +340,7 @@ public class ServiceCollectionExtensionsTests
         Assert.Equal("decorated-cache", meteredCache.Name);
 
         var meter = provider.GetRequiredService<Meter>();
-        Assert.Equal("custom-meter", meter.Name);
+        Assert.Equal(customMeterName, meter.Name);
     }
 
     [Fact]
