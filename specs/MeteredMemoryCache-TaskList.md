@@ -182,7 +182,7 @@ Each task completion must include:
 
 ## Progress Summary
 
-**Completed Sub-tasks**: 48/200+ items ✅ **CRITICAL FIXES + API IMPROVEMENTS**
+**Completed Sub-tasks**: 52/200+ items ✅ **CRITICAL FIXES + API IMPROVEMENTS + KEYED METERS**
 **Latest Commits**: 
 - `af72868` - Fix TagList mutation bug on readonly field
 - `e8dc146` - Fix TagList initialization bug in options constructor  
@@ -193,7 +193,8 @@ Each task completion must include:
 - `8f49b87` - Fix Meter disposal and strengthen test assertions
 - `a6fd7c3` - Strengthen ServiceCollectionExtensions test assertions
 - `bd3323b` - Improve test isolation and resource management
-- `[PENDING]` - Add DebuggerDisplay and fix miss classification race condition
+- `845f0b5` - Add DebuggerDisplay and fix miss classification race condition
+- `[PENDING]` - Implement keyed meter approach and resolve DI conflicts
 
 **GitHub PR Responses**: ✅ **POSTED**
 
@@ -644,15 +645,13 @@ Improve API design, validation, and error handling.
   - **Requirements**: Add `using System.Diagnostics;` if not present
 
 ##### Code Deduplication and Performance
-- [ ] Deduplicate eviction metric logic across three identical blocks in MeteredMemoryCache.cs (Comment: [#2334230089](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230089))
-  - **Issue**: Three identical blocks in Set method for eviction callback registration
-  - **Solution**: Extract to private static method `RecordEviction(MeteredMemoryCache self, PostEvictionReason reason)`
-  - **Implementation**: Replace inline blocks with `RecordEviction(this, reason)` calls
-  - **Files**: src/CacheImplementations/MeteredMemoryCache.cs (lines 99-104, 128-133, 159-164)
-- [ ] Fix eviction metric ToString allocation - pass enum directly to avoid string conversion
-  - **Issue**: `reason.ToString()` creates unnecessary string allocations
-  - **Solution**: Pass PostEvictionReason enum directly to TagList if backend supports it
-  - **Alternative**: Keep ToString() only if observability backend requires string values
+- [x] Deduplicate eviction metric logic across three identical blocks in MeteredMemoryCache.cs (Comment: [#2334230089](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230089))
+  - **Implementation**: Created RegisterEvictionCallback helper method with overloads for MemoryCacheEntryOptions and ICacheEntry
+  - **Solution**: Replaced three identical blocks with calls to the helper method
+  - **Files**: src/CacheImplementations/MeteredMemoryCache.cs - Set, GetOrCreate, CreateEntry methods
+- [x] Fix eviction metric ToString allocation - pass enum directly to avoid string conversion - **INVESTIGATED - KEEPING TOSTRING FOR OBSERVABILITY COMPATIBILITY**
+  - **Analysis**: TagList.Add accepts object values, but observability backends expect string values for enum tags
+  - **Decision**: Keep ToString() for compatibility with monitoring systems that expect string tag values
 
 ##### Input Validation and Error Handling
 - [ ] Fix input validation message punctuation consistency in ServiceCollectionExtensions.cs (Comment: [#2331684857](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684857))
@@ -1130,7 +1129,7 @@ Improve code quality, consistency, and maintainability.
 - [x] Fix XML documentation enum reference - use PostEvictionReason instead of EvictionReason (Comment: Multiple reviews)
 - [x] Fix input validation message punctuation consistency in ServiceCollectionExtensions.cs - **ALREADY CONSISTENT**
 - [x] Remove LINQ Where allocation in options constructor AdditionalTags processing (Comment: Multiple reviews) - **COMPLETED IN EARLIER FIX**
-- [ ] Deduplicate eviction metric logic across three identical blocks in MeteredMemoryCache.cs (Comment: [#2334230089](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230089))
+- [x] Deduplicate eviction metric logic across three identical blocks in MeteredMemoryCache.cs (Comment: [#2334230089](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230089))
 - [x] Fix miss classification race condition in GetOrCreate method - only count miss when factory actually runs (Comment: Multiple reviews)
 - [ ] Fix parameter name mismatch in examples - 'configure' should be 'configureOptions' (Comment: Copilot Review)
 - [ ] Fix renovate.json formatting - restore multi-line array format for better readability (Comment: Copilot Review)

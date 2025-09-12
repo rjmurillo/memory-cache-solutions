@@ -84,8 +84,7 @@ public static class ServiceCollectionExtensions
             .Configure(opts =>
             {
                 opts.CacheName = cacheName;
-                // Note: DisposeInner defaults to false in MeteredMemoryCacheOptions
-                // This can be overridden by configureOptions if needed
+                opts.DisposeInner = true; // Set DisposeInner=true for owned caches to prevent memory leaks
                 configureOptions?.Invoke(opts);
             })
             .ValidateDataAnnotations()
@@ -95,15 +94,18 @@ public static class ServiceCollectionExtensions
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<MeteredMemoryCacheOptions>, MeteredMemoryCacheOptionsValidator>());
 
-        // Register the meter if not already registered (keep singleton for backward compatibility)
-        services.TryAddSingleton<Meter>(sp => new Meter(effectiveMeterName));
+        // Register the meter with keyed registration to prevent conflicts between different meter names
+        services.AddKeyedSingleton<Meter>(effectiveMeterName, (sp, key) => new Meter((string)key!));
+
+        // Also register as singleton for backward compatibility (uses the named meter)
+        services.TryAddSingleton<Meter>(sp => sp.GetRequiredKeyedService<Meter>(effectiveMeterName));
 
         // Register the keyed cache service
         services.AddKeyedSingleton<IMemoryCache>(cacheName, (sp, key) =>
         {
             var keyString = (string)key!;
             var innerCache = new MemoryCache(new MemoryCacheOptions());
-            var meter = sp.GetRequiredService<Meter>();
+            var meter = sp.GetRequiredKeyedService<Meter>(effectiveMeterName);
             var options = sp.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>().Get(keyString);
             return new MeteredMemoryCache(innerCache, meter, options);
         });
@@ -168,29 +170,31 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        var effectiveMeterName = string.IsNullOrEmpty(meterName) ? "MeteredMemoryCache" : meterName;
+        var effectiveMeterName = string.IsNullOrEmpty(meterName) ? nameof(MeteredMemoryCache) : meterName;
 
-        // Register the meter if not already registered
-        services.TryAddSingleton<Meter>(sp => new Meter(effectiveMeterName));
+        // Register the meter with keyed registration to prevent conflicts
+        services.AddKeyedSingleton<Meter>(effectiveMeterName, (sp, key) => new Meter((string)key!));
 
-        // Configure options (keep global for backward compatibility)
-        services.Configure<MeteredMemoryCacheOptions>(opts =>
-        {
-            opts.CacheName = cacheName;
-            opts.DisposeInner = false; // Don't dispose shared cache in decorator
-            configureOptions?.Invoke(opts);
-        });
+        // Also register as singleton for backward compatibility (uses the named meter)
+        services.TryAddSingleton<Meter>(sp => sp.GetRequiredKeyedService<Meter>(effectiveMeterName));
+
+        // Use named options configuration to prevent global contamination
+        var optionsName = $"DecoratedCache_{Guid.NewGuid():N}";
+        services.AddOptions<MeteredMemoryCacheOptions>(optionsName)
+            .Configure(opts =>
+            {
+                opts.CacheName = cacheName;
+                opts.DisposeInner = false; // Don't dispose shared cache in decorator
+                configureOptions?.Invoke(opts);
+            });
 
         // Register the options validator
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<MeteredMemoryCacheOptions>, MeteredMemoryCacheOptionsValidator>());
 
         // Manual decoration - find existing IMemoryCache registration and replace it
-        var existingDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IMemoryCache));
-        if (existingDescriptor == null)
-        {
-            throw new InvalidOperationException("No IMemoryCache registration found. Register IMemoryCache before calling DecorateMemoryCacheWithMetrics.");
-        }
+        var existingDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IMemoryCache))
+        ?? throw new InvalidOperationException($"No IMemoryCache registration found. Register IMemoryCache before calling {nameof(DecorateMemoryCacheWithMetrics)}.");
 
         // Remove the existing registration
         services.Remove(existingDescriptor);
@@ -201,8 +205,8 @@ public static class ServiceCollectionExtensions
             sp =>
             {
                 var innerCache = CreateInnerCache(existingDescriptor, sp);
-                var meter = sp.GetRequiredService<Meter>();
-                var options = sp.GetRequiredService<IOptions<MeteredMemoryCacheOptions>>().Value;
+                var meter = sp.GetRequiredKeyedService<Meter>(effectiveMeterName);
+                var options = sp.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>().Get(optionsName);
                 return new MeteredMemoryCache(innerCache, meter, options);
             },
             existingDescriptor.Lifetime);
