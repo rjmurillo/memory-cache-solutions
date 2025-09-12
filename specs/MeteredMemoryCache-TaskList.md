@@ -182,7 +182,7 @@ Each task completion must include:
 
 ## Progress Summary
 
-**Completed Sub-tasks**: 38/200+ items ✅ **MAJOR SECTIONS COMPLETED**
+**Completed Sub-tasks**: 42/200+ items ✅ **MAJOR SECTIONS + TEST IMPROVEMENTS**
 **Latest Commits**: 
 - `af72868` - Fix TagList mutation bug on readonly field
 - `e8dc146` - Fix TagList initialization bug in options constructor  
@@ -190,6 +190,7 @@ Each task completion must include:
 - `6f8768c` - Fix data race on shared Exception variable in parallel test
 - `3d69871` - Fix configuration and package issues
 - `76f26ff` - Fix dependency injection implementation issues
+- `8f49b87` - Fix Meter disposal and strengthen test assertions
 
 **GitHub PR Responses**: ✅ **POSTED**
 
@@ -1021,8 +1022,9 @@ Fix test reliability, isolation, and coverage issues.
 
 #### Sub-tasks:
 - [x] Add using var for Meter instances in all test methods to prevent cross-test interference (Comment: [#2331684872](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684872))
-- [ ] Strengthen assertions in ServiceCollectionExtensionsTests - resolve and assert registry availability (Comment: [#2331684874](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684874))
-- [ ] Add ParamName assertion for ArgumentException in AddNamedMeteredMemoryCache_ThrowsOnEmptyName test (Comment: [#2331684882](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684882))
+- [x] Strengthen assertions in ServiceCollectionExtensionsTests - resolve and assert registry availability (Comment: [#2331684874](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684874))
+- [x] Add ParamName assertion for ArgumentException in AddNamedMeteredMemoryCache_ThrowsOnEmptyName test (Comment: [#2331684882](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684882))
+- [x] Assert cache name preservation in decorator tests (Comment: [#2331684881](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684881))
 - [ ] Filter MetricCollectionHarness by Meter instance to prevent cross-test contamination
 - [ ] Make eviction tests deterministic by removing compaction/sleeps and using metric waiting
 - [ ] Fix exact tag-count assertions to be more flexible
@@ -1032,7 +1034,6 @@ Fix test reliability, isolation, and coverage issues.
 - [ ] Remove process-wide duplicate validation or make it per-provider scoped
 - [ ] Fix test isolation issues - unique meter/cache names per test run
 - [ ] Add proper service provider disposal in all test methods
-- [ ] Assert cache name preservation in decorator tests (Comment: [#2331684881](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684881))
 - [ ] Fix eviction callback timing dependencies in flaky tests (Comment: [#2331684876](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684876))
 - [ ] Add comprehensive options validation error message testing
 - [ ] Add proper exception parameter validation in negative configuration tests

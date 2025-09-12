@@ -30,6 +30,11 @@ public class ServiceCollectionExtensionsTests
         // Assert
         Assert.NotNull(provider);
 
+        // Strengthen assertions: Resolve and assert registry availability
+        var keyedCache = provider.GetRequiredKeyedService<IMemoryCache>("test-cache");
+        Assert.NotNull(keyedCache);
+        Assert.IsType<MeteredMemoryCache>(keyedCache);
+
         // Verify options are registered and configured correctly
         var optionsMonitor = provider.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>();
         var options = optionsMonitor.Get("test-cache");
@@ -60,6 +65,22 @@ public class ServiceCollectionExtensionsTests
         Assert.False(options.DisposeInner); // Default value
         Assert.NotNull(options.AdditionalTags);
         Assert.Empty(options.AdditionalTags);
+
+        // Strengthen assertions: Resolve and assert registry availability
+        // This addresses PR comment #2331684874 about weak assertions
+        var keyedCache = provider.GetRequiredKeyedService<IMemoryCache>("minimal-cache");
+        Assert.NotNull(keyedCache);
+        Assert.IsType<MeteredMemoryCache>(keyedCache);
+
+        // Assert that the cache is functional
+        keyedCache.Set("test-key", "test-value");
+        Assert.True(keyedCache.TryGetValue("test-key", out var retrievedValue));
+        Assert.Equal("test-value", retrievedValue);
+
+        // Assert meter is registered and accessible
+        var meter = provider.GetRequiredService<Meter>();
+        Assert.NotNull(meter);
+        Assert.Equal("MeteredMemoryCache", meter.Name);
     }
 
     [Fact]
@@ -96,9 +117,10 @@ public class ServiceCollectionExtensionsTests
         // Arrange
         var services = new ServiceCollection();
 
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() =>
+        // Act & Assert - Strengthen assertions with ParamName validation
+        var nullEx = Assert.Throws<ArgumentException>(() =>
             services.AddNamedMeteredMemoryCache(null!));
+        Assert.Equal("cacheName", nullEx.ParamName);
     }
 
     [Fact]
@@ -107,11 +129,14 @@ public class ServiceCollectionExtensionsTests
         // Arrange
         var services = new ServiceCollection();
 
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() =>
+        // Act & Assert - Strengthen assertions with ParamName validation
+        var emptyEx = Assert.Throws<ArgumentException>(() =>
             services.AddNamedMeteredMemoryCache(""));
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Equal("cacheName", emptyEx.ParamName);
+
+        var whitespaceEx = Assert.Throws<ArgumentException>(() =>
             services.AddNamedMeteredMemoryCache("   "));
+        Assert.Equal("cacheName", whitespaceEx.ParamName);
     }
 
 
@@ -127,6 +152,15 @@ public class ServiceCollectionExtensionsTests
 
         var provider = services.BuildServiceProvider();
         Assert.NotNull(provider);
+
+        // Strengthen assertions: Verify actual cache registration works
+        var cache1 = provider.GetRequiredKeyedService<IMemoryCache>("cache1");
+        var cache2 = provider.GetRequiredKeyedService<IMemoryCache>("cache2");
+        Assert.NotNull(cache1);
+        Assert.NotNull(cache2);
+        Assert.IsType<MeteredMemoryCache>(cache1);
+        Assert.IsType<MeteredMemoryCache>(cache2);
+        Assert.NotSame(cache1, cache2);
     }
 
     [Fact]
@@ -141,6 +175,19 @@ public class ServiceCollectionExtensionsTests
 
         var provider = services.BuildServiceProvider();
         Assert.NotNull(provider);
+
+        // Strengthen assertions: Verify registry availability and functionality
+        var cache1 = provider.GetRequiredKeyedService<IMemoryCache>("cache1");
+        var cache2 = provider.GetRequiredKeyedService<IMemoryCache>("cache2");
+        Assert.NotNull(cache1);
+        Assert.NotNull(cache2);
+        Assert.IsType<MeteredMemoryCache>(cache1);
+        Assert.IsType<MeteredMemoryCache>(cache2);
+
+        // Verify meter with empty name defaults to "MeteredMemoryCache"
+        var meter = provider.GetRequiredService<Meter>();
+        Assert.NotNull(meter);
+        Assert.Equal("MeteredMemoryCache", meter.Name);
     }
 
     [Fact]
@@ -227,6 +274,10 @@ public class ServiceCollectionExtensionsTests
         Assert.NotNull(meter);
         Assert.Equal("decorated-meter", meter.Name);
         Assert.IsType<MeteredMemoryCache>(cache);
+
+        // Assert cache name preservation in decorator
+        var meteredCache = (MeteredMemoryCache)cache;
+        Assert.Equal("decorated", meteredCache.Name);
     }
 
     [Fact]
@@ -295,6 +346,10 @@ public class ServiceCollectionExtensionsTests
         var decoratedCache = provider.GetRequiredService<IMemoryCache>();
         Assert.IsType<MeteredMemoryCache>(decoratedCache);
 
+        // Assert cache name preservation in decorator
+        var meteredCache = (MeteredMemoryCache)decoratedCache;
+        Assert.Equal("preserved", meteredCache.Name);
+
         // Verify the inner cache is preserved by setting and getting a value
         decoratedCache.Set("test-key", "test-value");
         Assert.True(originalCache.TryGetValue("test-key", out var value));
@@ -316,6 +371,19 @@ public class ServiceCollectionExtensionsTests
         // Assert - Should not throw when building provider
         var provider = services.BuildServiceProvider();
         Assert.NotNull(provider);
+
+        // Strengthen assertions: Verify registry availability for concurrent registrations
+        // Test a few random cache registrations to ensure they work
+        var cache0 = provider.GetRequiredKeyedService<IMemoryCache>("cache-0");
+        var cache5 = provider.GetRequiredKeyedService<IMemoryCache>("cache-5");
+        var cache9 = provider.GetRequiredKeyedService<IMemoryCache>("cache-9");
+
+        Assert.NotNull(cache0);
+        Assert.NotNull(cache5);
+        Assert.NotNull(cache9);
+        Assert.IsType<MeteredMemoryCache>(cache0);
+        Assert.IsType<MeteredMemoryCache>(cache5);
+        Assert.IsType<MeteredMemoryCache>(cache9);
 
         // Verify that at least some caches were registered properly (concurrent execution may affect exact count)
         var optionsMonitor = provider.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>();
