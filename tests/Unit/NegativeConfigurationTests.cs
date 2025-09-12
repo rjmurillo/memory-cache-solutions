@@ -16,7 +16,7 @@ namespace Unit;
 /// </summary>
 public class NegativeConfigurationTests
 {
-    #region Constructor Parameter Validation
+    // Constructor Parameter Validation
 
     [Fact]
     public void Constructor_NullInnerCache_ThrowsArgumentNullException()
@@ -81,9 +81,7 @@ public class NegativeConfigurationTests
         Assert.Equal("meter", exception.ParamName);
     }
 
-    #endregion
-
-    #region MeteredMemoryCacheOptions Basic Tests
+    // MeteredMemoryCacheOptions Basic Tests
 
     [Fact]
     public void MeteredMemoryCacheOptions_NullAdditionalTagsKey_ThrowsArgumentNullException()
@@ -109,9 +107,7 @@ public class NegativeConfigurationTests
         Assert.Contains("key", exception.Message); // Message contains "key" somewhere
     }
 
-    #endregion
-
-    #region Service Collection Extension Validation
+    // Service Collection Extension Validation
 
     [Fact]
     public void AddNamedMeteredMemoryCache_NullServiceCollection_ThrowsArgumentNullException()
@@ -169,9 +165,7 @@ public class NegativeConfigurationTests
         Assert.Contains("No IMemoryCache registration found", exception.Message);
     }
 
-    #endregion
-
-    #region Disposal Scenarios
+    // Disposal Scenarios
 
     [Fact]
     public void Dispose_MultipleCalls_DoesNotThrow()
@@ -304,9 +298,7 @@ public class NegativeConfigurationTests
         Assert.NotNull(entry);
     }
 
-    #endregion
-
-    #region Null Key Validation
+    // Null Key Validation
 
     [Fact]
     public void TryGetValue_NullKey_ThrowsArgumentNullException()
@@ -406,9 +398,7 @@ public class NegativeConfigurationTests
         Assert.Equal("key", exception.ParamName);
     }
 
-    #endregion
-
-    #region Edge Case Scenarios
+    // Edge Case Scenarios
 
     [Fact]
     public void VeryLongCacheName_DoesNotCauseIssues()
@@ -506,6 +496,4 @@ public class NegativeConfigurationTests
             meteredCache.GetOrCreate<string>("key", _ => null!));
         Assert.Contains("Factory returned null", exception.Message);
     }
-
-    #endregion
 }

@@ -325,7 +325,7 @@ public class MultiCacheScenarioTests
         Assert.DoesNotContain(secondaryMeterItems, m => m.Name.Contains("main"));
     }
 
-    #region Helper Methods
+    // Helper Methods
 
     private static IHost CreateHostWithThreeNamedCaches(List<Metric> exportedItems)
     {
@@ -539,6 +539,4 @@ public class MultiCacheScenarioTests
         }
         return false;
     }
-
-    #endregion
 }

@@ -562,7 +562,7 @@ public class ConcurrencyTests : IDisposable
         }
     }
 
-    #region Helper Methods
+    // Helper Methods
 
     private IHost CreateHostWithMetrics(string cacheName)
     {
@@ -702,6 +702,4 @@ public class ConcurrencyTests : IDisposable
         
         Assert.True(hasTag, $"Metric '{metric.Name}' should have tag '{tagKey}' with value '{expectedValue}'");
     }
-
-    #endregion
 }
