@@ -1,0 +1,59 @@
+{
+  "name": "aspnetcore-metered-memory-cache-k6-tests",
+  "version": "1.0.0",
+  "description": "k6 performance tests for ASP.NET Core MeteredMemoryCache example",
+  "scripts": {
+    "test:smoke": "k6 run k6-smoke-tests.js",
+    "test:load": "k6 run k6-average-load-tests.js",
+    "test:stress": "k6 run k6-stress-tests.js",
+    "test:soak": "k6 run k6-soak-tests.js",
+    "test:spike": "k6 run k6-spike-tests.js",
+    "test:breakpoint": "k6 run k6-breakpoint-tests.js",
+    "test:all": "npm run test:smoke && npm run test:load && npm run test:stress && npm run test:spike && npm run test:breakpoint",
+    "test:quick": "npm run test:smoke && npm run test:load",
+    "test:performance": "npm run test:stress && npm run test:spike && npm run test:breakpoint",
+    "test:stability": "npm run test:soak",
+    "test:smoke:custom": "k6 run -e BASE_URL=$BASE_URL k6-smoke-tests.js",
+    "test:load:custom": "k6 run -e BASE_URL=$BASE_URL k6-average-load-tests.js",
+    "test:stress:custom": "k6 run -e BASE_URL=$BASE_URL k6-stress-tests.js",
+    "test:soak:custom": "k6 run -e BASE_URL=$BASE_URL k6-soak-tests.js",
+    "test:spike:custom": "k6 run -e BASE_URL=$BASE_URL k6-spike-tests.js",
+    "test:breakpoint:custom": "k6 run -e BASE_URL=$BASE_URL k6-breakpoint-tests.js",
+    "test:all:custom": "BASE_URL=$BASE_URL npm run test:all",
+    "install:k6": "echo 'Please install k6 manually. See README-k6-Tests.md for instructions.'",
+    "check:k6": "k6 version",
+    "check:app": "curl -f $BASE_URL/health || echo 'Application not running. Start with: dotnet run'",
+    "check:all": "npm run check:k6 && npm run check:app",
+    "run:bash": "bash run-k6-tests.sh",
+    "run:windows": "run-k6-tests.bat",
+    "run:all": "npm run run:bash || npm run run:windows"
+  },
+  "keywords": [
+    "k6",
+    "performance",
+    "testing",
+    "load-testing",
+    "stress-testing",
+    "aspnetcore",
+    "memory-cache",
+    "opentelemetry",
+    "metrics"
+  ],
+  "author": "Richard Murillo",
+  "license": "MIT",
+  "devDependencies": {
+    "k6": "^0.40.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rjmurillo/memory-cache-solutions.git",
+    "directory": "examples/AspNetCore"
+  },
+  "bugs": {
+    "url": "https://github.com/rjmurillo/memory-cache-solutions/issues"
+  },
+  "homepage": "https://github.com/rjmurillo/memory-cache-solutions#readme"
+}
