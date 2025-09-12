@@ -108,6 +108,43 @@ public class MetricEmissionAccuracyTests
         }
 
         /// <summary>
+        /// Deterministic wait helper that polls for expected metric count instead of using Thread.Sleep.
+        /// Addresses flaky test timing issues by actively waiting for metrics to be emitted.
+        /// </summary>
+        public async Task<bool> WaitForMetricAsync(string instrumentName, int expectedCount, TimeSpan timeout)
+        {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            while (stopwatch.Elapsed < timeout)
+            {
+                var currentCount = GetMeasurements(instrumentName).Count;
+                if (currentCount >= expectedCount)
+                {
+                    return true;
+                }
+                await Task.Delay(10); // Short polling interval
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Deterministic wait helper for measurements with specific tags.
+        /// </summary>
+        public async Task<bool> WaitForMetricWithTagsAsync(string instrumentName, int expectedCount, TimeSpan timeout, params KeyValuePair<string, object?>[] requiredTags)
+        {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            while (stopwatch.Elapsed < timeout)
+            {
+                var currentCount = GetMeasurementsWithTags(instrumentName, requiredTags).Count;
+                if (currentCount >= expectedCount)
+                {
+                    return true;
+                }
+                await Task.Delay(10); // Short polling interval
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Validates that the aggregated counter matches the expected value.
         /// </summary>
         public void AssertAggregatedCount(string instrumentName, long expectedTotal)
@@ -195,7 +232,7 @@ public class MetricEmissionAccuracyTests
     }
 
     [Fact]
-    public void EvictionMetrics_DeterministicScenario_ValidatesAccuracyAndTags()
+    public async Task EvictionMetrics_DeterministicScenario_ValidatesAccuracyAndTags()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter("test.accuracy.2");
@@ -231,8 +268,9 @@ public class MetricEmissionAccuracyTests
 
         cache.Remove("manual-remove-key"); // Triggers Removed eviction
 
-        // Allow processing time for async eviction callbacks
-        Thread.Sleep(50);
+        // Use deterministic wait instead of Thread.Sleep for reliable CI testing
+        var evictionWaitSucceeded = await harness.WaitForMetricAsync("cache_evictions_total", 2, TimeSpan.FromSeconds(5));
+        Assert.True(evictionWaitSucceeded, "Expected at least 2 eviction metrics within timeout");
 
         // Validate eviction metrics
         var evictionMeasurements = harness.GetMeasurements("cache_evictions_total");
@@ -457,8 +495,8 @@ public class MetricEmissionAccuracyTests
             new KeyValuePair<string, object?>("cache.name", "tryget-typed-test"));
     }
 
-    [Fact(Skip = "Flaky under CI timing; eviction callback timing depends on MemoryCache internal cleanup")]
-    public void CreateEntryMethod_AccurateEvictionRegistration_ValidatesCallbackSetup()
+    [Fact]
+    public async Task CreateEntryMethod_AccurateEvictionRegistration_ValidatesCallbackSetup()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter("test.accuracy.7");
@@ -473,24 +511,33 @@ public class MetricEmissionAccuracyTests
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMilliseconds(1);
         }
 
-        // Wait for expiration and force cleanup with more aggressive approach
-        Thread.Sleep(50); // Longer wait for expiration
-
-        // Try multiple access attempts to trigger cleanup
+        // Try multiple access attempts to trigger cleanup with deterministic waiting
         for (int i = 0; i < 5; i++)
         {
             cache.TryGetValue("manual-entry", out _);
             cache.TryGetValue($"trigger-cleanup-{i}", out _); // Additional access to trigger internal cleanup
+
+            // Check if eviction has been recorded yet
+            if (harness.GetMeasurements("cache_evictions_total").Any())
+            {
+                break; // Early exit if eviction detected
+            }
+            await Task.Delay(20); // Short delay between attempts
         }
 
         // Force compact multiple times to ensure eviction processing
         inner.Compact(0.0);
         inner.Compact(0.5);
-        Thread.Sleep(100); // Allow more time for callback processing
 
-        // Additional trigger attempts after compact
-        cache.TryGetValue("manual-entry", out _);
-        Thread.Sleep(50);
+        // Use deterministic wait for eviction callback processing
+        var evictionDetected = await harness.WaitForMetricAsync("cache_evictions_total", 1, TimeSpan.FromSeconds(3));
+
+        // Additional trigger attempts if not detected yet
+        if (!evictionDetected)
+        {
+            cache.TryGetValue("manual-entry", out _);
+            await harness.WaitForMetricAsync("cache_evictions_total", 1, TimeSpan.FromSeconds(2));
+        }
 
         // Validate eviction was recorded
         var evictions = harness.GetMeasurements("cache_evictions_total");

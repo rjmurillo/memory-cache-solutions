@@ -33,7 +33,7 @@ The following tasks represent ALL remaining work based on comprehensive analysis
 - **Note**: These are pre-existing SWR cache issues, not MeteredMemoryCache-specific
 
 **PR Context**: https://github.com/rjmurillo/memory-cache-solutions/pull/15  
-**Current Commit**: `b2ddda92fa1de9b86729feeb0098c619b01d8bac`  
+**Current Commit**: `04b6250d058073ebfd5dcea8ff95fa340c61bf89`  
 **Repository**: rjmurillo/memory-cache-solutions  
 **Branch**: feat/metered-memory-cache  
 

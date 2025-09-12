@@ -40,6 +40,26 @@ public class MeteredMemoryCacheTests
             }
         }
 
+        /// <summary>
+        /// Deterministic wait helper that polls for expected counter value instead of using Thread.Sleep.
+        /// </summary>
+        public async Task<bool> WaitForCounterAsync(string instrumentName, long expectedValue, TimeSpan timeout)
+        {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            while (stopwatch.Elapsed < timeout)
+            {
+                lock (_lock)
+                {
+                    if (_counters.TryGetValue(instrumentName, out var currentValue) && currentValue >= expectedValue)
+                    {
+                        return true;
+                    }
+                }
+                await Task.Delay(10); // Short polling interval
+            }
+            return false;
+        }
+
         public TestListener(params string[] instrumentNames)
         {
             _listener.InstrumentPublished = (inst, listener) =>
@@ -113,8 +133,8 @@ public class MeteredMemoryCacheTests
         Assert.Equal(1, listener.Counters["cache_misses_total"]);
     }
 
-    [Fact(Skip = "Flaky under CI timing; revisit when deterministic eviction test harness added.")]
-    public void RecordsEviction()
+    [Fact]
+    public async Task RecordsEviction()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter("test.metered.cache2");
@@ -129,6 +149,10 @@ public class MeteredMemoryCacheTests
         cts.Cancel();
         cache.TryGetValue("k", out _);
         inner.Compact(0.0);
+
+        // Use deterministic wait instead of relying on immediate eviction callback execution
+        var evictionRecorded = await listener.WaitForCounterAsync("cache_evictions_total", 1, TimeSpan.FromSeconds(5));
+        Assert.True(evictionRecorded, "Expected eviction to be recorded within timeout");
 
         Assert.True(listener.Counters.TryGetValue("cache_evictions_total", out var ev) && ev >= 1);
     }
