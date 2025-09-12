@@ -2,7 +2,35 @@
 
 ## 🚨 OUTSTANDING TASKS (AI Agent Ready)
 
-The following tasks represent ALL remaining work based on comprehensive analysis of PR #15 feedback from Copilot and CodeRabbit reviewers. Each task includes complete context, implementation guidance, and traceability to original reviewer comments.
+**⚠️ CRITICAL: CI FAILING** - The following test failures are blocking PR completion and must be resolved immediately.
+
+The following tasks represent ALL remaining work based on comprehensive analysis of PR #15 feedback from Copilot and CodeRabbit reviewers, plus newly identified CI failures. Each task includes complete context, implementation guidance, and traceability to original reviewer comments.
+
+### 🔥 **CRITICAL CI FAILURES (IMMEDIATE ACTION REQUIRED)**
+
+**URGENT-001: Fix MetricEmissionAccuracyTests cross-test contamination**
+- **Source**: [CI Run #17680964307](https://github.com/rjmurillo/memory-cache-solutions/actions/runs/17680964307?pr=15)
+- **Test**: `EvictionMetrics_DeterministicScenario_ValidatesAccuracyAndTags`
+- **Issue**: Test expects cache name "eviction-test" but gets "pattern-test-cache" and "disposed-test-cache"
+- **Root Cause**: MetricCollectionHarness collecting metrics from other tests running concurrently
+- **File**: `tests/Unit/MetricEmissionAccuracyTests.cs:231`
+- **Priority**: **BLOCKING** - Must fix before PR can be merged
+- **Solution**: Implement meter-specific filtering in MetricCollectionHarness (addresses Task T004)
+
+**URGENT-002: Fix SwrCacheTests timing and exception handling**
+- **Source**: [CI Run #17680964307](https://github.com/rjmurillo/memory-cache-solutions/actions/runs/17680964307?pr=15)
+- **Tests**: 
+  - `StaleValue_TriggersBackgroundRefresh_ServesOldThenNew` - Expected 1, got 2 (line 43)
+  - `BackgroundFailure_DoesNotThrow_ToCaller` - InvalidOperationException: boom (line 82)
+- **Files**: `tests/Unit/SwrCacheTests.cs`
+- **Priority**: **BLOCKING** - Must fix before PR can be merged
+- **Root Cause Analysis**:
+  - Test 1: Timing issue with background refresh logic - factory called twice instead of once
+  - Test 2: Exception not being caught/handled properly in background operation
+- **Solution**: 
+  - Fix SWR cache background refresh timing logic
+  - Ensure proper exception handling in background operations
+- **Note**: These are pre-existing SWR cache issues, not MeteredMemoryCache-specific
 
 **PR Context**: https://github.com/rjmurillo/memory-cache-solutions/pull/15  
 **Current Commit**: `b2ddda92fa1de9b86729feeb0098c619b01d8bac`  
@@ -123,11 +151,33 @@ The following tasks represent ALL remaining work based on comprehensive analysis
 - **Implementation**: Test null values, empty strings, invalid combinations
 - **Pattern**: Validate both exception type and message content
 
+**T014: Fix test flakiness risk for duplicate meter name test**
+- **Origin**: Comment [#2331684878](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684878)
+- **Issue**: Hard-coded meter names can collide across test runs
+- **File**: `tests/Unit/ServiceCollectionExtensionsTests.cs`
+- **Solution**: Generate unique meter names per test run using Guid or timestamp
+- **Implementation**: `var meterName = $"test-meter-{Guid.NewGuid()}";`
+- **Additional**: Add teardown logic to clear any global/static meter registry state
+
 ### 📋 PRIORITY 2: Documentation Fixes (PENDING)
 
 **Context**: Documentation has markdown lint violations and missing files that prevent proper PR completion.
 
 #### Critical Documentation Issues
+
+**D001: Fix markdownlint violations in specs/MeteredMemoryCache-TaskList.md**
+- **Origin**: Comment [#2331684842](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684842)
+- **Issues**: MD022 (blanks-around-headings), MD026 (trailing-punctuation), MD032 (blanks-around-lists)
+- **File**: `specs/MeteredMemoryCache-TaskList.md`
+- **Tool**: `npx markdownlint-cli2 --fix specs/MeteredMemoryCache-TaskList.md`
+- **Manual Fixes**: Add blank lines before/after headings and lists, remove trailing colons
+
+**D002: Create missing specs/MeteredMemoryCache-PRD.md file**
+- **Origin**: Comment [#2331684842](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684842)
+- **Issue**: Task list references non-existent PRD file
+- **File**: `specs/MeteredMemoryCache-PRD.md` - **MISSING - NEEDS CREATION**
+- **Required Content**: Product Requirements Document for MeteredMemoryCache
+- **Structure**: Functional requirements, non-functional requirements, acceptance criteria
 
 **D003: Remove duplicated 'When reviewing C# code' section**
 - **Origin**: Comment [#2334230056](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230056)
@@ -250,20 +300,33 @@ The following tasks represent ALL remaining work based on comprehensive analysis
 
 ## 📊 Implementation Status Summary
 
-**Total PR Feedback Items**: 496+ individual items across 10 categories  
-**Completion Rate**: **78% COMPLETED** (388/496 items)
+**Total PR Feedback Items**: 25 specific reviewer comments analyzed  
+**CI Status**: **🔴 FAILING** - 3 test failures blocking PR completion  
+**Comment Resolution Rate**: **88% COMPLETED** (22/25 comments resolved)  
+**Overall PR Status**: **BLOCKED** until CI failures resolved
 
 ### Completion by Category:
-- ✅ **Critical Bug Fixes**: 100% COMPLETED (9/9)
-- ✅ **Build and Compilation**: 100% COMPLETED (8/8)  
-- ✅ **Configuration Issues**: 100% COMPLETED (7/7)
-- ✅ **DI Implementation**: 100% COMPLETED (14/14) - **MAJOR REWRITE**
-- ✅ **API Design**: 95% COMPLETED (17/18) - **SIGNIFICANT PROGRESS**
-- ✅ **Code Quality**: 90% COMPLETED (11/12) - **CORE ISSUES RESOLVED**
-- 🔄 **Test Suite**: 30% COMPLETED (14/45) - **IN PROGRESS**
-- 📋 **Benchmarks**: 0% COMPLETED (0/15) - **PENDING**
-- 📋 **Documentation**: 15% COMPLETED (9/60) - **PENDING**
-- 📋 **Validation/QA**: 0% COMPLETED (0/6) - **PENDING**
+- ✅ **Critical Bug Fixes**: 100% COMPLETED (3/3 comments)
+- ✅ **Build and Compilation**: 100% COMPLETED (6/6 comments)  
+- ✅ **Configuration Issues**: 100% COMPLETED (6/6 comments)
+- ✅ **DI Implementation**: 100% COMPLETED (4/4 comments) - **MAJOR REWRITE**
+- ✅ **API Design**: 100% COMPLETED (4/4 comments) - **COMPLETE**
+- ✅ **Test Infrastructure**: 80% COMPLETED (4/5 comments) - **CRITICAL ASSERTIONS DONE**
+- 🔄 **Test Quality**: 0% COMPLETED (1/1 comment) - **IN PROGRESS** 
+- 📋 **Documentation**: 0% COMPLETED (2/2 comments) - **PENDING**
+
+### Outstanding Work Summary:
+- **🔥 2 CRITICAL CI FAILURES**: Cross-test contamination (URGENT-001), SWR cache issues (URGENT-002)
+- **1 Test Quality Issue**: Eviction timing flakiness (T005)
+- **2 Documentation Issues**: Markdown lint + missing PRD (D001-D002), duplicate guidance (D003)  
+- **1 Test Improvement**: Meter name uniqueness (T014)
+- **4 Optional Enhancements**: Benchmark integration, advanced validation (B001-B004, V001-V002)
+
+### **⚠️ CI Status**: 
+- **Build Status**: 🔴 **FAILING** on all platforms (Windows, Linux, macOS)
+- **Test Results**: 174 total, 3 failed, 169 succeeded, 2 skipped
+- **Blocking Issues**: MetricCollectionHarness cross-contamination + SWR cache implementation bugs
+- **Artifacts**: 10 benchmark and test artifacts generated but CI blocked by test failures
 
 ### Recent Commits Addressing Feedback:
 - `af72868` - Fix TagList mutation bug on readonly field
@@ -312,11 +375,17 @@ The following tasks represent ALL remaining work based on comprehensive analysis
 | [#2331684881](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684881) | ✅ RESOLVED | Cache name preservation | Decorator tests enhanced |
 | [#2331684882](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684882) | ✅ RESOLVED | ParamName assertion | Exception parameter validation added |
 
-### Documentation Comments (Mostly Pending 📋)
+### Documentation Comments (Pending 📋)
 | Comment ID | Status | Description | Required Action |
 |------------|--------|-------------|-----------------|
-| [#2331684842](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684842) | 📋 PENDING | Markdown lint issues | **D001: Fix lint violations** |
+| [#2331684842](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684842) | 📋 PENDING | Markdown lint issues + missing PRD | **D001-D002: Fix lint + create PRD** |
 | [#2334230056](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230056) | 📋 PENDING | Duplicate C# guidance | **D003: Remove duplicate section** |
+
+### Test Quality Comments (Pending 📋)
+| Comment ID | Status | Description | Required Action |
+|------------|--------|-------------|-----------------|
+| [#2331684876](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684876) | 🔄 PARTIAL | Eviction timing flakiness | **T005: Deterministic approach needed** |
+| [#2331684878](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684878) | 📋 PENDING | Test flakiness risk | **T014: Unique meter names per test** |
 
 ---
 
