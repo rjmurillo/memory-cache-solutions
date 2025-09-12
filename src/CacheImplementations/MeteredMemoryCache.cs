@@ -11,8 +11,9 @@ namespace CacheImplementations;
 /// Instruments:
 ///  - cache_hits_total (<see cref="Counter{T}"/> where T is <see langword="long"/>)
 ///  - cache_misses_total (<see cref="Counter{T}"/> where T is <see langword="long"/>)
-///  - cache_evictions_total (<see cref="Counter{T}"/> where T is <see langword="long"/>) with tag "reason" = <see cref="EvictionReason"/> string
+///  - cache_evictions_total (<see cref="Counter{T}"/> where T is <see langword="long"/>) with tag "reason" = <see cref="PostEvictionReason"/> string
 /// </summary>
+[DebuggerDisplay("{Name ?? \"(unnamed)\"}")]
 public sealed class MeteredMemoryCache : IMemoryCache
 {
     private readonly IMemoryCache _inner;
@@ -52,12 +53,15 @@ public sealed class MeteredMemoryCache : IMemoryCache
         // Initialize TagList for dimensional metrics - this will be used as immutable base for thread-safe copies
         // TagList is used for high-performance metric tagging with minimal allocations
         _baseTags = new TagList();
-        if (!string.IsNullOrEmpty(cacheName))
+
+        // Normalize cache name to handle whitespace and prevent tag cardinality issues
+        var normalizedCacheName = NormalizeCacheName(cacheName);
+        if (!string.IsNullOrEmpty(normalizedCacheName))
         {
             // Add cache.name as a dimensional tag to distinguish metrics from multiple cache instances
             // This enables filtering and aggregation by cache name in monitoring dashboards
-            _baseTags.Add("cache.name", cacheName);
-            Name = cacheName;
+            _baseTags.Add("cache.name", normalizedCacheName);
+            Name = normalizedCacheName;
         }
     }
 
@@ -83,23 +87,31 @@ public sealed class MeteredMemoryCache : IMemoryCache
 
         // Build dimensional tag list for all metric emissions
         _baseTags = new TagList();
-        if (!string.IsNullOrEmpty(options.CacheName))
+
+        // Normalize cache name to handle whitespace and prevent tag cardinality issues
+        var normalizedCacheName = NormalizeCacheName(options.CacheName);
+        if (!string.IsNullOrEmpty(normalizedCacheName))
         {
-            _baseTags.Add("cache.name", options.CacheName);
-            Name = options.CacheName;
+            _baseTags.Add("cache.name", normalizedCacheName);
+            Name = normalizedCacheName;
         }
 
-        // Add user-defined custom tags while preventing cache.name override
+        // Add user-defined custom tags while preventing cache.name override and aliasing issues
+        // Create defensive copy with consistent comparer to prevent aliasing and comparer drift
         // This filtering ensures cache.name remains consistent if set via CacheName property
         // Note: Using explicit foreach instead of LINQ Where() to avoid allocation overhead
-        // as identified in PR feedback for high-performance metric emission scenarios
-#pragma warning disable S3267 // Intentionally avoiding LINQ Where() allocation
+#pragma warning disable S3267 // Intentionally avoiding LINQ Where() allocation for performance
         foreach (var kvp in options.AdditionalTags)
         {
             // Skip cache.name to prevent override of the value set from CacheName property
             if (!string.Equals(kvp.Key, "cache.name", System.StringComparison.Ordinal))
             {
-                _baseTags.Add(kvp.Key, kvp.Value);
+                // Normalize tag keys to prevent cardinality issues
+                var normalizedKey = kvp.Key?.Trim();
+                if (!string.IsNullOrEmpty(normalizedKey))
+                {
+                    _baseTags.Add(normalizedKey, kvp.Value);
+                }
             }
         }
 #pragma warning restore S3267
@@ -144,20 +156,8 @@ public sealed class MeteredMemoryCache : IMemoryCache
         ObjectDisposedException.ThrowIf(_disposed, this);
         options ??= new MemoryCacheEntryOptions();
 
-        // Register a static callback to track evictions - critical for comprehensive cache observability
-        // Using 'static' delegate avoids capturing 'this' directly, preventing memory leaks in long-lived caches
-        // The callback is invoked asynchronously when the entry is removed for any reason (expiry, capacity, manual removal)
-        options.RegisterPostEvictionCallback(static (_, _, reason, state) =>
-        {
-            var self = (MeteredMemoryCache)state!;
-            if (!self._disposed)
-            {
-                // Create a new TagList with eviction reason to maintain thread safety
-                // Each eviction gets its own tag collection to prevent concurrent modification issues
-                var tags = CreateEvictionTags(self._baseTags, reason.ToString());
-                self._evictions.Add(1, tags);
-            }
-        }, this);
+        // Register eviction tracking using the deduplicated helper method
+        RegisterEvictionCallback(options, this);
         _inner.Set(key, value, options);
     }
 
@@ -184,26 +184,29 @@ public sealed class MeteredMemoryCache : IMemoryCache
             return hit;
         }
 
-        // Cache miss: record miss metric and delegate to inner cache for creation
-        // This ensures accurate hit/miss ratios even with concurrent access patterns
-        _misses.Add(1, CreateBaseTags(_baseTags));
+        // Cache miss: delegate to inner cache for creation and only count miss if factory actually runs
+        // This ensures accurate hit/miss ratios by avoiding race conditions where value is added between checks
+        var factoryWasInvoked = false;
         var created = _inner.GetOrCreate(key, entry =>
         {
-            // Register eviction tracking for the newly created entry
-            // This callback pattern ensures every cached item contributes to eviction metrics
-            // regardless of how it was created (Set, GetOrCreate, CreateEntry)
-            entry.RegisterPostEvictionCallback(static (_, _, reason, state) =>
-            {
-                var self = (MeteredMemoryCache)state!;
-                if (!self._disposed)
-                {
-                    // Thread-safe tag creation for eviction reason dimensional metric
-                    var tags = CreateEvictionTags(self._baseTags, reason.ToString());
-                    self._evictions.Add(1, tags);
-                }
-            }, this);
+            // Factory is running - this is a confirmed cache miss
+            factoryWasInvoked = true;
+
+            // Register eviction tracking using the deduplicated helper method
+            RegisterEvictionCallback(entry, this);
             return factory(entry);
         });
+
+        // Only count as miss if factory actually ran (prevents race condition inaccuracy)
+        if (factoryWasInvoked)
+        {
+            _misses.Add(1, CreateBaseTags(_baseTags));
+        }
+        else
+        {
+            // Value was found in cache after all - count as hit
+            _hits.Add(1, CreateBaseTags(_baseTags));
+        }
 
         // Null safety check for reference types - helps catch factory bugs early
         if (created is null && !typeof(T).IsValueType)
@@ -246,17 +249,8 @@ public sealed class MeteredMemoryCache : IMemoryCache
         ObjectDisposedException.ThrowIf(_disposed, this);
         var entry = _inner.CreateEntry(key);
 
-        // Pre-register eviction callback on the entry before returning to caller
-        // This ensures eviction tracking regardless of how the caller configures the entry
-        entry.RegisterPostEvictionCallback(static (_, _, reason, state) =>
-        {
-            var self = (MeteredMemoryCache)state!;
-            if (!self._disposed)
-            {
-                var tags = CreateEvictionTags(self._baseTags, reason.ToString());
-                self._evictions.Add(1, tags);
-            }
-        }, this);
+        // Pre-register eviction callback using the deduplicated helper method
+        RegisterEvictionCallback(entry, this);
         return entry;
     }
 
@@ -271,6 +265,61 @@ public sealed class MeteredMemoryCache : IMemoryCache
         ArgumentNullException.ThrowIfNull(key);
         ObjectDisposedException.ThrowIf(_disposed, this);
         _inner.Remove(key); // eviction callback (if any) will record eviction metric
+    }
+
+    /// <summary>
+    /// Normalizes cache names to handle whitespace and prevent tag cardinality issues.
+    /// Trims whitespace and ensures consistent naming for observability backends.
+    /// </summary>
+    /// <param name="cacheName">The cache name to normalize.</param>
+    /// <returns>The normalized cache name, or null if the input was null or whitespace-only.</returns>
+    private static string? NormalizeCacheName(string? cacheName)
+    {
+        if (string.IsNullOrEmpty(cacheName))
+            return null;
+
+        var trimmed = cacheName.Trim();
+        return string.IsNullOrEmpty(trimmed) ? null : trimmed;
+    }
+
+    /// <summary>
+    /// Registers a post-eviction callback to track cache evictions with proper metric emission.
+    /// This helper method deduplicates the eviction callback registration logic across Set, GetOrCreate, and CreateEntry methods.
+    /// </summary>
+    /// <param name="options">The cache entry options to register the callback on.</param>
+    /// <param name="self">The MeteredMemoryCache instance for the callback.</param>
+    private static void RegisterEvictionCallback(MemoryCacheEntryOptions options, MeteredMemoryCache self)
+    {
+        options.RegisterPostEvictionCallback(static (_, _, reason, state) =>
+        {
+            var cache = (MeteredMemoryCache)state!;
+            if (!cache._disposed)
+            {
+                // Thread-safe tag creation for eviction reason dimensional metric
+                var tags = CreateEvictionTags(cache._baseTags, reason.ToString());
+                cache._evictions.Add(1, tags);
+            }
+        }, self);
+    }
+
+    /// <summary>
+    /// Registers a post-eviction callback to track cache evictions with proper metric emission.
+    /// Overload for ICacheEntry instances used in CreateEntry method.
+    /// </summary>
+    /// <param name="entry">The cache entry to register the callback on.</param>
+    /// <param name="self">The MeteredMemoryCache instance for the callback.</param>
+    private static void RegisterEvictionCallback(ICacheEntry entry, MeteredMemoryCache self)
+    {
+        entry.RegisterPostEvictionCallback(static (_, _, reason, state) =>
+        {
+            var cache = (MeteredMemoryCache)state!;
+            if (!cache._disposed)
+            {
+                // Thread-safe tag creation for eviction reason dimensional metric
+                var tags = CreateEvictionTags(cache._baseTags, reason.ToString());
+                cache._evictions.Add(1, tags);
+            }
+        }, self);
     }
 
     /// <summary>

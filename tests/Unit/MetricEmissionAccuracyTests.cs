@@ -24,15 +24,26 @@ public class MetricEmissionAccuracyTests
         private readonly List<MetricMeasurement> _measurements = new();
         private readonly Dictionary<string, List<MetricMeasurement>> _measurementsByInstrument = new();
         private readonly Dictionary<string, long> _aggregatedCounters = new();
+        private readonly string[] _instrumentNames;
+        private readonly string? _meterNameFilter;
 
         public IReadOnlyList<MetricMeasurement> AllMeasurements => _measurements;
         public IReadOnlyDictionary<string, long> AggregatedCounters => _aggregatedCounters;
 
-        public MetricCollectionHarness(params string[] instrumentNames)
+        public MetricCollectionHarness(params string[] instrumentNames) : this(null, instrumentNames)
         {
+        }
+
+        public MetricCollectionHarness(string? meterNameFilter, params string[] instrumentNames)
+        {
+            _instrumentNames = instrumentNames;
+            _meterNameFilter = meterNameFilter;
+
             _listener.InstrumentPublished = (inst, listener) =>
             {
-                if (instrumentNames.Contains(inst.Name))
+                // Filter by both instrument name AND meter name to prevent cross-test contamination
+                if (instrumentNames.Contains(inst.Name) &&
+                    (_meterNameFilter == null || inst.Meter.Name == _meterNameFilter))
                 {
                     listener.EnableMeasurementEvents(inst);
                 }
@@ -97,6 +108,43 @@ public class MetricEmissionAccuracyTests
         }
 
         /// <summary>
+        /// Deterministic wait helper that polls for expected metric count instead of using Thread.Sleep.
+        /// Addresses flaky test timing issues by actively waiting for metrics to be emitted.
+        /// </summary>
+        public async Task<bool> WaitForMetricAsync(string instrumentName, int expectedCount, TimeSpan timeout)
+        {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            while (stopwatch.Elapsed < timeout)
+            {
+                var currentCount = GetMeasurements(instrumentName).Count;
+                if (currentCount >= expectedCount)
+                {
+                    return true;
+                }
+                await Task.Delay(10); // Short polling interval
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Deterministic wait helper for measurements with specific tags.
+        /// </summary>
+        public async Task<bool> WaitForMetricWithTagsAsync(string instrumentName, int expectedCount, TimeSpan timeout, params KeyValuePair<string, object?>[] requiredTags)
+        {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            while (stopwatch.Elapsed < timeout)
+            {
+                var currentCount = GetMeasurementsWithTags(instrumentName, requiredTags).Count;
+                if (currentCount >= expectedCount)
+                {
+                    return true;
+                }
+                await Task.Delay(10); // Short polling interval
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Validates that the aggregated counter matches the expected value.
         /// </summary>
         public void AssertAggregatedCount(string instrumentName, long expectedTotal)
@@ -150,8 +198,8 @@ public class MetricEmissionAccuracyTests
     public void HitMissRatio_ExactCounting_ValidatesAccuracy()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        var meter = new Meter("test.accuracy.1");
-        using var harness = new MetricCollectionHarness("cache_hits_total", "cache_misses_total");
+        using var meter = new Meter("test.accuracy.1");
+        using var harness = new MetricCollectionHarness("test.accuracy.1", "cache_hits_total", "cache_misses_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "accuracy-test");
 
@@ -184,11 +232,11 @@ public class MetricEmissionAccuracyTests
     }
 
     [Fact]
-    public void EvictionMetrics_DeterministicScenario_ValidatesAccuracyAndTags()
+    public async Task EvictionMetrics_DeterministicScenario_ValidatesAccuracyAndTags()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        var meter = new Meter("test.accuracy.2");
-        using var harness = new MetricCollectionHarness("cache_evictions_total");
+        using var meter = new Meter("test.accuracy.2");
+        using var harness = new MetricCollectionHarness("test.accuracy.2", "cache_evictions_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "eviction-test");
 
@@ -220,8 +268,9 @@ public class MetricEmissionAccuracyTests
 
         cache.Remove("manual-remove-key"); // Triggers Removed eviction
 
-        // Allow processing time for async eviction callbacks
-        Thread.Sleep(50);
+        // Use deterministic wait instead of Thread.Sleep for reliable CI testing
+        var evictionWaitSucceeded = await harness.WaitForMetricAsync("cache_evictions_total", 2, TimeSpan.FromSeconds(5));
+        Assert.True(evictionWaitSucceeded, "Expected at least 2 eviction metrics within timeout");
 
         // Validate eviction metrics
         var evictionMeasurements = harness.GetMeasurements("cache_evictions_total");
@@ -253,8 +302,8 @@ public class MetricEmissionAccuracyTests
     {
         using var inner1 = new MemoryCache(new MemoryCacheOptions());
         using var inner2 = new MemoryCache(new MemoryCacheOptions());
-        var meter = new Meter("test.accuracy.3");
-        using var harness = new MetricCollectionHarness("cache_hits_total", "cache_misses_total");
+        using var meter = new Meter("test.accuracy.3");
+        using var harness = new MetricCollectionHarness("test.accuracy.3", "cache_hits_total", "cache_misses_total");
 
         var cache1 = new MeteredMemoryCache(inner1, meter, cacheName: "cache-alpha");
         var cache2 = new MeteredMemoryCache(inner2, meter, cacheName: "cache-beta");
@@ -316,8 +365,8 @@ public class MetricEmissionAccuracyTests
     public void AdditionalTags_AccurateEmission_ValidatesCustomTagPropagation()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        var meter = new Meter("test.accuracy.4");
-        using var harness = new MetricCollectionHarness("cache_hits_total", "cache_misses_total");
+        using var meter = new Meter("test.accuracy.4");
+        using var harness = new MetricCollectionHarness("test.accuracy.4", "cache_hits_total", "cache_misses_total");
 
         var options = new MeteredMemoryCacheOptions
         {
@@ -362,8 +411,8 @@ public class MetricEmissionAccuracyTests
     public void GetOrCreateMethod_AccurateMetrics_ValidatesFactoryScenarios()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        var meter = new Meter("test.accuracy.5");
-        using var harness = new MetricCollectionHarness("cache_hits_total", "cache_misses_total");
+        using var meter = new Meter("test.accuracy.5");
+        using var harness = new MetricCollectionHarness("test.accuracy.5", "cache_hits_total", "cache_misses_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "getorcreate-test");
 
@@ -406,8 +455,8 @@ public class MetricEmissionAccuracyTests
     public void TryGetStronglyTyped_AccurateMetrics_ValidatesTypeConversion()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        var meter = new Meter("test.accuracy.tryget.typed.validation");
-        using var harness = new MetricCollectionHarness("cache_hits_total", "cache_misses_total");
+        using var meter = new Meter("test.accuracy.tryget.typed.validation");
+        using var harness = new MetricCollectionHarness("test.accuracy.tryget.typed.validation", "cache_hits_total", "cache_misses_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "tryget-typed-test");
 
@@ -446,12 +495,12 @@ public class MetricEmissionAccuracyTests
             new KeyValuePair<string, object?>("cache.name", "tryget-typed-test"));
     }
 
-    [Fact(Skip = "Flaky under CI timing; eviction callback timing depends on MemoryCache internal cleanup")]
-    public void CreateEntryMethod_AccurateEvictionRegistration_ValidatesCallbackSetup()
+    [Fact]
+    public async Task CreateEntryMethod_AccurateEvictionRegistration_ValidatesCallbackSetup()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        var meter = new Meter("test.accuracy.7");
-        using var harness = new MetricCollectionHarness("cache_evictions_total");
+        using var meter = new Meter("test.accuracy.7");
+        using var harness = new MetricCollectionHarness("test.accuracy.7", "cache_evictions_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "createentry-test");
 
@@ -462,24 +511,33 @@ public class MetricEmissionAccuracyTests
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMilliseconds(1);
         }
 
-        // Wait for expiration and force cleanup with more aggressive approach
-        Thread.Sleep(50); // Longer wait for expiration
-
-        // Try multiple access attempts to trigger cleanup
+        // Try multiple access attempts to trigger cleanup with deterministic waiting
         for (int i = 0; i < 5; i++)
         {
             cache.TryGetValue("manual-entry", out _);
             cache.TryGetValue($"trigger-cleanup-{i}", out _); // Additional access to trigger internal cleanup
+
+            // Check if eviction has been recorded yet
+            if (harness.GetMeasurements("cache_evictions_total").Any())
+            {
+                break; // Early exit if eviction detected
+            }
+            await Task.Delay(20); // Short delay between attempts
         }
 
         // Force compact multiple times to ensure eviction processing
         inner.Compact(0.0);
         inner.Compact(0.5);
-        Thread.Sleep(100); // Allow more time for callback processing
 
-        // Additional trigger attempts after compact
-        cache.TryGetValue("manual-entry", out _);
-        Thread.Sleep(50);
+        // Use deterministic wait for eviction callback processing
+        var evictionDetected = await harness.WaitForMetricAsync("cache_evictions_total", 1, TimeSpan.FromSeconds(3));
+
+        // Additional trigger attempts if not detected yet
+        if (!evictionDetected)
+        {
+            cache.TryGetValue("manual-entry", out _);
+            await harness.WaitForMetricAsync("cache_evictions_total", 1, TimeSpan.FromSeconds(2));
+        }
 
         // Validate eviction was recorded
         var evictions = harness.GetMeasurements("cache_evictions_total");
@@ -502,8 +560,8 @@ public class MetricEmissionAccuracyTests
     public void ZeroMeasurements_EdgeCase_ValidatesNoFalsePositives()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        var meter = new Meter("test.accuracy.8");
-        using var harness = new MetricCollectionHarness("cache_hits_total", "cache_misses_total", "cache_evictions_total");
+        using var meter = new Meter("test.accuracy.8");
+        using var harness = new MetricCollectionHarness("test.accuracy.8", "cache_hits_total", "cache_misses_total", "cache_evictions_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "zero-test");
 
@@ -525,8 +583,8 @@ public class MetricEmissionAccuracyTests
     public void HighVolumeOperations_AccurateAggregation_ValidatesScalability()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        var meter = new Meter("test.accuracy.9");
-        using var harness = new MetricCollectionHarness("cache_hits_total", "cache_misses_total");
+        using var meter = new Meter("test.accuracy.9");
+        using var harness = new MetricCollectionHarness("test.accuracy.9", "cache_hits_total", "cache_misses_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "volume-test");
 

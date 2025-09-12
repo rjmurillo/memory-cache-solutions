@@ -17,6 +17,7 @@ namespace Benchmarks;
 [Config(typeof(BenchmarkConfig))]
 [MemoryDiagnoser]
 [ThreadingDiagnoser]
+[JsonExporter]
 public class CacheBenchmarks
 {
     private IMemoryCache _rawCache = null!;
