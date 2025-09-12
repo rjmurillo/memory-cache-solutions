@@ -275,13 +275,13 @@ Resolve compilation failures and missing dependencies.
 Fix package version conflicts and project configuration issues.
 
 #### Sub-tasks:
-- [ ] Remove incorrect WarningsAsErrors boolean setting from Directory.Build.props (Comment: [#2331684837](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684837))
-- [ ] Add C# language version 13 to Directory.Build.props (Comment: [#2334230063](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230063))
-- [ ] Fix DiagnosticSource package version conflict - remove 8.0.0 pin or upgrade to 9.0.8 (Comment: [#2331684839](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684839))
-- [ ] Add central package version for Microsoft.Extensions.DependencyInjection.Abstractions in Directory.Packages.props (Comment: [#2334230075](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230075))
-- [ ] Add essential .NET project properties to tests/Unit/Unit.csproj (Comment: Copilot Review)
-- [ ] Add essential .NET project properties to tests/Benchmarks/Benchmarks.csproj (Comment: Copilot Review)
-- [ ] Fix .gitignore specs/ rule conflicts with tracked MeteredMemoryCache-TaskList.md file (Comment: [#2331684830](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684830))
+- [x] Remove incorrect WarningsAsErrors boolean setting from Directory.Build.props (Comment: [#2331684837](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684837))
+- [x] Add C# language version 13 to Directory.Build.props (Comment: [#2334230063](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230063))
+- [x] Fix DiagnosticSource package version conflict - remove 8.0.0 pin or upgrade to 9.0.8 (Comment: [#2331684839](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684839))
+- [x] Add central package version for Microsoft.Extensions.DependencyInjection.Abstractions in Directory.Packages.props (Comment: [#2334230075](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2334230075))
+- [x] Add essential .NET project properties to tests/Unit/Unit.csproj (Comment: Copilot Review) - **CURRENT PROPERTIES SUFFICIENT**
+- [x] Add essential .NET project properties to tests/Benchmarks/Benchmarks.csproj (Comment: Copilot Review) - **CURRENT PROPERTIES SUFFICIENT**
+- [x] Fix .gitignore specs/ rule conflicts with tracked MeteredMemoryCache-TaskList.md file (Comment: [#2331684830](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684830))
 
 ### Dependency Injection Implementation Fixes
 **Type**: API Design  
