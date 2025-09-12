@@ -124,7 +124,7 @@ public class MultiCacheScenarioTests
         var prodMisses = missMetrics.Where(m => HasTag(m, "cache.name", "prod-cache"));
         Assert.Single(prodHits);
         Assert.Single(prodMisses);
-        
+
         // Verify production cache has correct tags
         AssertMetricHasTag(prodHits.First(), "cache.name", "prod-cache");
         AssertMetricHasTag(prodHits.First(), "environment", "production");
@@ -136,7 +136,7 @@ public class MultiCacheScenarioTests
         var stagingMisses = missMetrics.Where(m => HasTag(m, "cache.name", "staging-cache"));
         Assert.Single(stagingHits);
         Assert.Single(stagingMisses);
-        
+
         // Verify staging cache has correct tags
         AssertMetricHasTag(stagingHits.First(), "cache.name", "staging-cache");
         AssertMetricHasTag(stagingHits.First(), "environment", "staging");
@@ -214,7 +214,7 @@ public class MultiCacheScenarioTests
         var cache2 = serviceProvider.GetRequiredKeyedService<IMemoryCache>("concurrent-cache-2");
 
         const int operationsPerCache = 50;
-        
+
         // Pre-populate caches for hits
         for (int i = 0; i < operationsPerCache / 2; i++)
         {
@@ -303,7 +303,7 @@ public class MultiCacheScenarioTests
         // Act
         mainCache.Set("main-data", "main-value");
         mainCache.TryGetValue("main-data", out _); // Hit
-        
+
         secondaryCache.Set("secondary-data", "secondary-value");
         secondaryCache.TryGetValue("secondary-data", out _); // Hit
 
@@ -321,8 +321,8 @@ public class MultiCacheScenarioTests
         AssertMetricHasTag(secondaryHitMetrics.First(), "cache.name", "secondary-cache");
 
         // Verify no cross-contamination
-        Assert.Empty(mainMeterItems.Where(m => m.Name.Contains("secondary")));
-        Assert.Empty(secondaryMeterItems.Where(m => m.Name.Contains("main")));
+        Assert.DoesNotContain(mainMeterItems, m => m.Name.Contains("secondary"));
+        Assert.DoesNotContain(secondaryMeterItems, m => m.Name.Contains("main"));
     }
 
     #region Helper Methods
@@ -484,7 +484,7 @@ public class MultiCacheScenarioTests
         {
             meterProvider.ForceFlush(5000); // 5000ms = 5 seconds
         }
-        
+
         // Give additional time for async operations
         await Task.Delay(50);
     }
@@ -521,7 +521,7 @@ public class MultiCacheScenarioTests
             }
             if (hasTag) break;
         }
-        
+
         Assert.True(hasTag, $"Metric should have tag '{tagKey}' with value '{expectedValue}'");
     }
 
