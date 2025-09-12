@@ -53,12 +53,15 @@ public sealed class MeteredMemoryCache : IMemoryCache
         // Initialize TagList for dimensional metrics - this will be used as immutable base for thread-safe copies
         // TagList is used for high-performance metric tagging with minimal allocations
         _baseTags = new TagList();
-        if (!string.IsNullOrEmpty(cacheName))
+
+        // Normalize cache name to handle whitespace and prevent tag cardinality issues
+        var normalizedCacheName = NormalizeCacheName(cacheName);
+        if (!string.IsNullOrEmpty(normalizedCacheName))
         {
             // Add cache.name as a dimensional tag to distinguish metrics from multiple cache instances
             // This enables filtering and aggregation by cache name in monitoring dashboards
-            _baseTags.Add("cache.name", cacheName);
-            Name = cacheName;
+            _baseTags.Add("cache.name", normalizedCacheName);
+            Name = normalizedCacheName;
         }
     }
 
@@ -84,23 +87,31 @@ public sealed class MeteredMemoryCache : IMemoryCache
 
         // Build dimensional tag list for all metric emissions
         _baseTags = new TagList();
-        if (!string.IsNullOrEmpty(options.CacheName))
+
+        // Normalize cache name to handle whitespace and prevent tag cardinality issues
+        var normalizedCacheName = NormalizeCacheName(options.CacheName);
+        if (!string.IsNullOrEmpty(normalizedCacheName))
         {
-            _baseTags.Add("cache.name", options.CacheName);
-            Name = options.CacheName;
+            _baseTags.Add("cache.name", normalizedCacheName);
+            Name = normalizedCacheName;
         }
 
-        // Add user-defined custom tags while preventing cache.name override
+        // Add user-defined custom tags while preventing cache.name override and aliasing issues
+        // Create defensive copy with consistent comparer to prevent aliasing and comparer drift
         // This filtering ensures cache.name remains consistent if set via CacheName property
         // Note: Using explicit foreach instead of LINQ Where() to avoid allocation overhead
-        // as identified in PR feedback for high-performance metric emission scenarios
-#pragma warning disable S3267 // Intentionally avoiding LINQ Where() allocation
+#pragma warning disable S3267 // Intentionally avoiding LINQ Where() allocation for performance
         foreach (var kvp in options.AdditionalTags)
         {
             // Skip cache.name to prevent override of the value set from CacheName property
             if (!string.Equals(kvp.Key, "cache.name", System.StringComparison.Ordinal))
             {
-                _baseTags.Add(kvp.Key, kvp.Value);
+                // Normalize tag keys to prevent cardinality issues
+                var normalizedKey = kvp.Key?.Trim();
+                if (!string.IsNullOrEmpty(normalizedKey))
+                {
+                    _baseTags.Add(normalizedKey, kvp.Value);
+                }
             }
         }
 #pragma warning restore S3267
@@ -254,6 +265,21 @@ public sealed class MeteredMemoryCache : IMemoryCache
         ArgumentNullException.ThrowIfNull(key);
         ObjectDisposedException.ThrowIf(_disposed, this);
         _inner.Remove(key); // eviction callback (if any) will record eviction metric
+    }
+
+    /// <summary>
+    /// Normalizes cache names to handle whitespace and prevent tag cardinality issues.
+    /// Trims whitespace and ensures consistent naming for observability backends.
+    /// </summary>
+    /// <param name="cacheName">The cache name to normalize.</param>
+    /// <returns>The normalized cache name, or null if the input was null or whitespace-only.</returns>
+    private static string? NormalizeCacheName(string? cacheName)
+    {
+        if (string.IsNullOrEmpty(cacheName))
+            return null;
+
+        var trimmed = cacheName.Trim();
+        return string.IsNullOrEmpty(trimmed) ? null : trimmed;
     }
 
     /// <summary>

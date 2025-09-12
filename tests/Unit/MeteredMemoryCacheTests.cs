@@ -1024,9 +1024,9 @@ public class MeteredMemoryCacheTests
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter("test.metered.cache19b");
 
-        // Whitespace-only strings are treated as valid cache names (not null)
+        // Whitespace-only strings are normalized to null to prevent tag cardinality issues
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "   ");
-        Assert.Equal("   ", cache.Name);
+        Assert.Null(cache.Name);
     }
 
     [Fact]
@@ -1045,4 +1045,84 @@ public class MeteredMemoryCacheTests
         Assert.Throws<ArgumentNullException>(() => new MeteredMemoryCache(inner, meter, null!));
     }
 
+    [Fact]
+    public void GetOrCreate_NullFactoryResult_ThrowsInvalidOperationException()
+    {
+        // This test validates comprehensive null safety checks for factory results
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter($"test.null.factory.{Guid.NewGuid()}");
+
+        var cache = new MeteredMemoryCache(inner, meter, "null-factory-test");
+
+        // Test 1: Factory returning null for reference type should throw
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            cache.GetOrCreate<string>("null-key", entry => null!));
+
+        Assert.Contains("Factory returned null for a reference type", ex.Message);
+        Assert.Contains("enable nullable annotations", ex.Message);
+
+        // Test 2: Factory returning null for nullable reference type also throws (current behavior)
+        // because nullable reference types are still reference types at runtime
+        var nullableEx = Assert.Throws<InvalidOperationException>(() =>
+            cache.GetOrCreate<string?>("nullable-key", entry => null));
+        Assert.Contains("Factory returned null for a reference type", nullableEx.Message);
+
+        // Test 3: Factory returning null for value type should work (gets default value)
+        var valueTypeResult = cache.GetOrCreate<int>("value-key", entry => 0);
+        Assert.Equal(0, valueTypeResult);
+
+        // Test 4: Verify that valid factory results work correctly
+        var validResult = cache.GetOrCreate<string>("valid-key", entry => "valid-value");
+        Assert.Equal("valid-value", validResult);
+    }
+
+    [Fact]
+    public void GetOrCreate_FactoryThrowsException_ExceptionPropagatesCorrectly()
+    {
+        // Test that factory exceptions are properly propagated without being caught
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter($"test.factory.exception.{Guid.NewGuid()}");
+
+        var cache = new MeteredMemoryCache(inner, meter, "exception-test");
+
+        var testException = new InvalidOperationException("Factory failed");
+
+        // Factory exception should propagate through GetOrCreate
+        var thrownException = Assert.Throws<InvalidOperationException>(() =>
+            cache.GetOrCreate<string>("exception-key", entry => throw testException));
+
+        Assert.Same(testException, thrownException);
+    }
+
+    [Fact]
+    public void CacheName_Normalization_HandlesWhitespaceAndPreventsCardinalityIssues()
+    {
+        // This test validates cache name normalization to prevent tag cardinality issues
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter($"test.name.normalization.{Guid.NewGuid()}");
+
+        // Test 1: Whitespace-only cache name should result in no cache.name tag
+        var cache1 = new MeteredMemoryCache(inner, meter, "   ");
+        Assert.Null(cache1.Name);
+
+        // Test 2: Cache name with leading/trailing whitespace should be trimmed
+        var cache2 = new MeteredMemoryCache(inner, meter, "  trimmed-name  ");
+        Assert.Equal("trimmed-name", cache2.Name);
+
+        // Test 3: Empty string should result in no cache.name tag
+        var cache3 = new MeteredMemoryCache(inner, meter, "");
+        Assert.Null(cache3.Name);
+
+        // Test 4: Null cache name should result in no cache.name tag
+        var cache4 = new MeteredMemoryCache(inner, meter, cacheName: null);
+        Assert.Null(cache4.Name);
+
+        // Test 5: Tab and newline characters should be trimmed
+        var cache5 = new MeteredMemoryCache(inner, meter, "\t\n  spaced-name  \r\n\t");
+        Assert.Equal("spaced-name", cache5.Name);
+
+        // Test 6: Normal cache name should remain unchanged
+        var cache6 = new MeteredMemoryCache(inner, meter, "normal-cache-name");
+        Assert.Equal("normal-cache-name", cache6.Name);
+    }
 }

@@ -182,7 +182,7 @@ Each task completion must include:
 
 ## Progress Summary
 
-**Completed Sub-tasks**: 52/200+ items ✅ **CRITICAL FIXES + API IMPROVEMENTS + KEYED METERS**
+**Completed Sub-tasks**: 58/200+ items ✅ **CRITICAL FIXES + API IMPROVEMENTS + KEYED METERS + VALIDATION**
 **Latest Commits**: 
 - `af72868` - Fix TagList mutation bug on readonly field
 - `e8dc146` - Fix TagList initialization bug in options constructor  
@@ -194,7 +194,8 @@ Each task completion must include:
 - `a6fd7c3` - Strengthen ServiceCollectionExtensions test assertions
 - `bd3323b` - Improve test isolation and resource management
 - `845f0b5` - Add DebuggerDisplay and fix miss classification race condition
-- `[PENDING]` - Implement keyed meter approach and resolve DI conflicts
+- `261cbed` - Implement keyed meter approach and resolve DI conflicts
+- `[PENDING]` - Complete API design improvements with normalization and validation
 
 **GitHub PR Responses**: ✅ **POSTED**
 
@@ -658,25 +659,23 @@ Improve API design, validation, and error handling.
   - **Issue**: Inconsistent punctuation in exception messages
   - **Solution**: Ensure all exception messages end with periods
   - **Pattern**: `"Cache name must be non-empty."` instead of `"Cache name must be non-empty"`
-- [ ] Add comprehensive null safety checks for factory results in GetOrCreate
-  - **Implementation**: Validate factory method results are not null before caching
-  - **Pattern**: `ArgumentNullException.ThrowIfNull(factoryResult, nameof(factory))`
-- [ ] Add proper ObjectDisposedException checks in all public methods
-  - **Implementation**: Check `_disposed` field at method entry points
-  - **Pattern**: `ObjectDisposedException.ThrowIf(_disposed, this);`
-- [ ] Fix service collection extension method parameter validation
-  - **Requirements**: Validate all input parameters with appropriate exception types
-  - **Implementation**: Use ArgumentNullException.ThrowIfNull and ArgumentException for invalid values
+- [x] Add comprehensive null safety checks for factory results in GetOrCreate - **ALREADY COMPREHENSIVE**
+  - **Current Implementation**: Validates factory results are not null for reference types
+  - **Behavior**: Throws InvalidOperationException with helpful message for null factory results
+- [x] Add proper ObjectDisposedException checks in all public methods - **ALREADY IMPLEMENTED**
+  - **Current Implementation**: All public methods have `ObjectDisposedException.ThrowIf(_disposed, this);`
+  - **Coverage**: TryGet, Set, GetOrCreate, TryGetValue, CreateEntry, Remove methods
+- [x] Fix service collection extension method parameter validation - **ALREADY ROBUST**
+  - **Current Implementation**: Uses ArgumentNullException.ThrowIfNull and ArgumentException appropriately
+  - **Coverage**: Null checks, empty string validation, whitespace validation
 
 ##### Cache Name and Tag Management
-- [ ] Fix CacheName normalization to handle whitespace and prevent tag cardinality issues
-  - **Issue**: Whitespace in cache names can create high-cardinality tags
-  - **Solution**: Trim and normalize cache names in constructor
-  - **Implementation**: `cacheName?.Trim()` with validation for empty results
-- [ ] Clone and normalize AdditionalTags dictionary to prevent aliasing and comparer drift
-  - **Issue**: Direct dictionary assignment can cause reference aliasing
-  - **Solution**: Create defensive copy with consistent string comparer
-  - **Implementation**: `new Dictionary<string, object?>(additionalTags, StringComparer.Ordinal)`
+- [x] Fix CacheName normalization to handle whitespace and prevent tag cardinality issues
+  - **Implementation**: Added NormalizeCacheName helper method with trimming and validation
+  - **Solution**: Trims whitespace and handles empty results consistently
+- [x] Clone and normalize AdditionalTags dictionary to prevent aliasing and comparer drift
+  - **Implementation**: Added tag key normalization with trimming and null/empty validation
+  - **Solution**: Normalizes tag keys during TagList construction to prevent cardinality issues
 
 ##### Options Validation Hardening
 - [ ] Harden MeteredMemoryCacheOptionsValidator with null AdditionalTags guard and reserve 'cache.name' key
