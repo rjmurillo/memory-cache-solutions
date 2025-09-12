@@ -117,7 +117,7 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
-    public void RecordsHitAndMiss()
+    public void MeteredMemoryCache_HitAndMissOperations_RecordsCorrectMetrics()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter("test.metered.cache");
@@ -134,7 +134,7 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
-    public async Task RecordsEviction()
+    public async Task MeteredMemoryCache_EvictionScenario_RecordsEvictionMetrics()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter("test.metered.cache2");
@@ -158,7 +158,7 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
-    public void EmitsCacheNameTagOnMetrics()
+    public void MeteredMemoryCache_WithCacheName_EmitsCacheNameTag()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter("test.metered.cache3");
@@ -727,7 +727,7 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
-    public void GetOrCreateMissClassificationRaceCondition_OnlyCountMissWhenFactoryRuns()
+    public void GetOrCreate_RaceConditionScenario_OnlyCountsMissWhenFactoryRuns()
     {
         // This test demonstrates the race condition in GetOrCreate where miss counter
         // is incremented even when the factory doesn't actually run due to concurrent cache population
@@ -999,7 +999,7 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
-    public void MultipleNamedCaches_EmitSeparateMetrics()
+    public void MeteredMemoryCache_MultipleNamedCaches_EmitSeparateMetrics()
     {
         using var inner1 = new MemoryCache(new MemoryCacheOptions());
         using var inner2 = new MemoryCache(new MemoryCacheOptions());
