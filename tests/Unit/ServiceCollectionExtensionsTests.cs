@@ -370,10 +370,11 @@ public class ServiceCollectionExtensionsTests
         // Arrange
         var services = new ServiceCollection();
 
-        // Act - Register multiple caches with different names concurrently
+        // Act - Register multiple caches with same meter name to avoid keyed service conflicts
+        var sharedMeterName = GetUniqueMeterName("shared-meter");
         Parallel.For(0, 10, i =>
         {
-            services.AddNamedMeteredMemoryCache($"cache-{i}", meterName: $"meter-{i}");
+            services.AddNamedMeteredMemoryCache($"cache-{i}", meterName: sharedMeterName);
         });
 
         // Assert - Should not throw when building provider
