@@ -316,7 +316,7 @@ Fix service registration patterns and DI implementation issues.
 Fix test reliability, isolation, and coverage issues.
 
 #### Sub-tasks:
-- [ ] Add using var for Meter instances in all test methods to prevent cross-test interference (Comment: [#2331684872](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684872))
+- [x] Add using var for Meter instances in all test methods to prevent cross-test interference (Comment: [#2331684872](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684872))
 - [ ] Strengthen assertions in ServiceCollectionExtensionsTests - resolve and assert registry availability (Comment: [#2331684874](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684874))
 - [ ] Add ParamName assertion for ArgumentException in AddNamedMeteredMemoryCache_ThrowsOnEmptyName test (Comment: [#2331684882](https://github.com/rjmurillo/memory-cache-solutions/pull/15#discussion_r2331684882))
 - [ ] Filter MetricCollectionHarness by Meter instance to prevent cross-test contamination
