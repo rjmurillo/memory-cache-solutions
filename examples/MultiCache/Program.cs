@@ -25,7 +25,7 @@ public class Program
 
         // Create host builder with services
         var builder = Host.CreateApplicationBuilder(args);
-        
+
         // Configure logging
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
@@ -35,12 +35,7 @@ public class Program
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
                 .AddMeter("MultiCache.Example") // Our meter name
-                .AddConsoleExporter(options =>
-                {
-                    options.Targets = OpenTelemetry.Exporter.ConsoleExporterOutputTargets.Console;
-                    options.MetricReaderType = OpenTelemetry.Exporter.MetricReaderType.Periodic;
-                    options.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = 3000;
-                }));
+                .AddConsoleExporter());
 
         // Register multiple named cache instances
         RegisterCaches(builder.Services);
@@ -53,11 +48,11 @@ public class Program
 
         // Build and run
         using var host = builder.Build();
-        
+
         var demo = host.Services.GetRequiredService<MultiCacheDemo>();
-        
+
         await demo.RunDemoAsync();
-        
+
         Console.WriteLine("\nDemo completed. Press any key to exit...");
         Console.ReadKey();
     }
@@ -131,34 +126,34 @@ public class UserService
     public async Task<User> GetUserAsync(int userId)
     {
         var cacheKey = $"user:{userId}";
-        
-        if (_cache.TryGetValue(cacheKey, out User cachedUser))
+
+        if (_cache.TryGetValue(cacheKey, out var cachedUser) && cachedUser is User user)
         {
             _logger.LogInformation("User {UserId} found in cache", userId);
-            return cachedUser;
+            return user;
         }
 
         _logger.LogInformation("User {UserId} not in cache, loading from database", userId);
-        
+
         // Simulate database load
         await Task.Delay(100);
-        
-        var user = new User 
-        { 
-            Id = userId, 
-            Name = $"User {userId}", 
+
+        var newUser = new User
+        {
+            Id = userId,
+            Name = $"User {userId}",
             Email = $"user{userId}@example.com",
             LastLogin = DateTime.UtcNow.AddDays(-Random.Shared.Next(1, 30))
         };
 
         // Cache with sliding expiration
-        _cache.Set(cacheKey, user, new MemoryCacheEntryOptions
+        _cache.Set(cacheKey, newUser, new MemoryCacheEntryOptions
         {
             SlidingExpiration = TimeSpan.FromMinutes(15),
             Size = 1 // Each user counts as 1 unit
         });
 
-        return user;
+        return newUser;
     }
 }
 
@@ -179,54 +174,54 @@ public class ProductService
     public async Task<Product> GetProductAsync(int productId)
     {
         var cacheKey = $"product:{productId}";
-        
-        if (_cache.TryGetValue(cacheKey, out Product cachedProduct))
+
+        if (_cache.TryGetValue(cacheKey, out var cachedProduct) && cachedProduct is Product product)
         {
             _logger.LogInformation("Product {ProductId} found in cache", productId);
-            return cachedProduct;
+            return product;
         }
 
         _logger.LogInformation("Product {ProductId} not in cache, loading from catalog", productId);
-        
+
         // Simulate catalog service call
         await Task.Delay(200);
-        
-        var product = new Product 
-        { 
-            Id = productId, 
-            Name = $"Product {productId}", 
+
+        var newProduct = new Product
+        {
+            Id = productId,
+            Name = $"Product {productId}",
             Price = Random.Shared.Next(10, 1000),
             Description = $"Description for product {productId}",
             CategoryId = Random.Shared.Next(1, 10)
         };
 
         // Cache with absolute expiration (product data changes less frequently)
-        _cache.Set(cacheKey, product, new MemoryCacheEntryOptions
+        _cache.Set(cacheKey, newProduct, new MemoryCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(2),
             Priority = CacheItemPriority.High, // Products are important to keep
             Size = 2 // Products are larger than users
         });
 
-        return product;
+        return newProduct;
     }
 
     public async Task<IEnumerable<Product>> GetProductsByCategoryAsync(int categoryId)
     {
         var cacheKey = $"products:category:{categoryId}";
-        
-        if (_cache.TryGetValue(cacheKey, out IEnumerable<Product> cachedProducts))
+
+        if (_cache.TryGetValue(cacheKey, out var cachedProducts) && cachedProducts is IEnumerable<Product> products)
         {
             _logger.LogInformation("Products for category {CategoryId} found in cache", categoryId);
-            return cachedProducts;
+            return products;
         }
 
         _logger.LogInformation("Products for category {CategoryId} not in cache, loading from catalog", categoryId);
-        
+
         // Simulate loading multiple products
         await Task.Delay(300);
-        
-        var products = Enumerable.Range(1, 5).Select(i => new Product
+
+        var newProducts = Enumerable.Range(1, 5).Select(i => new Product
         {
             Id = categoryId * 100 + i,
             Name = $"Product {categoryId}-{i}",
@@ -235,14 +230,14 @@ public class ProductService
         }).ToArray();
 
         // Cache with priority and larger size
-        _cache.Set(cacheKey, products, new MemoryCacheEntryOptions
+        _cache.Set(cacheKey, newProducts, new MemoryCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30),
             Priority = CacheItemPriority.Normal,
             Size = 10 // Category lists are expensive
         });
 
-        return products;
+        return newProducts;
     }
 }
 
@@ -263,31 +258,31 @@ public class SessionService
     public async Task<UserSession> GetSessionAsync(string sessionId)
     {
         var cacheKey = $"session:{sessionId}";
-        
-        if (_cache.TryGetValue(cacheKey, out UserSession cachedSession))
+
+        if (_cache.TryGetValue(cacheKey, out var cachedSession) && cachedSession is UserSession session)
         {
             _logger.LogInformation("Session {SessionId} found in cache", sessionId);
-            
+
             // Update last accessed time
-            cachedSession.LastAccessed = DateTime.UtcNow;
-            
+            session.LastAccessed = DateTime.UtcNow;
+
             // Re-cache with new timestamp
-            _cache.Set(cacheKey, cachedSession, new MemoryCacheEntryOptions
+            _cache.Set(cacheKey, session, new MemoryCacheEntryOptions
             {
                 SlidingExpiration = TimeSpan.FromMinutes(5), // Short session timeout
                 Size = 1
             });
-            
-            return cachedSession;
+
+            return session;
         }
 
         _logger.LogInformation("Session {SessionId} not in cache, creating new session", sessionId);
-        
+
         // Simulate session creation
         await Task.Delay(50);
-        
-        var session = new UserSession 
-        { 
+
+        var newSession = new UserSession
+        {
             SessionId = sessionId,
             UserId = Random.Shared.Next(1, 1000),
             CreatedAt = DateTime.UtcNow,
@@ -300,14 +295,14 @@ public class SessionService
             }
         };
 
-        _cache.Set(cacheKey, session, new MemoryCacheEntryOptions
+        _cache.Set(cacheKey, newSession, new MemoryCacheEntryOptions
         {
             SlidingExpiration = TimeSpan.FromMinutes(5),
             Priority = CacheItemPriority.Low, // Sessions can be evicted easily
             Size = 1
         });
 
-        return session;
+        return newSession;
     }
 }
 
@@ -346,9 +341,9 @@ public class MultiCacheDemo
         await DemonstrateSessionCaching();
         await DemonstrateHierarchicalCaching();
         await DemonstrateEvictionPatterns();
-        
+
         _logger.LogInformation("Multi-cache demonstration completed.");
-        
+
         // Wait for metrics to be exported
         await Task.Delay(5000);
     }
@@ -356,7 +351,7 @@ public class MultiCacheDemo
     private async Task DemonstrateUserCaching()
     {
         _logger.LogInformation("=== User Cache Demonstration ===");
-        
+
         // Load some users (cache misses)
         for (int i = 1; i <= 5; i++)
         {
@@ -377,7 +372,7 @@ public class MultiCacheDemo
     private async Task DemonstrateProductCaching()
     {
         _logger.LogInformation("=== Product Cache Demonstration ===");
-        
+
         // Load individual products
         for (int i = 1; i <= 3; i++)
         {
@@ -402,9 +397,9 @@ public class MultiCacheDemo
     private async Task DemonstrateSessionCaching()
     {
         _logger.LogInformation("=== Session Cache Demonstration ===");
-        
+
         var sessionIds = new[] { "sess_001", "sess_002", "sess_003", "sess_004", "sess_005" };
-        
+
         // Create sessions
         foreach (var sessionId in sessionIds)
         {
@@ -428,21 +423,21 @@ public class MultiCacheDemo
     private async Task DemonstrateHierarchicalCaching()
     {
         _logger.LogInformation("=== Hierarchical Cache (L1) Demonstration ===");
-        
+
         // Use L1 cache as a small, fast cache for frequently accessed data
         var frequentKeys = new[] { "hot_data_1", "hot_data_2", "hot_data_3" };
-        
+
         foreach (var key in frequentKeys)
         {
             if (!_l1Cache.TryGetValue(key, out var value))
             {
                 _logger.LogInformation("L1 miss for {Key}, simulating L2 lookup", key);
-                
+
                 // Simulate L2 cache lookup or database call
                 await Task.Delay(200);
-                
+
                 value = $"Expensive data for {key}";
-                
+
                 _l1Cache.Set(key, value, new MemoryCacheEntryOptions
                 {
                     AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1),
@@ -469,14 +464,14 @@ public class MultiCacheDemo
     private async Task DemonstrateEvictionPatterns()
     {
         _logger.LogInformation("=== Cache Eviction Demonstration ===");
-        
+
         // Fill up the session cache to trigger evictions
         _logger.LogInformation("Filling session cache to trigger evictions...");
-        
+
         for (int i = 1; i <= 50; i++)
         {
             await _sessionService.GetSessionAsync($"temp_session_{i:D3}");
-            
+
             if (i % 10 == 0)
             {
                 _logger.LogInformation("Created {SessionCount} temporary sessions", i);
@@ -486,19 +481,19 @@ public class MultiCacheDemo
 
         // Create high-priority data in L1 cache and then overflow it
         _logger.LogInformation("Overflowing L1 cache to trigger evictions...");
-        
+
         for (int i = 1; i <= 30; i++)
         {
             var key = $"overflow_data_{i:D2}";
             var value = $"Data batch {i}";
-            
+
             _l1Cache.Set(key, value, new MemoryCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
                 Priority = i <= 15 ? CacheItemPriority.High : CacheItemPriority.Low,
                 Size = 3
             });
-            
+
             if (i % 5 == 0)
             {
                 await Task.Delay(100);
