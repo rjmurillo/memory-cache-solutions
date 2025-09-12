@@ -496,4 +496,120 @@ public class NegativeConfigurationTests
             meteredCache.GetOrCreate<string>("key", _ => null!));
         Assert.Contains("Factory returned null", exception.Message);
     }
+
+    // Options Validator Direct Testing
+
+    [Fact]
+    public void MeteredMemoryCacheOptionsValidator_ValidOptions_ReturnsSuccess()
+    {
+        // Arrange
+        var validator = new MeteredMemoryCacheOptionsValidator();
+        var options = new MeteredMemoryCacheOptions
+        {
+            CacheName = "valid-cache",
+            AdditionalTags = { ["environment"] = "test", ["region"] = "us-west" }
+        };
+
+        // Act
+        var result = validator.Validate("test", options);
+
+        // Assert
+        Assert.True(result.Succeeded);
+        Assert.Null(result.Failures);
+    }
+
+    [Fact]
+    public void MeteredMemoryCacheOptionsValidator_EmptyCacheName_ReturnsFailure()
+    {
+        // Arrange
+        var validator = new MeteredMemoryCacheOptionsValidator();
+        var options = new MeteredMemoryCacheOptions
+        {
+            CacheName = "   ", // Whitespace only
+            AdditionalTags = { }
+        };
+
+        // Act
+        var result = validator.Validate("test", options);
+
+        // Assert
+        Assert.False(result.Succeeded);
+        Assert.NotNull(result.Failures);
+        Assert.Contains("CacheName, if specified, must be non-empty.", result.Failures);
+    }
+
+    [Fact]
+    public void MeteredMemoryCacheOptionsValidator_EmptyTagKey_ReturnsFailure()
+    {
+        // Arrange
+        var validator = new MeteredMemoryCacheOptionsValidator();
+        var options = new MeteredMemoryCacheOptions
+        {
+            CacheName = "valid-cache",
+            AdditionalTags = { [""] = "value", ["valid-key"] = "valid-value" }
+        };
+
+        // Act
+        var result = validator.Validate("test", options);
+
+        // Assert
+        Assert.False(result.Succeeded);
+        Assert.NotNull(result.Failures);
+        Assert.Contains("AdditionalTags keys must be non-empty.", result.Failures);
+    }
+
+    [Fact]
+    public void MeteredMemoryCacheOptionsValidator_MultipleValidationFailures_ReturnsAllFailures()
+    {
+        // Arrange
+        var validator = new MeteredMemoryCacheOptionsValidator();
+        var options = new MeteredMemoryCacheOptions
+        {
+            CacheName = "   ", // Invalid: whitespace only
+            AdditionalTags = { [""] = "value", ["  "] = "another-value" } // Invalid: empty and whitespace keys
+        };
+
+        // Act
+        var result = validator.Validate("test", options);
+
+        // Assert
+        Assert.False(result.Succeeded);
+        Assert.NotNull(result.Failures);
+        Assert.Equal(2, result.Failures.Count());
+        Assert.Contains("CacheName, if specified, must be non-empty.", result.Failures);
+        Assert.Contains("AdditionalTags keys must be non-empty.", result.Failures);
+    }
+
+    // Cache Name Normalization Edge Cases
+
+    [Fact]
+    public void CacheName_WithLeadingTrailingWhitespace_IsNormalizedCorrectly()
+    {
+        // Arrange
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter("test.normalization");
+        
+        // Act - cache name with leading/trailing whitespace
+        var cache = new MeteredMemoryCache(inner, meter, cacheName: "  cache-name  ");
+
+        // Assert - normalized name should be trimmed
+        Assert.Equal("cache-name", cache.Name);
+    }
+
+    [Fact]
+    public void AdditionalTags_InvalidOperations_ThrowsExpectedExceptions()
+    {
+        // Arrange
+        var options = new MeteredMemoryCacheOptions
+        {
+            CacheName = "test-cache"
+        };
+
+        // Act & Assert - Adding null key should throw
+        Assert.Throws<ArgumentNullException>(() => options.AdditionalTags.Add(null!, "value"));
+        
+        // Adding duplicate keys should throw
+        options.AdditionalTags.Add("duplicate", "value1");
+        Assert.Throws<ArgumentException>(() => options.AdditionalTags.Add("duplicate", "value2"));
+    }
 }
