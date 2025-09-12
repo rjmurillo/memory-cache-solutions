@@ -227,18 +227,21 @@ public class MeteredMemoryCacheTests
         inner.Compact(0.0);
         Thread.Sleep(10); // Allow eviction callback to execute
 
+        // Create defensive copy to avoid Collection Modified Exception during enumeration
+        var metricsSnapshot = emittedMetrics.ToArray();
+
         // All metrics should have cache.name tag, but they use different patterns
-        var metricsWithCacheName = emittedMetrics.Count(m =>
+        var metricsWithCacheName = metricsSnapshot.Count(m =>
             m.Tags != null && m.Tags.Any(t => t.Key == "cache.name" && (string?)t.Value == "pattern-test-cache"));
 
         // This assertion documents current behavior - it should pass
         // The issue is that different code paths use different patterns for TagList handling
         Assert.True(metricsWithCacheName >= 2,
-            $"Expected metrics with cache.name tag, but only {metricsWithCacheName} found out of {emittedMetrics.Count} total");
+            $"Expected metrics with cache.name tag, but only {metricsWithCacheName} found out of {metricsSnapshot.Length} total");
 
         // Document the pattern inconsistency in the test output
-        var hitMissMetrics = emittedMetrics.Where(m => m.InstrumentName.Contains("hits") || m.InstrumentName.Contains("misses"));
-        var evictionMetrics = emittedMetrics.Where(m => m.InstrumentName.Contains("evictions"));
+        var hitMissMetrics = metricsSnapshot.Where(m => m.InstrumentName.Contains("hits") || m.InstrumentName.Contains("misses"));
+        var evictionMetrics = metricsSnapshot.Where(m => m.InstrumentName.Contains("evictions"));
 
         Assert.True(hitMissMetrics.Any(), "Should have hit/miss metrics that use _baseTags directly");
         // Eviction metrics may or may not be present due to timing, but the pattern difference exists in the code
@@ -403,7 +406,10 @@ public class MeteredMemoryCacheTests
         // Verify that metrics contain expected tags and proper filtering occurred
         Assert.True(emittedMetrics.Count >= 2, "Should have at least hit and miss metrics");
 
-        foreach (var (instrumentName, tags) in emittedMetrics)
+        // Create defensive copy to avoid Collection Modified Exception during enumeration
+        // The MeterListener callback can modify emittedMetrics on another thread
+        var metricsSnapshot = emittedMetrics.ToArray();
+        foreach (var (instrumentName, tags) in metricsSnapshot)
         {
             // Verify cache.name is present and correct (not the filtered-out value)
             var cacheNameTag = tags.FirstOrDefault(t => t.Key == "cache.name");
