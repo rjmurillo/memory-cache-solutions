@@ -46,6 +46,26 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{B0505558-FA9
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AspNetCore", "examples\AspNetCore\src\AspNetCore.csproj", "{8539BD81-2D63-4D7C-8DC3-AF1E92EF5254}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0E654088-7AE5-402D-B4A2-C7A795AD7104}"
+	ProjectSection(SolutionItems) = preProject
+		examples\AspNetCore\tests\AspNetCore.http = examples\AspNetCore\tests\AspNetCore.http
+		examples\AspNetCore\tests\CacheTests.http = examples\AspNetCore\tests\CacheTests.http
+		examples\AspNetCore\tests\ErrorHandlingTests.http = examples\AspNetCore\tests\ErrorHandlingTests.http
+		examples\AspNetCore\tests\http-client.env.json = examples\AspNetCore\tests\http-client.env.json
+		examples\AspNetCore\tests\k6-average-load-tests.js = examples\AspNetCore\tests\k6-average-load-tests.js
+		examples\AspNetCore\tests\k6-breakpoint-tests.js = examples\AspNetCore\tests\k6-breakpoint-tests.js
+		examples\AspNetCore\tests\k6-config.js = examples\AspNetCore\tests\k6-config.js
+		examples\AspNetCore\tests\k6-smoke-tests.js = examples\AspNetCore\tests\k6-smoke-tests.js
+		examples\AspNetCore\tests\k6-soak-tests.js = examples\AspNetCore\tests\k6-soak-tests.js
+		examples\AspNetCore\tests\k6-spike-tests.js = examples\AspNetCore\tests\k6-spike-tests.js
+		examples\AspNetCore\tests\k6-stress-tests.js = examples\AspNetCore\tests\k6-stress-tests.js
+		examples\AspNetCore\tests\package.json = examples\AspNetCore\tests\package.json
+		examples\AspNetCore\tests\PerformanceTests.http = examples\AspNetCore\tests\PerformanceTests.http
+		examples\AspNetCore\tests\run-k6-tests.bat = examples\AspNetCore\tests\run-k6-tests.bat
+		examples\AspNetCore\tests\run-k6-tests.ps1 = examples\AspNetCore\tests\run-k6-tests.ps1
+		examples\AspNetCore\tests\run-k6-tests.sh = examples\AspNetCore\tests\run-k6-tests.sh
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -167,6 +187,7 @@ Global
 		{953D38AD-C12D-E66E-FFB6-F5CDBD881778} = {4B5C6D7E-8F9A-4B5C-6D7E-8F9A4B5C6D7E}
 		{B0505558-FA9E-8E9B-6CA7-BDB51AEB6218} = {953D38AD-C12D-E66E-FFB6-F5CDBD881778}
 		{8539BD81-2D63-4D7C-8DC3-AF1E92EF5254} = {B0505558-FA9E-8E9B-6CA7-BDB51AEB6218}
+		{0E654088-7AE5-402D-B4A2-C7A795AD7104} = {953D38AD-C12D-E66E-FFB6-F5CDBD881778}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {4AC88EA3-7EA6-4034-B6B0-FD227DD16EF6}
