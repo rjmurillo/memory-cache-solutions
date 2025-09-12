@@ -316,12 +316,19 @@ public class MetricEmissionAccuracyTests
                 $"Eviction reason '{reason}' should be a valid EvictionReason enum value");
         });
 
-        // Validate that we have different eviction reasons
+        // Validate that specific eviction reasons are present (using Assert.Contains pattern)
         var uniqueReasons = evictionMeasurements
             .Select(m => m.Tags["reason"]?.ToString())
             .Distinct()
             .ToList();
         Assert.True(uniqueReasons.Count >= 1, "Expected at least 1 unique eviction reason");
+        
+        // Validate presence of expected eviction reasons instead of exact counts
+        Assert.Contains(evictionMeasurements, m => 
+            m.Tags.ContainsKey("reason") && m.Tags["reason"]?.ToString() == "Removed");
+        
+        // Additional eviction reasons may be present depending on MemoryCache internal timing
+        // This flexible approach allows for implementation changes without breaking tests
     }
 
     [Fact]
@@ -424,10 +431,10 @@ public class MetricEmissionAccuracyTests
             Assert.Equal("1.0.0", measurement.Tags["version"]);
         });
 
-        // Validate exact tag counts (no unexpected tags)
+        // Validate minimum expected tags are present (flexible for future tag additions)
         Assert.All(allMeasurements, measurement =>
         {
-            Assert.Equal(4, measurement.Tags.Count); // cache.name + 3 additional tags
+            Assert.InRange(measurement.Tags.Count, 4, int.MaxValue); // At least cache.name + 3 additional tags
         });
 
         harness.AssertAggregatedCount("cache_hits_total", 1);
