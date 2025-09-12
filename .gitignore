@@ -489,3 +489,4 @@ specs/
 
 #Ignore cursor AI rules
 .cursor\rules\codacy.mdc
+/examples/AspNetCore/tests/k6-results
