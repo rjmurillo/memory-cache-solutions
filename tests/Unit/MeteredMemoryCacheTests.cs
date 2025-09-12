@@ -694,6 +694,51 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
+    public void GetOrCreateMissClassificationRaceCondition_OnlyCountMissWhenFactoryRuns()
+    {
+        // This test demonstrates the race condition in GetOrCreate where miss counter
+        // is incremented even when the factory doesn't actually run due to concurrent cache population
+
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter($"test.miss.race.{Guid.NewGuid()}");
+        using var listener = new TestListener("cache_hits_total", "cache_misses_total");
+
+        var cache = new MeteredMemoryCache(inner, meter, "miss-race-test");
+
+        var factoryRunCount = 0;
+        var key = "race-condition-key";
+
+        // Pre-populate the cache to simulate the race condition scenario
+        inner.Set(key, "pre-existing-value");
+
+        // Call GetOrCreate - this should NOT increment miss counter since factory won't run
+        var result = cache.GetOrCreate(key, entry =>
+        {
+            Interlocked.Increment(ref factoryRunCount);
+            return "factory-created-value";
+        });
+
+        // Verify the factory didn't run (value was already in cache)
+        Assert.Equal(0, factoryRunCount);
+        Assert.Equal("pre-existing-value", result);
+
+        // The current implementation incorrectly counts this as a miss
+        // because it increments miss counter before checking if factory actually runs
+        // This test documents the race condition that needs to be fixed
+
+        // With the current implementation, this will show 1 miss even though no factory ran
+        // After the fix, this should show 0 misses since the value was already cached
+        var missCount = listener.Counters.TryGetValue("cache_misses_total", out var misses) ? misses : 0;
+
+        // With the fix implemented, miss count should be 0 since factory didn't run
+        Assert.Equal(0, missCount);
+
+        // Verify we got a hit instead since the value was already in cache
+        var hitCount = listener.Counters.TryGetValue("cache_hits_total", out var hits) ? hits : 0;
+        Assert.Equal(1, hitCount);
+    }
+
+    [Fact]
     public void OptionsConstructor_WithEmptyCacheName_NamePropertyIsNull()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());

@@ -75,7 +75,7 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         if (string.IsNullOrWhiteSpace(cacheName))
-            throw new ArgumentException("Cache name must be non-empty", nameof(cacheName));
+            throw new ArgumentException("Cache name must be non-empty.", nameof(cacheName));
 
         var effectiveMeterName = string.IsNullOrEmpty(meterName) ? nameof(MeteredMemoryCache) : meterName;
 

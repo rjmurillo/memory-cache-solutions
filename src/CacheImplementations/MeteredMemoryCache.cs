@@ -11,8 +11,9 @@ namespace CacheImplementations;
 /// Instruments:
 ///  - cache_hits_total (<see cref="Counter{T}"/> where T is <see langword="long"/>)
 ///  - cache_misses_total (<see cref="Counter{T}"/> where T is <see langword="long"/>)
-///  - cache_evictions_total (<see cref="Counter{T}"/> where T is <see langword="long"/>) with tag "reason" = <see cref="EvictionReason"/> string
+///  - cache_evictions_total (<see cref="Counter{T}"/> where T is <see langword="long"/>) with tag "reason" = <see cref="PostEvictionReason"/> string
 /// </summary>
+[DebuggerDisplay("{Name ?? \"(unnamed)\"}")]
 public sealed class MeteredMemoryCache : IMemoryCache
 {
     private readonly IMemoryCache _inner;
@@ -184,11 +185,14 @@ public sealed class MeteredMemoryCache : IMemoryCache
             return hit;
         }
 
-        // Cache miss: record miss metric and delegate to inner cache for creation
-        // This ensures accurate hit/miss ratios even with concurrent access patterns
-        _misses.Add(1, CreateBaseTags(_baseTags));
+        // Cache miss: delegate to inner cache for creation and only count miss if factory actually runs
+        // This ensures accurate hit/miss ratios by avoiding race conditions where value is added between checks
+        var factoryWasInvoked = false;
         var created = _inner.GetOrCreate(key, entry =>
         {
+            // Factory is running - this is a confirmed cache miss
+            factoryWasInvoked = true;
+
             // Register eviction tracking for the newly created entry
             // This callback pattern ensures every cached item contributes to eviction metrics
             // regardless of how it was created (Set, GetOrCreate, CreateEntry)
@@ -204,6 +208,17 @@ public sealed class MeteredMemoryCache : IMemoryCache
             }, this);
             return factory(entry);
         });
+
+        // Only count as miss if factory actually ran (prevents race condition inaccuracy)
+        if (factoryWasInvoked)
+        {
+            _misses.Add(1, CreateBaseTags(_baseTags));
+        }
+        else
+        {
+            // Value was found in cache after all - count as hit
+            _hits.Add(1, CreateBaseTags(_baseTags));
+        }
 
         // Null safety check for reference types - helps catch factory bugs early
         if (created is null && !typeof(T).IsValueType)
