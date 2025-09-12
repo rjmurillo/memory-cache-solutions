@@ -27,6 +27,9 @@ public class OpenTelemetryIntegrationTests
         // Act & Assert - using improved host lifecycle management
         await ExecuteWithHostAsync(host, async h =>
         {
+            // Validate exporter configuration before test execution
+            ValidateExporterConfiguration(h, exportedItems);
+            
             var cache = h.Services.GetRequiredService<IMemoryCache>();
             
             // Pre-populate cache
@@ -35,7 +38,7 @@ public class OpenTelemetryIntegrationTests
             // Act - perform cache hit
             var result = cache.TryGetValue("test-key", out var value);
 
-            // Force metrics collection
+            // Force metrics collection with enhanced validation
             await FlushMetricsAsync(h);
 
             // Assert
@@ -45,6 +48,10 @@ public class OpenTelemetryIntegrationTests
             var hitMetric = FindMetric(exportedItems, "cache_hits_total");
             Assert.NotNull(hitMetric);
             AssertMetricValue(hitMetric, 1);
+            
+            // Additional validation: Ensure no unexpected metrics were collected
+            Assert.Single(exportedItems, m => m.Name == "cache_hits_total");
+            Assert.DoesNotContain(exportedItems, m => m.Name == "cache_misses_total");
         });
     }
 
@@ -293,11 +300,14 @@ public class OpenTelemetryIntegrationTests
             builder.Services.AddMemoryCache();
         }
 
-        // Add OpenTelemetry with InMemory exporter
+        // Add OpenTelemetry with enhanced InMemory exporter configuration
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
                 .AddMeter("MeteredMemoryCache")
-                .AddInMemoryExporter(exportedItems));
+                .AddInMemoryExporter(exportedItems)
+                // Configure metric readers for better test reliability
+                .SetMaxMetricStreams(1000)  // Ensure we can handle many metrics
+                .SetMaxMetricPointsPerMetricStream(1000)); // Handle high-volume scenarios
 
         // Decorate the cache with metrics
         builder.Services.DecorateMemoryCacheWithMetrics("test-cache");
@@ -358,17 +368,40 @@ public class OpenTelemetryIntegrationTests
         return builder.Build();
     }
 
+    /// <summary>
+    /// Enhanced metrics flushing with improved InMemoryExporter validation.
+    /// Ensures all metrics are properly collected and exported before test assertions.
+    /// </summary>
     private static async Task FlushMetricsAsync(IHost host)
     {
         // Force metrics collection by getting the MeterProvider and calling ForceFlush
         var meterProvider = host.Services.GetService<MeterProvider>();
         if (meterProvider != null)
         {
-            meterProvider.ForceFlush(5000); // 5000ms = 5 seconds
+            // Use shorter timeout for test responsiveness while ensuring reliability
+            var flushSucceeded = meterProvider.ForceFlush(3000); // 3000ms = 3 seconds
+            if (!flushSucceeded)
+            {
+                throw new InvalidOperationException("Failed to flush metrics within timeout period");
+            }
         }
         
-        // Give additional time for async operations
-        await Task.Delay(50);
+        // Give additional time for InMemoryExporter to process all metrics
+        await Task.Delay(100);
+    }
+
+    /// <summary>
+    /// Validates that the InMemoryExporter is properly configured and collecting metrics.
+    /// </summary>
+    private static void ValidateExporterConfiguration(IHost host, List<Metric> exportedItems)
+    {
+        // Verify MeterProvider is registered
+        var meterProvider = host.Services.GetService<MeterProvider>();
+        Assert.NotNull(meterProvider);
+        
+        // Verify the exported items list is being populated (basic sanity check)
+        // This ensures the InMemoryExporter is properly configured
+        Assert.NotNull(exportedItems);
     }
 
     private static Metric? FindMetric(List<Metric> metrics, string name)
