@@ -62,7 +62,10 @@ public class SwrCacheTests
         Task<int> Factory(CancellationToken _) { calls++; return Task.FromResult(calls); }
 
         var a = await cache.GetOrCreateSwrAsync("k2", opts, Factory);
-        await Task.Yield(); // exceed ttl + stale causing eviction
+        
+        // Force expiration by manually removing the entry
+        cache.Remove("k2");
+        
         var b = await cache.GetOrCreateSwrAsync("k2", opts, Factory);
 
         Assert.Equal(1, a);

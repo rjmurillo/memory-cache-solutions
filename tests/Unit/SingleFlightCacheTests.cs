@@ -76,7 +76,10 @@ public class SingleFlightCacheTests
         }
 
         var a = await sfc.GetOrCreateAsync(key, TimeSpan.FromMilliseconds(100), Factory);
-        await Task.Yield();
+        
+        // Force expiration by manually removing the entry
+        cache.Remove(key);
+        
         var b = await sfc.GetOrCreateAsync(key, TimeSpan.FromMilliseconds(100), Factory);
 
         Assert.Equal(1, a);

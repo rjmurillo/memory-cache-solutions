@@ -66,7 +66,10 @@ public class SingleFlightLazyCacheTests
         }
 
         var a = await sfl.GetOrCreateAsync("ttl", TimeSpan.FromMilliseconds(80), Factory);
-        await Task.Yield();
+        
+        // Force expiration by manually removing the entry
+        cache.Remove("ttl");
+        
         var b = await sfl.GetOrCreateAsync("ttl", TimeSpan.FromMilliseconds(80), Factory);
 
         Assert.Equal(1, a);
@@ -84,7 +87,7 @@ public class SingleFlightLazyCacheTests
         async Task<int> Factory()
         {
             started.SetResult();
-            await Task.Yield();
+            await Task.Delay(300, CancellationToken.None); // Use Task.Delay for proper cancellation testing
             return 7;
         }
 

@@ -674,22 +674,27 @@ public class MetricEmissionAccuracyTests
         cache3.TryGetValue("key5", out _); // miss
 
         // Scenario 2: Eviction scenarios for each cache
+        // Use CancellationChangeToken for immediate expiration
+        using var cts1 = new CancellationTokenSource();
+        using var cts2 = new CancellationTokenSource();
+        
         using (var entry1 = cache1.CreateEntry("temp:1"))
         {
             entry1.Value = "temp-data";
-            entry1.AbsoluteExpirationRelativeToNow = TimeSpan.FromMilliseconds(10);
+            entry1.AddExpirationToken(new CancellationChangeToken(cts1.Token));
         }
 
         using (var entry2 = cache2.CreateEntry("temp:2"))
         {
             entry2.Value = "temp-query";
-            entry2.AbsoluteExpirationRelativeToNow = TimeSpan.FromMilliseconds(10);
+            entry2.AddExpirationToken(new CancellationChangeToken(cts2.Token));
         }
 
         cache3.Set("manual-remove", "will-be-removed");
 
-        // Wait for expiration
-        await Task.Yield();
+        // Trigger expirations
+        cts1.Cancel();
+        cts2.Cancel();
         inner1.Compact(0.0);
         inner2.Compact(0.0);
         cache3.Remove("manual-remove"); // Manual eviction
