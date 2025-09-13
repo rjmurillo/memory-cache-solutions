@@ -111,12 +111,11 @@ export default function (data) {
 
     if (writePattern < 0.5) {
       // 15% - Batch user lookup
-      const batchUserIds = [
-        getRandomUserId(),
-        getRandomUserId(),
-        getRandomUserId(),
-      ];
-      const batchResponse = getUsers(batchUserIds);
+      const batchUserIds = new Set();
+      while (batchUserIds.size < 3) {
+        batchUserIds.add(getRandomUserId());
+      }
+      const batchResponse = getUsers([...batchUserIds]);
       check(batchResponse, {
         "batch user lookup successful": (r) => r.status === 200,
         "batch user lookup response time acceptable": (r) =>
