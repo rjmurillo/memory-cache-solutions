@@ -466,7 +466,6 @@ public class ConcurrencyTests : IDisposable
         List<Metric> exportedItems = new();
         
         var builder = new HostApplicationBuilder();
-        builder.Services.AddSingleton(new Meter("MeteredMemoryCache"));
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
                 .AddMeter("MeteredMemoryCache")
@@ -478,7 +477,8 @@ public class ConcurrencyTests : IDisposable
         // Start the host to activate the meter provider
         await host.StartAsync();
 
-        var meter = host.Services.GetRequiredService<Meter>();
+        // Create meter instance after host is started to ensure proper registration
+        var meter = new Meter("MeteredMemoryCache");
         var meterProvider = host.Services.GetRequiredService<MeterProvider>();
 
         var tasks = new List<Task>();
@@ -507,7 +507,13 @@ public class ConcurrencyTests : IDisposable
                     }
                     else
                     {
-                        meteredCache.TryGetValue(key, out _);
+                        // Try to get a key that was set (even j values) - this will be a hit
+                        var keyToGet = $"key-{j - 1}";
+                        meteredCache.TryGetValue(keyToGet, out _);
+                        
+                        // Also try to get a key that doesn't exist - this will be a miss
+                        var nonExistentKey = $"nonexistent-key-{j}";
+                        meteredCache.TryGetValue(nonExistentKey, out _);
                     }
                 }
 
