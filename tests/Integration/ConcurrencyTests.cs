@@ -6,6 +6,7 @@ using CacheImplementations;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Primitives;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using Unit;
@@ -134,26 +135,30 @@ public class ConcurrencyTests : IDisposable
                 var localCache = cache;
                 var localThreadIdx = threadIdx;
 
-                tasks.Add(Task.Run(async () =>
+                tasks.Add(Task.Run(() =>
                 {
                     var evictions = 0;
 
                     for (int i = 0; i < itemsPerCache; i++)
                     {
                         var key = $"{localCacheName}-thread{localThreadIdx}-item{i}";
+                        
+                        // Use CancellationChangeToken to force evictions
+                        using var cts = new CancellationTokenSource();
                         var options = new MemoryCacheEntryOptions
                         {
                             Size = 1,
-                            SlidingExpiration = TimeSpan.FromMilliseconds(10) // Force quick evictions
+                            ExpirationTokens = { new CancellationChangeToken(cts.Token) }
                         };
 
                         localCache.Set(key, $"value-{i}", options);
 
-                        // Trigger evictions by setting many items
+                        // Cancel the token to trigger eviction
                         if (i % 10 == 0)
                         {
-                            await Task.Delay(1); // Allow some items to expire
-                            GC.Collect(); // Force cleanup
+                            cts.Cancel();
+                            // Force eviction by accessing the cache
+                            localCache.TryGetValue(key, out _);
                         }
                     }
 
@@ -308,20 +313,22 @@ public class ConcurrencyTests : IDisposable
                 {
                     var key = $"thread{localThreadId}-key{i}";
 
-                    // Mix of operations
+                    // Mix of operations to ensure both hits and misses
                     switch (i % 4)
                     {
                         case 0: // Set
                             cache.Set(key, $"value{i}");
                             break;
-                        case 1: // Get (miss)
+                        case 1: // Get (miss) - try to get a key that doesn't exist
                             cache.TryGetValue($"nonexistent-{key}", out _);
                             break;
-                        case 2: // Get (hit)
+                        case 2: // Get (hit) - try to get the key we just set
                             cache.TryGetValue(key, out _);
                             break;
-                        case 3: // Remove
-                            cache.Remove(key);
+                        case 3: // Set another key and get it (hit)
+                            var anotherKey = $"{key}-another";
+                            cache.Set(anotherKey, $"value{i}-another");
+                            cache.TryGetValue(anotherKey, out _);
                             break;
                     }
                 }
@@ -579,14 +586,17 @@ public class ConcurrencyTests : IDisposable
         var exportedItems = new List<Metric>();
         // Note: List<Metric> doesn't implement IDisposable, we'll dispose the host which cleans up resources
 
+        // Generate unique meter name for test isolation
+        var meterName = SharedUtilities.GetUniqueMeterName("test.single.cache");
+
         var builder = new HostApplicationBuilder();
 
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("MeteredMemoryCache")
+                .AddMeter(meterName)
                 .AddInMemoryExporter(exportedItems));
 
-        builder.Services.AddNamedMeteredMemoryCache(cacheName);
+        builder.Services.AddNamedMeteredMemoryCache(cacheName, meterName: meterName);
 
         var host = builder.Build();
         _disposables.Add(host);
@@ -597,17 +607,20 @@ public class ConcurrencyTests : IDisposable
     {
         var exportedItems = new List<Metric>();
 
+        // Generate unique meter name for test isolation
+        var meterName = SharedUtilities.GetUniqueMeterName("test.multiple.caches");
+
         var builder = new HostApplicationBuilder();
 
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("MeteredMemoryCache")
+                .AddMeter(meterName)
                 .AddInMemoryExporter(exportedItems));
 
-        // Create multiple named caches
-        builder.Services.AddNamedMeteredMemoryCache("cache-1");
-        builder.Services.AddNamedMeteredMemoryCache("cache-2");
-        builder.Services.AddNamedMeteredMemoryCache("cache-3");
+        // Create multiple named caches with unique meter name
+        builder.Services.AddNamedMeteredMemoryCache("cache-1", meterName: meterName);
+        builder.Services.AddNamedMeteredMemoryCache("cache-2", meterName: meterName);
+        builder.Services.AddNamedMeteredMemoryCache("cache-3", meterName: meterName);
 
         var host = builder.Build();
         _disposables.Add(host);
@@ -618,14 +631,17 @@ public class ConcurrencyTests : IDisposable
     {
         var exportedItems = new List<Metric>();
 
+        // Generate unique meter name for test isolation
+        var meterName = SharedUtilities.GetUniqueMeterName("test.options.cache");
+
         var builder = new HostApplicationBuilder();
 
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("MeteredMemoryCache")
+                .AddMeter(meterName)
                 .AddInMemoryExporter(exportedItems));
 
-        builder.Services.AddNamedMeteredMemoryCache(options.CacheName!, configureOptions: opt =>
+        builder.Services.AddNamedMeteredMemoryCache(options.CacheName!, meterName: meterName, configureOptions: opt =>
         {
             opt.AdditionalTags = options.AdditionalTags;
         });
