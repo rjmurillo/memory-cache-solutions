@@ -17,4 +17,8 @@
     <ProjectReference Include="..\\..\\src\\CacheImplementations\\CacheImplementations.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <AdditionalFiles Include="..\..\BannedSymbols.txt" Link="BannedSymbols.txt" />
+  </ItemGroup>
+
 </Project>

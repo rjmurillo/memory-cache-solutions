@@ -1,0 +1,20 @@
+# Banned API Symbols
+# This file defines APIs that are banned from use in the codebase.
+# Each line should contain a banned symbol followed by an optional reason.
+
+# Sleep Semantics - Banned to enforce deterministic timing
+M:System.Threading.Tasks.Task.Delay(System.Int32)|Use deterministic wait helpers instead of Task.Delay(int). Consider WaitForMetricValueAsync or System.TimeProvider for deterministic timing.
+M:System.Threading.Tasks.Task.Delay(System.TimeSpan)|Use deterministic wait helpers instead of Task.Delay(TimeSpan). Consider WaitForMetricValueAsync or System.TimeProvider for deterministic timing.
+M:System.Threading.Tasks.Task.Delay(System.Int32,System.Threading.CancellationToken)|Use deterministic wait helpers instead of Task.Delay(int, CancellationToken). Consider WaitForMetricValueAsync or System.TimeProvider for deterministic timing.
+M:System.Threading.Tasks.Task.Delay(System.TimeSpan,System.Threading.CancellationToken)|Use deterministic wait helpers instead of Task.Delay(TimeSpan, CancellationToken). Consider WaitForMetricValueAsync or System.TimeProvider for deterministic timing.
+
+# Thread.Sleep - Banned to enforce deterministic timing
+M:System.Threading.Thread.Sleep(System.Int32)|Use deterministic wait helpers instead of Thread.Sleep(int). Consider WaitForMetricValueAsync or System.TimeProvider for deterministic timing.
+M:System.Threading.Thread.Sleep(System.TimeSpan)|Use deterministic wait helpers instead of Thread.Sleep(TimeSpan). Consider WaitForMetricValueAsync or System.TimeProvider for deterministic timing.
+
+# DateTime.Now - Banned to enforce testable time handling
+P:System.DateTime.Now|Use System.TimeProvider or DateTimeOffset.UtcNow instead of DateTime.Now for testable time handling.
+P:System.DateTime.Today|Use System.TimeProvider or DateTimeOffset.UtcNow instead of DateTime.Today for testable time handling.
+
+# Environment.TickCount - Banned to enforce testable time handling
+P:System.Environment.TickCount|Use System.TimeProvider instead of Environment.TickCount for testable time handling.
