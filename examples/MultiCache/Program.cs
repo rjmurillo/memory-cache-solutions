@@ -266,13 +266,7 @@ public class SessionService
             // Update last accessed time
             session.LastAccessed = DateTime.UtcNow;
 
-            // Re-cache with new timestamp
-            _cache.Set(cacheKey, session, new MemoryCacheEntryOptions
-            {
-                SlidingExpiration = TimeSpan.FromMinutes(5), // Short session timeout
-                Size = 1
-            });
-
+            // SlidingExpiration automatically renews on access, no need to re-insert
             return session;
         }
 
