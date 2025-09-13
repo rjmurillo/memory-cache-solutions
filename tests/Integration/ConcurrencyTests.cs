@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
+using Unit;
 
 namespace Integration;
 
@@ -465,10 +466,13 @@ public class ConcurrencyTests : IDisposable
 
         List<Metric> exportedItems = new();
         
+        // Generate unique meter name for test isolation
+        var meterName = SharedUtilities.GetUniqueMeterName("test.metered.cache");
+        
         var builder = new HostApplicationBuilder();
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("MeteredMemoryCache")
+                .AddMeter(meterName)
                 .AddInMemoryExporter(exportedItems));
 
         var host = builder.Build();
@@ -478,7 +482,7 @@ public class ConcurrencyTests : IDisposable
         await host.StartAsync();
 
         // Create meter instance after host is started to ensure proper registration
-        var meter = new Meter("MeteredMemoryCache");
+        var meter = new Meter(meterName);
         var meterProvider = host.Services.GetRequiredService<MeterProvider>();
 
         var tasks = new List<Task>();
