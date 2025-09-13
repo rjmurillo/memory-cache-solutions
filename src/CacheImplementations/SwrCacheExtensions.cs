@@ -11,8 +11,8 @@ public static class SwrCacheExtensions
 {
     private sealed class SwrBox<T>
     {
-        public T Value;
-        public DateTimeOffset FreshUntil;
+        public readonly T Value;
+        public readonly DateTimeOffset FreshUntil;
         public int Refreshing; // 0 = no, 1 = yes
         public SwrBox(T value, DateTimeOffset freshUntil)
         {
@@ -84,9 +84,8 @@ public static class SwrCacheExtensions
             {
                 var newValue = await factory(CancellationToken.None).ConfigureAwait(false);
                 var now = DateTimeOffset.UtcNow;
-                box.Value = newValue;
-                box.FreshUntil = now + opt.Ttl;
-                cache.Set(key, box, new MemoryCacheEntryOptions
+                var newBox = new SwrBox<T>(newValue, now + opt.Ttl);
+                cache.Set(key, newBox, new MemoryCacheEntryOptions
                 {
                     AbsoluteExpirationRelativeToNow = opt.Ttl + opt.Stale,
                 });
