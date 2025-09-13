@@ -53,6 +53,205 @@ The following tasks represent ALL remaining work based on comprehensive analysis
   ```
 - **Resolution**: Fixed in commit [`e4a16da`](https://github.com/rjmurillo/memory-cache-solutions/commit/e4a16da) - Added defensive copies before enumerating emittedMetrics collections
 
+**URGENT-004: Fix Cross-Test Contamination in RecordsHitAndMiss Test**
+- **Source**: [CI Run #17690338933](https://github.com/rjmurillo/memory-cache-solutions/actions/runs/17690338933/job/50282509674?pr=21)
+- **Test**: `RecordsHitAndMiss`
+- **Error**: `Assert.Equal() Failure: Expected: 1, Actual: 39`
+- **File**: `tests/Unit/MeteredMemoryCacheTests.cs:132`
+- **Priority**: **BLOCKING** - Must fix before PR can be merged
+- **Root Cause**: TestListener collecting metrics from other concurrent tests - cross-test contamination
+- **Problem**: Test expects exactly 1 hit and 1 miss but gets 39 hits from other tests
+- **Solution**: Implement meter-specific filtering in TestListener or use isolated test execution
+
+#### **URGENT-004 Sub-Tasks**:
+
+**URGENT-004A: Implement Meter-Specific Filtering in TestListener**
+- **Issue**: TestListener currently listens to ALL meters globally, causing cross-test contamination
+- **Implementation**: Modify TestListener constructor to accept meter name filter
+- **Code Changes**:
+  ```csharp
+  public TestListener(string meterName, params string[] instrumentNames)
+  {
+      _listener.InstrumentPublished = (inst, listener) =>
+      {
+          // Filter by meter name AND instrument name
+          if (inst.Meter.Name == meterName && instrumentNames.Contains(inst.Name))
+          {
+              listener.EnableMeasurementEvents(inst);
+          }
+      };
+  }
+  ```
+
+**URGENT-004B: Update All Test Methods to Use Unique Meter Names**
+- **Issue**: Tests using hard-coded meter names can collide across test runs
+- **Implementation**: Generate unique meter names per test method
+- **Code Changes**:
+  ```csharp
+  // Replace: using var meter = new Meter("test.metered.cache");
+  // With:    using var meter = new Meter($"test.metered.cache.{Guid.NewGuid()}");
+  ```
+
+**URGENT-004C: Update TestListener Instantiation to Include Meter Name**
+- **Issue**: TestListener needs meter name to filter properly
+- **Implementation**: Pass meter name to TestListener constructor
+- **Code Changes**:
+  ```csharp
+  // Replace: using var listener = new TestListener("cache_hits_total", "cache_misses_total");
+  // With:    using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
+  ```
+
+**URGENT-005: Fix Eviction Timeout in RecordsEviction Test**
+- **Source**: [CI Run #17690338933](https://github.com/rjmurillo/memory-cache-solutions/actions/runs/17690338933/job/50282509674?pr=21)
+- **Test**: `RecordsEviction` (also called `MeteredMemoryCache_EvictionScenario_RecordsEvictionMetrics`)
+- **Error**: `Expected eviction to be recorded within timeout`
+- **File**: `tests/Unit/MeteredMemoryCacheTests.cs:155`
+- **Priority**: **BLOCKING** - Must fix before PR can be merged
+- **Root Cause**: Eviction callback not being triggered within 5-second timeout
+- **Problem**: `WaitForCounterAsync("cache_evictions_total", 1, TimeSpan.FromSeconds(5))` times out
+- **Investigation Needed**: 
+  - Check if eviction callback is properly registered
+  - Verify MemoryCache eviction mechanism is working
+  - Ensure CancellationChangeToken is properly triggering eviction
+- **Solution**: Debug eviction mechanism and fix callback registration or timing
+
+**URGENT-006: Fix Cross-Test Contamination in GetOrCreate_WithNamedCache Test**
+- **Source**: [CI Run #17690340025](https://github.com/rjmurillo/memory-cache-solutions/actions/runs/17690340025/job/50282511714)
+- **Test**: `GetOrCreate_WithNamedCache_RecordsMetricsWithCacheName`
+- **Error**: `Assert.Equal() Failure: Expected: 1, Actual: 2`
+- **File**: `tests/Unit/MeteredMemoryCacheTests.cs:994`
+- **Priority**: **BLOCKING** - Must fix before PR can be merged
+- **Root Cause**: Same as URGENT-004 - TestListener collecting metrics from other concurrent tests
+- **Problem**: Test expects exactly 1 miss and 1 hit but gets 2 misses from other tests
+- **Solution**: Same as URGENT-004 - Implement meter-specific filtering in TestListener
+- **Note**: This confirms that URGENT-004 fix will resolve multiple test failures
+
+**URGENT-007: Replace All Hard-Coded Meter Names with Unique Names**
+- **Source**: Cross-test contamination analysis and user request
+- **Issue**: 63+ instances of hard-coded meter names causing test isolation failures
+- **Files**: All test files in `tests/Unit/` directory
+- **Priority**: **CRITICAL** - Supports URGENT-004 fix and prevents future contamination
+- **Root Cause**: Hard-coded meter names like `"test"`, `"test.metered.cache"` can collide across test runs
+- **Solution**: Replace all `new Meter("hardcoded-name")` with `new Meter(SharedUtilities.GetUniqueMeterName("prefix"))`
+- **Impact**: Will eliminate meter name collisions and support proper test isolation
+
+#### **URGENT-007 Sub-Tasks**:
+
+**URGENT-007A: Replace Hard-Coded Meter Names in NegativeConfigurationTests.cs**
+- **Issue**: 25+ instances of `new Meter("test")` causing meter name collisions
+- **File**: `tests/Unit/NegativeConfigurationTests.cs`
+- **Implementation**: Replace all instances with `new Meter(SharedUtilities.GetUniqueMeterName("test"))`
+- **Pattern**: 
+  ```csharp
+  // Replace: using var meter = new Meter("test");
+  // With:    using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
+  ```
+- **Special Cases**: 
+  - Line 476: `services.AddSingleton<Meter>(sp => new Meter("test"));` 
+  - Line 590: `new Meter("test.normalization")` - use `GetUniqueMeterName("test.normalization")`
+
+**URGENT-007B: Replace Hard-Coded Meter Names in MetricEmissionAccuracyTests.cs**
+- **Issue**: 10+ instances of hard-coded meter names with descriptive prefixes
+- **File**: `tests/Unit/MetricEmissionAccuracyTests.cs`
+- **Implementation**: Replace with appropriate prefixes for `GetUniqueMeterName()`
+- **Pattern**:
+  ```csharp
+  // Replace: using var meter = new Meter("test.accuracy.1");
+  // With:    using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.1"));
+  ```
+- **Preserve Semantics**: Keep descriptive prefixes like "test.accuracy", "test.accuracy.tryget.typed.validation"
+
+**URGENT-007C: Replace Hard-Coded Meter Names in MeteredMemoryCacheTests.cs**
+- **Issue**: 25+ instances of hard-coded meter names with cache-specific prefixes
+- **File**: `tests/Unit/MeteredMemoryCacheTests.cs`
+- **Implementation**: Replace with appropriate prefixes for `GetUniqueMeterName()`
+- **Pattern**:
+  ```csharp
+  // Replace: using var meter = new Meter("test.metered.cache");
+  // With:    using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache"));
+  ```
+- **Preserve Semantics**: Keep descriptive prefixes like "test.metered.cache", "test.readonly.field.bug"
+
+**URGENT-007D: Replace Hard-Coded Meter Names in TagListThreadSafetyTests.cs**
+- **Issue**: 5 instances of hard-coded meter names with thread-safety prefixes
+- **File**: `tests/Unit/TagListThreadSafetyTests.cs`
+- **Implementation**: Replace with appropriate prefixes for `GetUniqueMeterName()`
+- **Pattern**:
+  ```csharp
+  // Replace: using var meter = new Meter("test.concurrent.metrics");
+  // With:    using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.concurrent.metrics"));
+  ```
+- **Preserve Semantics**: Keep descriptive prefixes like "test.concurrent", "test.stress", "test.mixed"
+
+**URGENT-007E: Add Using Statement for SharedUtilities**
+- **Issue**: All test files need `using Unit;` to access `SharedUtilities.GetUniqueMeterName()`
+- **Files**: All test files that will use `SharedUtilities.GetUniqueMeterName()`
+- **Implementation**: Add `using Unit;` at the top of each file if not already present
+- **Validation**: Ensure all files can compile after meter name replacements
+
+#### **URGENT-005 Sub-Tasks**:
+
+**URGENT-005A: Debug Eviction Callback Registration**
+- **Issue**: Eviction callback may not be properly registered in MeteredMemoryCache
+- **Investigation**: Check if `RegisterEvictionCallback` is being called correctly
+- **Files**: `src/CacheImplementations/MeteredMemoryCache.cs` - eviction callback registration
+- **Debug Steps**:
+  1. Add logging to verify callback registration
+  2. Check if `MemoryCacheEntryOptions.RegisterPostEvictionCallback` is working
+  3. Verify callback is not being overwritten by subsequent operations
+
+**URGENT-005B: Verify MemoryCache Eviction Mechanism**
+- **Issue**: MemoryCache eviction may not be working as expected
+- **Investigation**: Test MemoryCache eviction independently
+- **Implementation**: Create isolated test to verify MemoryCache eviction works
+- **Code Changes**:
+  ```csharp
+  [Fact]
+  public void MemoryCache_Eviction_WorksIndependently()
+  {
+      using var cache = new MemoryCache(new MemoryCacheOptions());
+      var evictionCalled = false;
+      
+      var options = new MemoryCacheEntryOptions();
+      options.RegisterPostEvictionCallback((key, value, reason, state) => evictionCalled = true);
+      
+      cache.Set("test", "value", options);
+      cache.Compact(0.0); // Force eviction
+      
+      Assert.True(evictionCalled, "Eviction callback should be called");
+  }
+  ```
+
+**URGENT-005C: Fix CancellationChangeToken Eviction Logic**
+- **Issue**: CancellationChangeToken may not be triggering eviction properly
+- **Investigation**: Check if token cancellation is properly handled
+- **Implementation**: Verify token cancellation triggers immediate eviction
+- **Code Changes**:
+  ```csharp
+  // Ensure token cancellation immediately invalidates the entry
+  var cts = new CancellationTokenSource();
+  var options = new MemoryCacheEntryOptions();
+  options.AddExpirationToken(new CancellationChangeToken(cts.Token));
+  
+  cache.Set("k", 1, options);
+  cts.Cancel(); // This should immediately invalidate the entry
+  
+  // Verify entry is immediately invalid
+  Assert.False(cache.TryGetValue("k", out _), "Entry should be invalid after token cancellation");
+  ```
+
+**URGENT-005D: Implement Alternative Eviction Test Strategy**
+- **Issue**: Current eviction test may be too complex and timing-dependent
+- **Implementation**: Use simpler eviction mechanism for testing
+- **Alternative**: Use size-based eviction instead of token-based
+- **Code Changes**:
+  ```csharp
+  // Use size-based eviction which is more predictable
+  using var inner = new MemoryCache(new MemoryCacheOptions { SizeLimit = 1 });
+  cache.Set("k1", "value1");
+  cache.Set("k2", "value2"); // This should evict k1
+  ```
+
 **PR Context**: https://github.com/rjmurillo/memory-cache-solutions/pull/15  
 **Current Commit**: `e4a16da` - Collection Modified Exception fix  
 **Repository**: rjmurillo/memory-cache-solutions  
@@ -345,10 +544,10 @@ The following tasks represent ALL remaining work based on comprehensive analysis
 ## 📊 Implementation Status Summary
 
 **Total PR Feedback Items**: 25 specific reviewer comments analyzed  
-**CI Status**: **✅ PASSING** - All critical CI failures resolved  
+**CI Status**: **🔴 FAILING** - Multiple cross-test contamination and eviction timeout issues  
 **Comment Resolution Rate**: **88% COMPLETED** (22/25 comments resolved)  
-**Overall PR Status**: **READY FOR MERGE** - All blocking issues resolved  
-**Latest Status**: Test assertion improvements and thread-safety fixes completed in commit `c1bcdd2`
+**Overall PR Status**: **BLOCKED** - Critical CI failures (URGENT-004, URGENT-005, URGENT-006) + Supporting Task (URGENT-007)  
+**Latest CI**: [Run #17690340025](https://github.com/rjmurillo/memory-cache-solutions/actions/runs/17690340025/job/50282511714)
 
 ### Completion by Category:
 - ✅ **Critical Bug Fixes**: 100% COMPLETED (3/3 comments)
@@ -363,17 +562,22 @@ The following tasks represent ALL remaining work based on comprehensive analysis
 - ❌ **Documentation Markdown**: CANCELLED (5/5 tasks) - **Repository uses prettier for formatting**
 
 ### Outstanding Work Summary:
-- **✅ ALL CRITICAL CI FAILURES RESOLVED**: URGENT-001, URGENT-002, URGENT-003 **COMPLETED**
+- **🔥 3 CRITICAL CI FAILURES**: Cross-test contamination (URGENT-004, URGENT-006), Eviction timeout (URGENT-005) **BLOCKING PR**
+- **🔧 1 SUPPORTING TASK**: Hard-coded meter names replacement (URGENT-007) **CRITICAL FOR TEST ISOLATION**
+- **✅ Previous CI Issues**: URGENT-001, URGENT-002, URGENT-003 **RESOLVED**
 - **✅ Test Quality Issues**: Eviction timing flakiness (T005) **RESOLVED** with deterministic wait helpers
 - **📋 Remaining Non-Blocking Work**:
   - **4 Benchmark Enhancements**: BenchGate integration and performance optimization (B001-B004)
   - **2 Validation Tasks**: BenchGate validation testing and comprehensive feedback review (V001-V002)
 
-### **✅ Current CI Status**: 
-- **Build Status**: ✅ **PASSING** on all platforms (Windows, Linux, macOS)
-- **Test Results**: 174 total, **0 failed**, 172 succeeded, 2 skipped
-- **Status**: All blocking CI failures resolved - Collection Modified Exception fixed
-- **Progress**: All critical issues (URGENT-001, URGENT-002, URGENT-003) have been resolved
+### **🔴 Current CI Status**: 
+- **Build Status**: 🔴 **FAILING** on all platforms (Windows, Linux, macOS)
+- **Test Results**: 174 total, **3 failed**, 171 succeeded, 2 skipped
+- **Blocking Issues**: 
+  - RecordsHitAndMiss: Expected 1, Actual 39 (cross-test contamination)
+  - GetOrCreate_WithNamedCache: Expected 1, Actual 2 (cross-test contamination)
+  - RecordsEviction: Timeout waiting for eviction callback
+- **Progress**: Previous critical issues resolved, but widespread test isolation problems emerged
 - **Artifacts**: Test and benchmark artifacts being generated successfully
 
 ### Recent Commits Addressing Feedback:
