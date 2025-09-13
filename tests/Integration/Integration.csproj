@@ -10,8 +10,6 @@
 
   <ItemGroup>
     <Compile Include="..\Unit\SharedUtilities.cs" Link="SharedUtilities.cs" />
-    <Compile Include="..\Unit\DeterministicTestUtilities.cs" Link="DeterministicTestUtilities.cs" />
-    <Compile Include="..\Unit\DeterministicTestHostBuilder.cs" Link="DeterministicTestHostBuilder.cs" />
   </ItemGroup>
 
   <ItemGroup>

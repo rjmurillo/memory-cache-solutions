@@ -20,8 +20,6 @@ High‑quality experimental patterns & decorators built on top of `IMemoryCache`
 | ------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------ |
 | `CoalescingMemoryCache`               | Drop‑in `IMemoryCache` decorator that coalesces concurrent cache misses (single‑flight)      | `Lazy<Task<T>>` per key in a concurrent dictionary (removed after completion) | Yes (`GetOrCreateAsync`)   | Works with any existing `IMemoryCache` usage; minimal allocation on hits             |
 | `MeteredMemoryCache`                  | Emits OpenTelemetry / .NET `System.Diagnostics.Metrics` counters for hits, misses, evictions | Thread-safe counter operations with dimensional tags                          | N/A (sync like base cache) | Named caches, custom tags, service collection extensions, options pattern validation |
-| `SingleFlightCache`                   | Stand‑alone helper ensuring only one concurrent async factory executes per key               | Per‑key transient `SemaphoreSlim`                                             | Yes                        | TTL & optional entry configuration delegate                                          |
-| `SingleFlightLazyCache`               | Single‑flight via cached `Lazy<Task<T>>` entry (no external lock)                            | Publication semantics of `Lazy`                                               | Yes                        | Simplest implementation; cancellation only affects awaiting caller                   |
 | `GetOrCreateSwrAsync` (SWR extension) | Stale‑While‑Revalidate pattern (serve stale while one background refresh updates)            | Interlocked flag in boxed state                                               | Yes                        | Background refresh isolated from caller cancellation; resilience to refresh failures |
 
 > These implementations favor clarity & demonstrable patterns over feature breadth. They are intentionally small and suitable as a starting point for production adaptation.
@@ -37,17 +35,59 @@ builder.Services.AddMemoryCache();
 builder.Services.Decorate<IMemoryCache>(inner => new CoalescingMemoryCache(inner, disposeInner: false));
 ```
 
-Using the provided single‑flight helpers directly:
+## Recommended Alternatives for Single-Flight (Cache Stampede Protection)
+
+For single-flight scenarios, we recommend using these mature, production-ready solutions instead of implementing your own:
+
+### Microsoft HybridCache (.NET 9+)
+- **First-party solution** from Microsoft with built-in cache stampede protection
+- **L1 + L2 cache support** (in-memory + distributed)
+- **Cache invalidation with tags** for bulk operations
+- **Simple API** - reduces complex cache-aside patterns to a single line
+- **Performance optimizations** including support for `IBufferDistributedCache`
+- **Secure by default** with authentication and data handling
 
 ```csharp
-var memory = new MemoryCache(new MemoryCacheOptions());
-var singleFlight = new SingleFlightCache(memory);
-
-int value = await singleFlight.GetOrCreateAsync(
-	key: "expensive:data",
-	ttl: TimeSpan.FromMinutes(5),
-	factory: async () => await FetchExpensiveValueAsync());
+// Simple usage with HybridCache
+public class SomeService(HybridCache cache)
+{
+    public async Task<SomeInformation> GetSomeInformationAsync(string name, int id, CancellationToken token = default)
+    {
+        return await cache.GetOrCreateAsync(
+            $"someinfo:{name}:{id}",
+            async cancel => await SomeExpensiveOperationAsync(name, id, cancel),
+            token: token
+        );
+    }
+}
 ```
+
+### FusionCache (All .NET Versions)
+- **Mature OSS library** with comprehensive single-flight support
+- **Request coalescing** - only one factory runs per key concurrently
+- **Rich feature set**: soft/hard timeouts, fail-safe, eager refresh, backplane
+- **Excellent documentation** and active maintenance
+- **Supports older .NET versions** down to .NET Framework 4.7.2
+
+```csharp
+// Simple usage with FusionCache
+public class SomeService(FusionCache cache)
+{
+    public async Task<SomeInformation> GetSomeInformationAsync(string name, int id, CancellationToken token = default)
+    {
+        return await cache.GetOrSetAsync(
+            $"someinfo:{name}:{id}",
+            async cancel => await SomeExpensiveOperationAsync(name, id, cancel),
+            TimeSpan.FromMinutes(5),
+            token
+        );
+    }
+}
+```
+
+### When to Choose Which
+- **Greenfield or .NET 9+**: Use **HybridCache** - first-party, GA, built-in stampede protection
+- **Need richer features or .NET < 9**: Use **FusionCache** - comprehensive feature set, excellent documentation
 
 Applying Stale‑While‑Revalidate (SWR) to serve stale data while refreshing in the background:
 
@@ -144,19 +184,6 @@ var value = await coalescing.GetOrCreateAsync("k", async entry => {
 - Includes convenience `TryGet<T>` & `GetOrCreate<T>` wrappers emitting structured counters.
 - Use when you need visibility (hit ratio, churn) without adopting a full external caching layer.
 
-### SingleFlightCache
-
-- Externally manages in‑flight coordination using a transient `SemaphoreSlim` per _current_ miss key.
-- Lock dictionary remains bounded by current concurrent keys only (entries removed immediately after creation completes).
-- You supply TTL and optional entry configuration delegate.
-- Cancellation token is observed while waiting for the lock and during the factory call; cancellation of one waiter does not cancel other waiters unless they share the same token.
-
-### SingleFlightLazyCache
-
-- Stores a `Lazy<Task<T>>` inside the cache entry itself (`IMemoryCache.GetOrCreate`).
-- No explicit locking; relies on `LazyThreadSafetyMode.ExecutionAndPublication` for safe single-flight semantics.
-- Caller cancellation only affects the awaiting operation; the underlying task continues to completion so subsequent callers get the finished value.
-- Simpler but you cannot directly supply custom `ICacheEntry` configuration per call beyond first creation (do it in the creation lambda).
 
 ### Stale‑While‑Revalidate Extensions (`GetOrCreateSwrAsync` + `SwrOptions`)
 
@@ -179,9 +206,9 @@ Example timing diagram (`Ttl = 30s`, `Stale = 2m`):
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
 | Prevent stampede for expensive async load integrated through existing `IMemoryCache` usage | `CoalescingMemoryCache`                                                  |
 | Need metrics (hit ratio, eviction reasons)                                                 | `MeteredMemoryCache` (can stack with coalescing via multiple decorators) |
-| Simple on-demand helper (not a decorator) with explicit TTL                                | `SingleFlightCache`                                                      |
-| Simplest single-flight with minimal code & contention                                      | `SingleFlightLazyCache`                                                  |
 | Reduce tail latency by serving slightly stale data & refreshing in background              | SWR extensions                                                           |
+| Need single-flight (cache stampede protection) for .NET 9+                                 | **[Microsoft HybridCache](https://devblogs.microsoft.com/dotnet/hybrid-cache-is-now-ga)** |
+| Need single-flight with richer features or .NET < 9                                        | **[FusionCache](https://github.com/ZiggyCreatures/FusionCache)** |
 
 You can combine patterns: e.g., wrap the inner cache with metrics, then wrap that with coalescing for async factories.
 
@@ -192,10 +219,10 @@ You can combine patterns: e.g., wrap the inner cache with metrics, then wrap tha
 | Component             | Cancellation Behavior                                                                                                             | Failure Behavior                                                                                                                                       |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | CoalescingMemoryCache | Cancellation of the awaited task cancels only that caller; other awaiters continue. Factory exception propagates to all awaiters. | All awaiting callers observe the same exception; entry not cached; subsequent call retries.                                                            |
-| SingleFlightCache     | Token observed while acquiring lock & running factory. Canceling the currently executing factory aborts creation.                 | Exception propagates; next caller retries.                                                                                                             |
-| SingleFlightLazyCache | Cancellation only affects awaiting caller; underlying `Task` continues.                                                           | Exception cached inside the `Lazy<Task>`; all callers observe it; entry removed on next attempt due to expiration or manual removal (adapt as needed). |
 | SWR                   | Foreground miss uses caller token; background refresh ignores caller tokens.                                                      | Background exceptions swallowed (stale value served).                                                                                                  |
 | MeteredMemoryCache    | N/A (no async).                                                                                                                   | Eviction reasons recorded regardless.                                                                                                                  |
+| HybridCache           | See [HybridCache documentation](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/hybrid?view=aspnetcore-9.0)     | See [HybridCache documentation](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/hybrid?view=aspnetcore-9.0)                          |
+| FusionCache           | See [FusionCache documentation](https://github.com/ZiggyCreatures/FusionCache)                                                   | See [FusionCache documentation](https://github.com/ZiggyCreatures/FusionCache)                                                                       |
 
 ---
 
@@ -209,8 +236,8 @@ dotnet run -c Release -p tests/Benchmarks/Benchmarks.csproj
 
 Interpretation guidance:
 
-- Hit paths for single‑flight variants should be close to raw cache once warm.
-- Coalescing and SingleFlight variants add overhead only during contested cold starts.
+- Hit paths for coalescing variants should be close to raw cache once warm.
+- Coalescing variants add overhead only during contested cold starts.
 - SWR introduces minimal overhead on hits; background refresh cost is off critical path.
 
 > Always benchmark within your workload; microbenchmarks do not capture memory pressure, GC, or production contention levels.
@@ -224,7 +251,7 @@ The repository includes a lightweight regression gate comparing the latest Bench
 Quick local workflow:
 
 ```powershell
-dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *SingleFlight*
+dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *Coalescing*
 Copy-Item BenchmarkDotNet.Artifacts/results/Benchmarks.CacheBenchmarks-report-full.json BenchmarkDotNet.Artifacts/results/current.json
 dotnet run -c Release --project tools/BenchGate/BenchGate.csproj -- benchmarks/baseline/CacheBenchmarks.json BenchmarkDotNet.Artifacts/results/current.json
 ```

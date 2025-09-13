@@ -16,7 +16,6 @@ namespace Benchmarks;
 public class ContentionBenchmarks
 {
     private MemoryCache _raw = null!; // initialized in GlobalSetup
-    private SingleFlightCache _singleFlight = null!; // initialized in GlobalSetup
     private CoalescingMemoryCache _coalescing = null!; // initialized in GlobalSetup
 
     private const string HotKey = "hot_key";
@@ -33,7 +32,6 @@ public class ContentionBenchmarks
     {
         _valueCounter = 0;
         _raw = new MemoryCache(new MemoryCacheOptions());
-        _singleFlight = new SingleFlightCache(_raw);
         _coalescing = new CoalescingMemoryCache(_raw);
 
         // Pre-populate to measure pure hit contention separately from miss contention.
@@ -63,36 +61,6 @@ public class ContentionBenchmarks
         return Task.FromResult(val);
     }
 
-    /// <summary>
-    /// Contended hits for SingleFlightCache (all calls should be cache hits, minimal synchronization work after first).
-    /// </summary>
-    [Benchmark]
-    public async Task<int> SingleFlight_Contention_Hit()
-    {
-        var tasks = new Task<int>[Concurrency];
-        for (int i = 0; i < tasks.Length; i++)
-        {
-            tasks[i] = _singleFlight.GetOrCreateAsync(HotKey, TimeSpan.FromMinutes(5), SimulatedFactoryAsync);
-        }
-        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
-        return results[0];
-    }
-
-    /// <summary>
-    /// Contended miss (first call creates) then subsequent calls in the same batch coalesce; forces removal before batch.
-    /// </summary>
-    [Benchmark]
-    public async Task<int> SingleFlight_Contention_Miss()
-    {
-        _raw.Remove(HotKey);
-        var tasks = new Task<int>[Concurrency];
-        for (int i = 0; i < tasks.Length; i++)
-        {
-            tasks[i] = _singleFlight.GetOrCreateAsync(HotKey, TimeSpan.FromMinutes(5), SimulatedFactoryAsync);
-        }
-        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
-        return results[0];
-    }
 
     /// <summary>
     /// Coalescing cache contended hit.

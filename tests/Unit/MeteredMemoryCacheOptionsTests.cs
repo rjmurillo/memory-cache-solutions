@@ -317,7 +317,7 @@ public class MeteredMemoryCacheOptionsValidatorTests
     }
 
     [Fact]
-    public void Validate_ValidTagKeysWithNullValues_ReturnsSuccess()
+    public void Validate_ValidTagKeysWithNullValues_ReturnsFailure()
     {
         // Arrange
         var options = new MeteredMemoryCacheOptions
@@ -335,7 +335,8 @@ public class MeteredMemoryCacheOptionsValidatorTests
         var result = _validator.Validate(null, options);
 
         // Assert
-        Assert.True(result.Succeeded);
+        Assert.False(result.Succeeded);
+        Assert.Contains("AdditionalTags values cannot be null", result.FailureMessage);
     }
 
     [Fact]
