@@ -138,6 +138,76 @@ The following tasks represent ALL remaining work based on comprehensive analysis
 - **Impact**: Will eliminate meter name collisions and support proper test isolation
 - **Resolution**: Fixed in commit [`dfc01a5`](https://github.com/rjmurillo/memory-cache-solutions/commit/dfc01a5) - Replaced 63+ hard-coded meter names with unique names across all test files
 
+**URGENT-008: Fix Persistent Cross-Test Contamination in TagListMutationBug Test** ❌ **BLOCKING**
+- **Source**: Current CI verification run - Test failures after OpenTelemetryIntegrationTests.cs fixes
+- **Test**: `TagListMutationBug_DocumentsInconsistentPatternUsage`
+- **Error**: `Expected metrics with cache.name tag, but only 0 found out of 2823 total`
+- **File**: `tests/Unit/MeteredMemoryCacheTests.cs:239`
+- **Priority**: **BLOCKING** - Must fix before PR can be merged
+- **Root Cause**: Despite unique meter names, test is still collecting 2823 metrics from other tests but not finding expected cache.name tags
+- **Investigation Needed**: 
+  - Verify unique meter names are actually being used in this specific test
+  - Check if TestListener or MetricCollectionHarness is properly filtering by meter name
+  - Ensure test isolation is working correctly
+- **Solution**: Debug meter name filtering and ensure proper test isolation
+
+**URGENT-009: Fix Null Metric Values in Concurrent Integration Tests** ❌ **BLOCKING**
+- **Source**: Current CI verification run - Multiple integration test failures
+- **Tests**: 
+  - `HighFrequencyConcurrentOperations_ShouldMaintainMetricAccuracy` - Assert.NotNull() Failure: Value is null
+  - `ConcurrentCacheInstantiation_ShouldCreateMetersThreadSafely` - Assert.NotNull() Failure: Value is null
+  - `ConcurrentEvictions_MultipleNamedCaches_ShouldAttributeMetricsCorrectly` - Assert.NotNull() Failure: Value is null
+  - `RapidCacheStateChanges_ShouldNotCauseMetricRaceConditions` - Assert.NotNull() Failure: Value is null
+  - `ConcurrentHitMissOperations_WithNamedCache_ShouldEmitCorrectMetrics` - Assert.NotNull() Failure: Value is null
+  - `ConcurrentOperations_WithAdditionalTags_ShouldMaintainTagIntegrity` - Assert.NotNull() Failure: Value is null
+- **Files**: `tests/Integration/ConcurrencyTests.cs`
+- **Priority**: **BLOCKING** - Must fix before PR can be merged
+- **Root Cause**: Metric collection returning null values in concurrent scenarios
+- **Investigation Needed**:
+  - Check if metric collection is thread-safe
+  - Verify metric emission timing in concurrent scenarios
+  - Ensure proper metric flushing and collection
+- **Solution**: Fix thread-safety issues in metric collection and ensure proper timing
+
+**URGENT-010: Fix Metric Count Discrepancies in Multi-Cache Tests** ❌ **BLOCKING**
+- **Source**: Current CI verification run - Metric value mismatches
+- **Tests**:
+  - `ConcurrentMultiCacheOperations_MaintainMetricAccuracy` - Expected: 25, Actual: 9877
+  - `MultiCacheEvictionScenarios_EmitCorrectEvictionMetrics` - Expected: 2, Actual: 3
+  - `ThreeNamedCaches_OperateIndependentlyWithSeparateMetrics` - Expected: 2, Actual: 6
+- **Files**: `tests/Integration/MultiCacheScenarioTests.cs`
+- **Priority**: **BLOCKING** - Must fix before PR can be merged
+- **Root Cause**: Tests getting wildly incorrect metric counts, suggesting metrics from multiple tests are being aggregated
+- **Investigation Needed**:
+  - Verify metric isolation between different cache instances
+  - Check if metrics are being properly scoped to specific caches
+  - Ensure test cleanup is working correctly
+- **Solution**: Fix metric scoping and ensure proper test isolation
+
+**URGENT-011: Fix Metric Collection Issues in Different Meter Names Test** ❌ **BLOCKING**
+- **Source**: Current CI verification run - Assert.Single() failure
+- **Test**: `CachesWithDifferentMeterNames_EmitToCorrectMeters`
+- **Error**: `Assert.Single() Failure: The collection contained 2 items`
+- **File**: `tests/Integration/MultiCacheScenarioTests.cs:315`
+- **Priority**: **BLOCKING** - Must fix before PR can be merged
+- **Root Cause**: Test expects single metric but gets 2, suggesting metrics from different meters are being collected together
+- **Investigation Needed**:
+  - Verify meter name filtering is working correctly
+  - Check if different meter names are properly isolated
+  - Ensure metric collection is scoped to specific meters
+- **Solution**: Fix meter name filtering and ensure proper metric isolation
+
+**URGENT-012: Investigate and Fix Metric Collection Timing Issues** ❌ **BLOCKING**
+- **Source**: Current CI verification run - Multiple timing-related failures
+- **Issue**: Tests failing with null values and incorrect counts suggest timing issues in metric collection
+- **Priority**: **BLOCKING** - Must fix before PR can be merged
+- **Root Cause**: Metric collection may not be properly synchronized with test execution
+- **Investigation Needed**:
+  - Check if metric flushing is working correctly
+  - Verify metric collection timing in concurrent scenarios
+  - Ensure proper synchronization between metric emission and collection
+- **Solution**: Fix metric collection timing and synchronization issues
+
 #### **URGENT-007 Sub-Tasks**:
 
 **URGENT-007A: Replace Hard-Coded Meter Names in NegativeConfigurationTests.cs**
@@ -547,10 +617,10 @@ The following tasks represent ALL remaining work based on comprehensive analysis
 ## 📊 Implementation Status Summary
 
 **Total PR Feedback Items**: 25 specific reviewer comments analyzed  
-**CI Status**: **🟡 PARTIAL** - Cross-test contamination resolved, eviction timeout remains  
+**CI Status**: **🔴 BLOCKING** - New critical test failures discovered during verification  
 **Comment Resolution Rate**: **88% COMPLETED** (22/25 comments resolved)  
-**Overall PR Status**: **MOSTLY READY** - Cross-test contamination fixed, only URGENT-005 eviction timeout remains  
-**Latest Status**: URGENT-004, URGENT-006, URGENT-007 resolved in commit `dfc01a5`
+**Overall PR Status**: **BLOCKED** - New URGENT-008 through URGENT-012 issues discovered  
+**Latest Status**: URGENT-004, URGENT-006, URGENT-007 resolved in commit `dfc01a5`, but new critical failures found
 
 ### Completion by Category:
 - ✅ **Critical Bug Fixes**: 100% COMPLETED (3/3 comments)
@@ -566,20 +636,24 @@ The following tasks represent ALL remaining work based on comprehensive analysis
 
 ### Outstanding Work Summary:
 - **✅ CROSS-TEST CONTAMINATION RESOLVED**: URGENT-004, URGENT-006, URGENT-007 **COMPLETED**
-- **🔥 1 REMAINING CI FAILURE**: Eviction timeout (URGENT-005) **BLOCKING PR**
+- **🔴 NEW CRITICAL CI FAILURES**: URGENT-008 through URGENT-012 **BLOCKING PR**
 - **✅ Previous CI Issues**: URGENT-001, URGENT-002, URGENT-003 **RESOLVED**
 - **✅ Test Quality Issues**: Eviction timing flakiness (T005) **RESOLVED** with deterministic wait helpers
 - **📋 Remaining Non-Blocking Work**:
   - **4 Benchmark Enhancements**: BenchGate integration and performance optimization (B001-B004)
   - **2 Validation Tasks**: BenchGate validation testing and comprehensive feedback review (V001-V002)
 
-### **🟡 Current CI Status**: 
-- **Build Status**: 🟡 **PARTIAL** - Cross-test contamination resolved, eviction timeout remains
-- **Test Results**: 181 total, **0 failed**, 179 succeeded, 2 skipped
-- **Remaining Issue**: 
-  - RecordsEviction: Timeout waiting for eviction callback (URGENT-005)
-- **Progress**: Cross-test contamination completely resolved with unique meter names
-- **Artifacts**: Test and benchmark artifacts being generated successfully
+### **🔴 Current CI Status**: 
+- **Build Status**: 🔴 **BLOCKING** - New critical test failures discovered during verification
+- **Test Results**: 199 total, **11 failed**, 186 succeeded, 2 skipped
+- **Critical Issues**: 
+  - URGENT-008: Persistent cross-test contamination in TagListMutationBug test
+  - URGENT-009: Null metric values in 6 concurrent integration tests
+  - URGENT-010: Metric count discrepancies in multi-cache tests (Expected: 25, Actual: 9877)
+  - URGENT-011: Metric collection issues in different meter names test
+  - URGENT-012: Metric collection timing and synchronization issues
+- **Progress**: Previous cross-test contamination fixes appear insufficient
+- **Artifacts**: Test failures preventing proper artifact generation
 
 ### Recent Commits Addressing Feedback:
 - `dfc01a5` - **LATEST**: Replace all hard-coded meter names with unique names (URGENT-004, URGENT-006, URGENT-007)
