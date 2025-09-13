@@ -81,13 +81,13 @@ public sealed class MeteredMemoryCacheOptionsValidator : IValidateOptions<Metere
 
         // Validate AdditionalTags value types (should be string, number, or boolean)
         var invalidValueTypes = options.AdditionalTags
-            .Where(kvp => kvp.Value is not null && 
-                         kvp.Value is not string && 
-                         kvp.Value is not int && 
-                         kvp.Value is not long && 
-                         kvp.Value is not double && 
-                         kvp.Value is not float && 
-                         kvp.Value is not decimal && 
+            .Where(kvp => kvp.Value is not null &&
+                         kvp.Value is not string &&
+                         kvp.Value is not int &&
+                         kvp.Value is not long &&
+                         kvp.Value is not double &&
+                         kvp.Value is not float &&
+                         kvp.Value is not decimal &&
                          kvp.Value is not bool)
             .ToList();
 

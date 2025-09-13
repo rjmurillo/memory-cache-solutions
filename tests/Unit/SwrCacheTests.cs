@@ -40,7 +40,7 @@ public class SwrCacheTests
         }
 
         var first = await cache.GetOrCreateSwrAsync("k", opts, Factory);
-        
+
         // Test that the cache returns the same value when called again (fresh)
         var fresh = await cache.GetOrCreateSwrAsync("k", opts, Factory);
         Assert.Equal(first, fresh); // should be the same value (fresh)
@@ -62,10 +62,10 @@ public class SwrCacheTests
         Task<int> Factory(CancellationToken _) { calls++; return Task.FromResult(calls); }
 
         var a = await cache.GetOrCreateSwrAsync("k2", opts, Factory);
-        
+
         // Force expiration by manually removing the entry
         cache.Remove("k2");
-        
+
         var b = await cache.GetOrCreateSwrAsync("k2", opts, Factory);
 
         Assert.Equal(1, a);

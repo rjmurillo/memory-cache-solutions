@@ -36,8 +36,8 @@ public class MeteredMemoryCacheOptionsValidatorEnhancedTests
         var options = new MeteredMemoryCacheOptions
         {
             CacheName = "test-cache",
-            AdditionalTags = 
-            { 
+            AdditionalTags =
+            {
                 ["valid-string"] = "valid",
                 ["valid-number"] = 42,
                 ["valid-bool"] = true,
@@ -64,8 +64,8 @@ public class MeteredMemoryCacheOptionsValidatorEnhancedTests
         var options = new MeteredMemoryCacheOptions
         {
             CacheName = "test-cache",
-            AdditionalTags = 
-            { 
+            AdditionalTags =
+            {
                 ["string-tag"] = "valid-string",
                 ["int-tag"] = 42,
                 ["long-tag"] = 123L,
@@ -128,8 +128,8 @@ public class MeteredMemoryCacheOptionsValidatorEnhancedTests
         var options = new MeteredMemoryCacheOptions
         {
             CacheName = "", // Invalid: empty cache name
-            AdditionalTags = 
-            { 
+            AdditionalTags =
+            {
                 [""] = "valid-value", // Invalid: empty key
                 ["null-key"] = null!, // Invalid: null value
                 ["invalid-type"] = new object() // Invalid: wrong type
@@ -171,7 +171,7 @@ public class MeteredMemoryCacheOptionsValidatorEnhancedTests
 
         Assert.False(result.Succeeded);
         Assert.Contains("AdditionalTags values must be string, number, or boolean", result.FailureMessage);
-        
+
         // Should only show first 5 invalid types
         Assert.Contains("invalid1:Object", result.FailureMessage);
         Assert.Contains("invalid5:Object", result.FailureMessage);

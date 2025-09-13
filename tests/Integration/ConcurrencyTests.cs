@@ -143,7 +143,7 @@ public class ConcurrencyTests : IDisposable
                     for (int i = 0; i < itemsPerCache; i++)
                     {
                         var key = $"{localCacheName}-thread{localThreadIdx}-item{i}";
-                        
+
                         // Use CancellationChangeToken to force evictions
                         using var cts = new CancellationTokenSource();
                         var options = new MemoryCacheEntryOptions
@@ -473,10 +473,10 @@ public class ConcurrencyTests : IDisposable
         const int operationsPerCache = 50;
 
         List<Metric> exportedItems = new();
-        
+
         // Generate unique meter name for test isolation
         var meterName = SharedUtilities.GetUniqueMeterName("test.metered.cache");
-        
+
         var builder = new HostApplicationBuilder();
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
@@ -522,7 +522,7 @@ public class ConcurrencyTests : IDisposable
                         // Try to get a key that was set (even j values) - this will be a hit
                         var keyToGet = $"key-{j - 1}";
                         meteredCache.TryGetValue(keyToGet, out _);
-                        
+
                         // Also try to get a key that doesn't exist - this will be a miss
                         var nonExistentKey = $"nonexistent-key-{j}";
                         meteredCache.TryGetValue(nonExistentKey, out _);

@@ -676,7 +676,7 @@ public class MetricEmissionAccuracyTests
         // Use CancellationChangeToken for immediate expiration
         using var cts1 = new CancellationTokenSource();
         using var cts2 = new CancellationTokenSource();
-        
+
         using (var entry1 = cache1.CreateEntry("temp:1"))
         {
             entry1.Value = "temp-data";

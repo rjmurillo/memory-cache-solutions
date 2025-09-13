@@ -333,10 +333,10 @@ public class MultiCacheScenarioTests
         // Arrange - Create separate hosts for complete isolation
         var mainMeterItems = new List<Metric>();
         var secondaryMeterItems = new List<Metric>();
-        
+
         using var mainHost = CreateHostWithSingleMeter("MainMeter", mainMeterItems);
         using var secondaryHost = CreateHostWithSingleMeter("SecondaryMeter", secondaryMeterItems);
-        
+
         await mainHost.StartAsync();
         await secondaryHost.StartAsync();
 
@@ -435,7 +435,7 @@ public class MultiCacheScenarioTests
                 {
                     metricPoints.Add(mp);
                 }
-                
+
                 // Filter by cache name
                 var filteredValue = 0L;
                 foreach (var mp in metricPoints)
@@ -454,7 +454,7 @@ public class MultiCacheScenarioTests
                         filteredValue += mp.GetSumLong();
                     }
                 }
-                
+
                 if (filteredValue >= expectedValue)
                 {
                     return true;
@@ -669,7 +669,7 @@ public class MultiCacheScenarioTests
                 filteredValue += mp.GetSumLong();
             }
         }
-        
+
         Assert.Equal(expectedValue, filteredValue);
     }
 

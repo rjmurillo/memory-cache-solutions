@@ -196,7 +196,7 @@ public static class ServiceCollectionExtensions
 
         // Manual decoration - find existing IMemoryCache registration and replace it
         var existingDescriptor = FindAndValidateSingleMemoryCacheRegistration(services);
-        
+
         // Remove the existing registration
         services.Remove(existingDescriptor);
 
@@ -244,12 +244,12 @@ public static class ServiceCollectionExtensions
     private static ServiceDescriptor FindAndValidateSingleMemoryCacheRegistration(IServiceCollection services)
     {
         var existingDescriptors = services.Where(d => d.ServiceType == typeof(IMemoryCache)).ToList();
-        
+
         if (existingDescriptors.Count == 0)
         {
             throw new InvalidOperationException($"No IMemoryCache registration found. Register IMemoryCache before calling {nameof(DecorateMemoryCacheWithMetrics)}.");
         }
-        
+
         if (existingDescriptors.Count > 1)
         {
             throw new InvalidOperationException($"Multiple IMemoryCache registrations found ({existingDescriptors.Count}). {nameof(DecorateMemoryCacheWithMetrics)} can only decorate a single IMemoryCache registration.");

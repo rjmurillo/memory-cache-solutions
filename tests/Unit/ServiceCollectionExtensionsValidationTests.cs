@@ -95,7 +95,7 @@ public class ServiceCollectionExtensionsValidationTests
         services.DecorateMemoryCacheWithMetrics(cacheName: "cache2", meterName: "meter2");
 
         var provider = services.BuildServiceProvider();
-        
+
         // Should be able to build without conflicts
         var cache = provider.GetRequiredService<IMemoryCache>();
         Assert.NotNull(cache);

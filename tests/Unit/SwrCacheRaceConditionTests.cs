@@ -21,7 +21,7 @@ public class SwrCacheRaceConditionTests
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var opts = new SwrOptions(TimeSpan.FromMilliseconds(50), TimeSpan.FromMilliseconds(200));
-        
+
         var factoryCallCount = 0;
         var factoryResults = new ConcurrentBag<int>();
         var accessResults = new ConcurrentBag<int>();
@@ -60,7 +60,7 @@ public class SwrCacheRaceConditionTests
 
         // Verify that all access results are consistent
         Assert.Equal(20, accessResults.Count);
-        
+
         // All values should be consistent (no race condition artifacts)
         var values = accessResults.Distinct().ToList();
         Assert.True(values.Count <= 2, $"Expected at most 2 distinct values (old and new), got {values.Count}: [{string.Join(", ", values)}]");
@@ -81,7 +81,7 @@ public class SwrCacheRaceConditionTests
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var opts = new SwrOptions(TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(100));
-        
+
         var factoryCallCount = 0;
         var results = new ConcurrentBag<int>();
 
@@ -108,7 +108,7 @@ public class SwrCacheRaceConditionTests
         // Verify results
         Assert.Equal(50, results.Count);
         Assert.True(factoryCallCount >= 1, "Factory should have been called at least once");
-        
+
         // All results should be valid positive integers
         foreach (var result in results)
         {
@@ -124,7 +124,7 @@ public class SwrCacheRaceConditionTests
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var opts = new SwrOptions(TimeSpan.FromMilliseconds(50), TimeSpan.FromMilliseconds(200));
-        
+
         var successCount = 0;
         var failureCount = 0;
 
@@ -134,7 +134,7 @@ public class SwrCacheRaceConditionTests
             {
                 throw new InvalidOperationException("Simulated factory failure");
             }
-            
+
             Interlocked.Increment(ref successCount);
             return Task.FromResult($"success-{successCount}");
         }
@@ -158,7 +158,7 @@ public class SwrCacheRaceConditionTests
         // All results should be the same (stale value served during failures)
         var distinctResults = results.Distinct().ToList();
         Assert.True(distinctResults.Count <= 2, $"Expected at most 2 distinct results, got {distinctResults.Count}");
-        
+
         // All results should be valid strings
         foreach (var result in results)
         {
