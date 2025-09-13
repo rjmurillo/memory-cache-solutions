@@ -18,6 +18,8 @@ public class MeteredMemoryCacheTests
         private readonly MeterListener _listener = new();
         private readonly List<(string Name, long Value, IEnumerable<KeyValuePair<string, object?>> Tags)> _measurements = new();
         private readonly Dictionary<string, long> _counters = [];
+        private readonly string[] _instrumentNames;
+        private readonly string? _meterNameFilter;
         private readonly object _lock = new();
         public IReadOnlyDictionary<string, long> Counters
         {
@@ -60,11 +62,20 @@ public class MeteredMemoryCacheTests
             return false;
         }
 
-        public TestListener(params string[] instrumentNames)
+        public TestListener(params string[] instrumentNames) : this(null, instrumentNames)
         {
+        }
+
+        public TestListener(string? meterNameFilter, params string[] instrumentNames)
+        {
+            _instrumentNames = instrumentNames;
+            _meterNameFilter = meterNameFilter;
+
             _listener.InstrumentPublished = (inst, listener) =>
             {
-                if (instrumentNames.Contains(inst.Name))
+                // Filter by both instrument name AND meter name to prevent cross-test contamination
+                if (_instrumentNames.Contains(inst.Name) &&
+                    (_meterNameFilter == null || inst.Meter.Name == _meterNameFilter))
                 {
                     listener.EnableMeasurementEvents(inst);
                 }
@@ -200,7 +211,8 @@ public class MeteredMemoryCacheTests
 
         listener.InstrumentPublished = (inst, meterListener) =>
         {
-            if (inst.Name.StartsWith("cache_"))
+            // Filter by meter name to prevent cross-test contamination
+            if (inst.Name.StartsWith("cache_") && inst.Meter.Name == meter.Name)
             {
                 meterListener.EnableMeasurementEvents(inst);
             }
@@ -275,7 +287,8 @@ public class MeteredMemoryCacheTests
 
         listener.InstrumentPublished = (inst, meterListener) =>
         {
-            if (inst.Name.StartsWith("cache_"))
+            // Filter by meter name to prevent cross-test contamination
+            if (inst.Name.StartsWith("cache_") && inst.Meter.Name == meter.Name)
             {
                 meterListener.EnableMeasurementEvents(inst);
             }
@@ -386,7 +399,8 @@ public class MeteredMemoryCacheTests
 
         listener.InstrumentPublished = (inst, meterListener) =>
         {
-            if (inst.Name.StartsWith("cache_"))
+            // Filter by meter name to prevent cross-test contamination
+            if (inst.Name.StartsWith("cache_") && inst.Meter.Name == meter.Name)
             {
                 meterListener.EnableMeasurementEvents(inst);
             }
