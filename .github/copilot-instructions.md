@@ -636,6 +636,87 @@ BenchGate: PASS (0 regressions, compared=14)
 
 ---
 
+## Test Isolation and Unique Name Generation (CRITICAL)
+
+**MANDATORY: All AI agents and contributors MUST use `SharedUtilities` for generating unique names in tests.**
+
+### Prohibited Patterns (Will Cause Test Flakiness)
+
+**NEVER use hard-coded strings for test names:**
+
+```csharp
+// ❌ PROHIBITED - Causes cross-test contamination and flakiness
+using var meter = new Meter("test");
+using var meter = new Meter("test.metered.cache");
+using var meter = new Meter("test.accuracy.1");
+```
+
+### Required Patterns (Test Isolation)
+
+**ALWAYS use `SharedUtilities` for unique name generation:**
+
+```csharp
+// ✅ REQUIRED - Ensures test isolation and prevents flakiness
+using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
+using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache"));
+using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.1"));
+
+// For cache names
+var cacheName = SharedUtilities.GetUniqueCacheName("test-cache");
+
+// For general test names
+var testName = SharedUtilities.GetUniqueTestName("test-prefix");
+```
+
+### Available Methods
+
+The `SharedUtilities` class provides these methods in the `Unit` namespace:
+
+- `GetUniqueMeterName(string prefix = "meter")` - Generates unique meter names
+- `GetUniqueCacheName(string prefix = "cache")` - Generates unique cache names
+- `GetUniqueTestName(string prefix = "test")` - Generates unique test names
+
+### Test Listener and Harness Updates
+
+When using `TestListener` or `MetricCollectionHarness`, pass the actual meter name:
+
+```csharp
+// ✅ CORRECT - Use the actual meter name for filtering
+using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache"));
+using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
+using var harness = new MetricCollectionHarness(meter.Name, "cache_hits_total", "cache_misses_total");
+```
+
+### Enforcement Rules
+
+- **Any test using hard-coded meter names will be rejected during review**
+- **Cross-test contamination due to name collisions is a critical bug**
+- **All new tests MUST use `SharedUtilities` for name generation**
+- **Existing tests with hard-coded names MUST be updated before merge**
+
+### Rationale
+
+Hard-coded names cause:
+
+- Cross-test contamination (tests interfering with each other)
+- Flaky test results (non-deterministic failures)
+- CI instability (tests pass/fail randomly)
+- Difficult debugging (metrics from multiple tests mixed together)
+
+### Validation Checklist
+
+Before committing any test changes:
+
+- [ ] All `new Meter("...")` calls use `SharedUtilities.GetUniqueMeterName()`
+- [ ] All `TestListener` constructors use `meter.Name` parameter
+- [ ] All `MetricCollectionHarness` constructors use `meter.Name` parameter
+- [ ] No hard-coded strings for cache names, test names, or meter names
+- [ ] Tests run in isolation without cross-contamination
+
+**Violation of these rules will result in immediate rejection and rework.**
+
+---
+
 ## When reviewing C# code (\*.cs)
 
 I need your help tracking down and fixing some bugs that have been reported in this codebase.
