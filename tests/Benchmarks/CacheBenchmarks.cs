@@ -44,11 +44,11 @@ public class CacheBenchmarks
 
         // MeteredMemoryCache without cache name (unnamed)
         var unnamedInnerCache = new MemoryCache(new MemoryCacheOptions());
-        _meteredUnnamedCache = new MeteredMemoryCache(unnamedInnerCache, _meter);
+        _meteredUnnamedCache = new MeteredMemoryCache(unnamedInnerCache, _meter, cacheName: null, disposeInner: true);
 
         // MeteredMemoryCache with cache name (named/dimensional metrics)
         var namedInnerCache = new MemoryCache(new MemoryCacheOptions());
-        _meteredNamedCache = new MeteredMemoryCache(namedInnerCache, _meter, CacheName);
+        _meteredNamedCache = new MeteredMemoryCache(namedInnerCache, _meter, CacheName, disposeInner: true);
 
         // Pre-populate caches for hit scenarios
         _rawCache.Set(TestKey, TestValue);
