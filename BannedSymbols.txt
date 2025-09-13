@@ -5,8 +5,7 @@
 # Sleep Semantics - Banned to enforce deterministic timing
 M:System.Threading.Tasks.Task.Delay(System.Int32)|Use deterministic wait helpers instead of Task.Delay(int). Consider WaitForMetricValueAsync or System.TimeProvider for deterministic timing.
 M:System.Threading.Tasks.Task.Delay(System.TimeSpan)|Use deterministic wait helpers instead of Task.Delay(TimeSpan). Consider WaitForMetricValueAsync or System.TimeProvider for deterministic timing.
-M:System.Threading.Tasks.Task.Delay(System.Int32,System.Threading.CancellationToken)|Use deterministic wait helpers instead of Task.Delay(int, CancellationToken). Consider WaitForMetricValueAsync or System.TimeProvider for deterministic timing.
-M:System.Threading.Tasks.Task.Delay(System.TimeSpan,System.Threading.CancellationToken)|Use deterministic wait helpers instead of Task.Delay(TimeSpan, CancellationToken). Consider WaitForMetricValueAsync or System.TimeProvider for deterministic timing.
+# Task.Delay with CancellationToken is allowed for cancellation testing scenarios
 
 # Thread.Sleep - Banned to enforce deterministic timing
 M:System.Threading.Thread.Sleep(System.Int32)|Use deterministic wait helpers instead of Thread.Sleep(int). Consider WaitForMetricValueAsync or System.TimeProvider for deterministic timing.

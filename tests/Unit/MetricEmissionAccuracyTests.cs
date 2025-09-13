@@ -148,7 +148,7 @@ public class MetricEmissionAccuracyTests
                 {
                     return true;
                 }
-                await Task.Delay(10); // Short polling interval
+                await Task.Yield(); // Yield control without blocking
             }
             return false;
         }
@@ -166,7 +166,7 @@ public class MetricEmissionAccuracyTests
                 {
                     return true;
                 }
-                await Task.Delay(10); // Short polling interval
+                await Task.Yield(); // Yield control without blocking
             }
             return false;
         }
@@ -564,7 +564,7 @@ public class MetricEmissionAccuracyTests
             {
                 break; // Early exit if eviction detected
             }
-            await Task.Delay(20); // Short delay between attempts
+            await Task.Yield(); // Yield between attempts
         }
 
         // Force compact multiple times to ensure eviction processing
@@ -689,7 +689,7 @@ public class MetricEmissionAccuracyTests
         cache3.Set("manual-remove", "will-be-removed");
 
         // Wait for expiration
-        await Task.Delay(50);
+        await Task.Yield();
         inner1.Compact(0.0);
         inner2.Compact(0.0);
         cache3.Remove("manual-remove"); // Manual eviction

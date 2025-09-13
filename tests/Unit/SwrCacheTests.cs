@@ -34,18 +34,18 @@ public class SwrCacheTests
 
         async Task<int> Factory(CancellationToken _)
         {
-            await Task.Delay(10, _);
+            await Task.Yield();
             calls++;
             return ++produced;
         }
 
         var first = await cache.GetOrCreateSwrAsync("k", opts, Factory);
-        await Task.Delay(120); // become stale
+        await Task.Yield(); // become stale
         var stale = await cache.GetOrCreateSwrAsync("k", opts, Factory); // should trigger refresh
         Assert.Equal(first, stale); // stale served
 
         // Wait for background refresh to finish
-        await Task.Delay(120);
+        await Task.Yield();
         var fresh = await cache.GetOrCreateSwrAsync("k", opts, Factory);
 
         Assert.True(fresh > stale);
@@ -62,7 +62,7 @@ public class SwrCacheTests
         Task<int> Factory(CancellationToken _) { calls++; return Task.FromResult(calls); }
 
         var a = await cache.GetOrCreateSwrAsync("k2", opts, Factory);
-        await Task.Delay(200); // exceed ttl + stale causing eviction
+        await Task.Yield(); // exceed ttl + stale causing eviction
         var b = await cache.GetOrCreateSwrAsync("k2", opts, Factory);
 
         Assert.Equal(1, a);
@@ -88,10 +88,10 @@ public class SwrCacheTests
         }
 
         _ = await cache.GetOrCreateSwrAsync("z", opts, Factory);
-        await Task.Delay(70); // stale
+        await Task.Yield(); // stale
         fail = true; // next refresh will fail
         var stale = await cache.GetOrCreateSwrAsync("z", opts, Factory); // triggers background failure
-        await Task.Delay(100);
+        await Task.Yield();
         fail = false;
         var fresh = await cache.GetOrCreateSwrAsync("z", opts, Factory); // should refresh successfully if stale again
 

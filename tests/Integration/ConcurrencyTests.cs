@@ -168,7 +168,7 @@ public class ConcurrencyTests : IDisposable
         }
 
         await Task.WhenAll(tasks);
-        await Task.Delay(100); // Allow final evictions to complete
+        await Task.Yield(); // Allow final evictions to complete
         await FlushMetricsAsync(metricsProvider);
 
         // Assert: Verify eviction metrics are properly attributed to each cache
@@ -528,7 +528,7 @@ public class ConcurrencyTests : IDisposable
                     }
                 }
 
-                await Task.Delay(1); // Small delay to allow metric emission
+                await Task.Yield(); // Small delay to allow metric emission
             }));
         }
 
@@ -654,7 +654,7 @@ public class ConcurrencyTests : IDisposable
     private static async Task FlushMetricsAsync(MeterProvider meterProvider)
     {
         meterProvider.ForceFlush(5000); // 5000ms = 5 seconds
-        await Task.Delay(50); // Allow metric processing
+        await Task.Yield(); // Allow metric processing
     }
 
 

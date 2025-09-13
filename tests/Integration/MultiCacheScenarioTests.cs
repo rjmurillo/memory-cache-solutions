@@ -382,7 +382,7 @@ public class MultiCacheScenarioTests
             {
                 return true;
             }
-            await Task.Delay(10); // Short polling interval
+            await Task.Yield(); // Yield control without blocking
         }
         return false;
     }
@@ -410,7 +410,7 @@ public class MultiCacheScenarioTests
                     return true;
                 }
             }
-            await Task.Delay(10); // Short polling interval
+            await Task.Yield(); // Yield control without blocking
         }
         return false;
     }
@@ -457,7 +457,7 @@ public class MultiCacheScenarioTests
                     return true;
                 }
             }
-            await Task.Delay(10); // Short polling interval
+            await Task.Yield(); // Yield control without blocking
         }
         return false;
     }
@@ -621,7 +621,7 @@ public class MultiCacheScenarioTests
         }
 
         // Give additional time for async operations
-        await Task.Delay(50);
+        await Task.Yield();
     }
 
     private static IEnumerable<Metric> FindMetrics(List<Metric> metrics, string name)

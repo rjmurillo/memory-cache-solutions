@@ -16,7 +16,7 @@ public class CoalescingMemoryCacheTests
         {
             Interlocked.Increment(ref calls);
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1);
-            await Task.Delay(50);
+            await Task.Yield();
             return 42;
         }
 

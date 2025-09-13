@@ -119,7 +119,7 @@ public class OpenTelemetryIntegrationTests
             cache.Set("key2", "value2", new MemoryCacheEntryOptions { Size = 1 }); // Should evict key1
 
             // Give time for eviction callback to execute
-            await Task.Delay(100);
+            await Task.Yield();
 
             // Force metrics collection with enhanced validation
             await FlushMetricsAsync(h);
@@ -433,7 +433,7 @@ public class OpenTelemetryIntegrationTests
         }
 
         // Give additional time for InMemoryExporter to process all metrics
-        await Task.Delay(100);
+        await Task.Yield();
     }
 
     /// <summary>

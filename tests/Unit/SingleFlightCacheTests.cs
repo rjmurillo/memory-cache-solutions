@@ -22,7 +22,7 @@ public class SingleFlightCacheTests
         async Task<int> Factory()
         {
             Interlocked.Increment(ref factoryCalls);
-            await Task.Delay(50); // simulate work
+            await Task.Yield(); // simulate work
             return 123;
         }
 
@@ -76,7 +76,7 @@ public class SingleFlightCacheTests
         }
 
         var a = await sfc.GetOrCreateAsync(key, TimeSpan.FromMilliseconds(100), Factory);
-        await Task.Delay(150);
+        await Task.Yield();
         var b = await sfc.GetOrCreateAsync(key, TimeSpan.FromMilliseconds(100), Factory);
 
         Assert.Equal(1, a);

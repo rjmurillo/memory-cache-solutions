@@ -57,7 +57,7 @@ public class MeteredMemoryCacheTests
                         return true;
                     }
                 }
-                await Task.Delay(10); // Short polling interval
+                await Task.Yield(); // Yield control without blocking
             }
             return false;
         }
@@ -187,7 +187,7 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
-    public void TagListMutationBug_DocumentsInconsistentPatternUsage()
+    public async Task TagListMutationBug_DocumentsInconsistentPatternUsage()
     {
         // This test documents the inconsistent pattern in MeteredMemoryCache:
         // - Eviction callbacks use CreateEvictionTags() to create a copy (CORRECT)
@@ -237,7 +237,7 @@ public class MeteredMemoryCacheTests
         cts.Cancel();
         cache.TryGetValue("evict-me", out _); // Trigger eviction processing
         inner.Compact(0.0);
-        Thread.Sleep(10); // Allow eviction callback to execute
+        await Task.Yield(); // Allow eviction callback to execute
 
         // Create defensive copy to avoid Collection Modified Exception during enumeration
         var metricsSnapshot = emittedMetrics.ToArray();
@@ -513,8 +513,8 @@ public class MeteredMemoryCacheTests
         var evictionTasks = cancellationTokenSources.Select(cts => Task.Run(async () =>
         {
             cts.Cancel();
-            // Small delay to let eviction callbacks queue up
-            await Task.Delay(1);
+            // Yield to let eviction callbacks queue up
+            await Task.Yield();
         })).ToArray();
 
         // Wait for evictions to be triggered
@@ -528,7 +528,7 @@ public class MeteredMemoryCacheTests
         inner.Compact(0.0);
 
         // Allow time for any remaining callbacks to execute
-        Thread.Sleep(50);
+        await Task.Yield();
 
         // Clean up
         foreach (var cts in cancellationTokenSources)

@@ -132,7 +132,7 @@ public class TagListThreadSafetyTests
     }
 
     [Fact]
-    public void ConcurrentEvictionCallbacks_WithSharedTagList_ShouldNotThrow()
+    public async Task ConcurrentEvictionCallbacks_WithSharedTagList_ShouldNotThrow()
     {
         // This test reproduces the scenario where eviction callbacks execute concurrently
         // and attempt to enumerate the shared _tags TagList, causing thread-safety issues
@@ -198,7 +198,7 @@ public class TagListThreadSafetyTests
             inner.Compact(0.0);
 
             // Give some time for asynchronous eviction callbacks to complete
-            Thread.Sleep(100);
+            await Task.Yield();
         }
         finally
         {
@@ -214,7 +214,7 @@ public class TagListThreadSafetyTests
     }
 
     [Fact]
-    public void MixedConcurrentOperations_WithTagListEnumeration_ShouldNotThrow()
+    public async Task MixedConcurrentOperations_WithTagListEnumeration_ShouldNotThrow()
     {
         // This test combines cache operations and evictions to maximize the probability
         // of concurrent TagList enumeration, which is the root cause of thread-safety issues
@@ -289,7 +289,7 @@ public class TagListThreadSafetyTests
 
         // Force final compaction to trigger any remaining evictions
         inner.Compact(0.0);
-        Thread.Sleep(50); // Allow async eviction callbacks to complete
+        await Task.Yield(); // Allow async eviction callbacks to complete
 
         // Verify no thread-safety exceptions occurred
         Assert.Empty(exceptions);
@@ -297,7 +297,7 @@ public class TagListThreadSafetyTests
     }
 
     [Fact]
-    public void StressTest_TagListEnumeration_UnderExtremeLoad()
+    public async Task StressTest_TagListEnumeration_UnderExtremeLoad()
     {
         // Extreme stress test designed to maximize the probability of exposing
         // race conditions in TagList enumeration under very high load
@@ -369,7 +369,7 @@ public class TagListThreadSafetyTests
 
         // Force final processing of any remaining evictions
         inner.Compact(0.0);
-        Thread.Sleep(100);
+        await Task.Yield();
 
         // Verify no thread-safety violations occurred under extreme load
         Assert.Empty(exceptions);

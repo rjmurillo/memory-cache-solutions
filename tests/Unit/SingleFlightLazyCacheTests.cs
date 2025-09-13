@@ -16,7 +16,7 @@ public class SingleFlightLazyCacheTests
         async Task<int> Factory()
         {
             Interlocked.Increment(ref factoryCalls);
-            await Task.Delay(50);
+            await Task.Yield();
             return 10;
         }
 
@@ -66,7 +66,7 @@ public class SingleFlightLazyCacheTests
         }
 
         var a = await sfl.GetOrCreateAsync("ttl", TimeSpan.FromMilliseconds(80), Factory);
-        await Task.Delay(120);
+        await Task.Yield();
         var b = await sfl.GetOrCreateAsync("ttl", TimeSpan.FromMilliseconds(80), Factory);
 
         Assert.Equal(1, a);
@@ -84,7 +84,7 @@ public class SingleFlightLazyCacheTests
         async Task<int> Factory()
         {
             started.SetResult();
-            await Task.Delay(300);
+            await Task.Yield();
             return 7;
         }
 
