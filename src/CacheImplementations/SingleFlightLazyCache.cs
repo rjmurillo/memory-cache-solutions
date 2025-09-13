@@ -47,14 +47,31 @@ public sealed class SingleFlightLazyCache(IMemoryCache cache)
             switch (boxed)
             {
                 case T directValue:
+                    // Null safety check for reference types
+                    if (directValue is null && !typeof(T).IsValueType)
+                    {
+                        throw new InvalidOperationException("Factory returned null for a reference type; enable nullable annotations if null values are expected.");
+                    }
                     return directValue; // Value inserted via sync path.
                 case Task<T> existingTask:
                     if (existingTask.IsCompletedSuccessfully)
                     {
                         // Avoid async state machine for completed tasks
-                        return existingTask.GetAwaiter().GetResult();
+                        var result = existingTask.GetAwaiter().GetResult();
+                        // Null safety check for reference types
+                        if (result is null && !typeof(T).IsValueType)
+                        {
+                            throw new InvalidOperationException("Factory returned null for a reference type; enable nullable annotations if null values are expected.");
+                        }
+                        return result;
                     }
-                    return await existingTask.WaitAsync(ct).ConfigureAwait(false);
+                    var existingResult = await existingTask.WaitAsync(ct).ConfigureAwait(false);
+                    // Null safety check for reference types
+                    if (existingResult is null && !typeof(T).IsValueType)
+                    {
+                        throw new InvalidOperationException("Factory returned null for a reference type; enable nullable annotations if null values are expected.");
+                    }
+                    return existingResult;
             }
         }
 
@@ -67,9 +84,21 @@ public sealed class SingleFlightLazyCache(IMemoryCache cache)
 
         if (task!.IsCompletedSuccessfully)
         {
-            return task.GetAwaiter().GetResult();
+            var result = task.GetAwaiter().GetResult();
+            // Null safety check for reference types
+            if (result is null && !typeof(T).IsValueType)
+            {
+                throw new InvalidOperationException("Factory returned null for a reference type; enable nullable annotations if null values are expected.");
+            }
+            return result;
         }
-        return await task.WaitAsync(ct).ConfigureAwait(false);
+        var asyncResult = await task.WaitAsync(ct).ConfigureAwait(false);
+        // Null safety check for reference types
+        if (asyncResult is null && !typeof(T).IsValueType)
+        {
+            throw new InvalidOperationException("Factory returned null for a reference type; enable nullable annotations if null values are expected.");
+        }
+        return asyncResult;
     }
 
     /// <summary>
@@ -88,11 +117,18 @@ public sealed class SingleFlightLazyCache(IMemoryCache cache)
             return existing;
         }
 
-        return _cache.GetOrCreate(key, entry =>
+        var result = _cache.GetOrCreate(key, entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = ttl;
             configure?.Invoke(entry);
             return factory();
-        })!;
+        });
+
+        // Null safety check for reference types
+        if (result is null && !typeof(T).IsValueType)
+        {
+            throw new InvalidOperationException("Factory returned null for a reference type; enable nullable annotations if null values are expected.");
+        }
+        return result!;
     }
 }
