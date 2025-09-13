@@ -47,7 +47,7 @@ export let options = {
 export function setup() {
   console.log("🚀 Starting k6 Soak Tests for ASP.NET Core MeteredMemoryCache");
   console.log(`📍 Base URL: ${config.baseUrl}`);
-  console.log("⏰ Running 5 concurrent users for 30 minutes to test stability");
+  console.log("⏰ Running 5 concurrent users for extended duration to test stability");
 
   // Verify application is running
   const healthResponse = getHealth();
