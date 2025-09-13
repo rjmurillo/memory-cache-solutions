@@ -34,7 +34,7 @@ public class ConcurrencyTests : IDisposable
     public async Task ConcurrentHitMissOperations_WithNamedCache_ShouldEmitCorrectMetrics()
     {
         // Arrange
-        var host = CreateHostWithMetrics("concurrent-cache");
+        var (host, exportedItems) = CreateHostWithMetrics("concurrent-cache");
         var cache = host.Services.GetRequiredKeyedService<IMemoryCache>("concurrent-cache");
         var metricsProvider = host.Services.GetRequiredService<MeterProvider>();
 
@@ -79,10 +79,8 @@ public class ConcurrencyTests : IDisposable
         await FlushMetricsAsync(metricsProvider);
 
         // Assert: Verify metrics were recorded correctly despite concurrent access
-        var exportedMetrics = GetExportedMetrics(host);
-
-        var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_hits_total");
-        var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_misses_total");
+        var hitsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache_hits_total");
+        var missesMetric = exportedItems.FirstOrDefault(m => m.Name == "cache_misses_total");
 
         Assert.NotNull(hitsMetric);
         Assert.NotNull(missesMetric);
@@ -108,7 +106,7 @@ public class ConcurrencyTests : IDisposable
     public async Task ConcurrentEvictions_MultipleNamedCaches_ShouldAttributeMetricsCorrectly()
     {
         // Arrange
-        var host = CreateHostWithMultipleCaches();
+        var (host, exportedItems) = CreateHostWithMultipleCaches();
         var cache1 = host.Services.GetRequiredKeyedService<IMemoryCache>("cache-1");
         var cache2 = host.Services.GetRequiredKeyedService<IMemoryCache>("cache-2");
         var cache3 = host.Services.GetRequiredKeyedService<IMemoryCache>("cache-3");
@@ -168,8 +166,7 @@ public class ConcurrencyTests : IDisposable
         await FlushMetricsAsync(metricsProvider);
 
         // Assert: Verify eviction metrics are properly attributed to each cache
-        var exportedMetrics = GetExportedMetrics(host);
-        var evictionsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_evictions_total");
+        var evictionsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache_evictions_total");
 
         Assert.NotNull(evictionsMetric);
 
@@ -196,7 +193,7 @@ public class ConcurrencyTests : IDisposable
     public async Task HighFrequencyConcurrentOperations_ShouldMaintainMetricAccuracy()
     {
         // Arrange
-        var host = CreateHostWithMetrics("stress-cache");
+        var (host, exportedItems) = CreateHostWithMetrics("stress-cache");
         var cache = host.Services.GetRequiredKeyedService<IMemoryCache>("stress-cache");
         var metricsProvider = host.Services.GetRequiredService<MeterProvider>();
 
@@ -249,7 +246,7 @@ public class ConcurrencyTests : IDisposable
         await FlushMetricsAsync(metricsProvider);
 
         // Assert: Verify metric accuracy under high concurrency
-        var exportedMetrics = GetExportedMetrics(host);
+        var exportedMetrics = exportedItems;
 
         var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_hits_total");
         var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_misses_total");
@@ -292,7 +289,7 @@ public class ConcurrencyTests : IDisposable
             }
         };
 
-        var host = CreateHostWithMetricsAndOptions(options);
+        var (host, exportedItems) = CreateHostWithMetricsAndOptions(options);
         var cache = host.Services.GetRequiredKeyedService<IMemoryCache>("tagged-cache");
         var metricsProvider = host.Services.GetRequiredService<MeterProvider>();
 
@@ -334,7 +331,7 @@ public class ConcurrencyTests : IDisposable
         await FlushMetricsAsync(metricsProvider);
 
         // Assert: Verify all tags are preserved under concurrency
-        var exportedMetrics = GetExportedMetrics(host);
+        var exportedMetrics = exportedItems;
 
         var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_hits_total");
         var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_misses_total");
@@ -367,7 +364,7 @@ public class ConcurrencyTests : IDisposable
     public async Task RapidCacheStateChanges_ShouldNotCauseMetricRaceConditions()
     {
         // Arrange
-        var host = CreateHostWithMetrics("race-cache");
+        var (host, exportedItems) = CreateHostWithMetrics("race-cache");
         var cache = host.Services.GetRequiredKeyedService<IMemoryCache>("race-cache");
         var metricsProvider = host.Services.GetRequiredService<MeterProvider>();
 
@@ -424,7 +421,7 @@ public class ConcurrencyTests : IDisposable
         await FlushMetricsAsync(metricsProvider);
 
         // Assert: Verify metrics consistency despite race conditions
-        var exportedMetrics = GetExportedMetrics(host);
+        var exportedMetrics = exportedItems;
 
         var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_hits_total");
         var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_misses_total");
@@ -466,21 +463,23 @@ public class ConcurrencyTests : IDisposable
         const int cacheCount = 20;
         const int operationsPerCache = 50;
 
-        var services = new ServiceCollection();
-        services.AddSingleton(new Meter("ConcurrencyTest"));
-
         List<Metric> exportedItems = new();
-        var meterProviderBuilder = services.AddOpenTelemetry().WithMetrics(metrics =>
-        {
-            metrics.AddMeter("ConcurrencyTest");
-            metrics.AddInMemoryExporter(exportedItems);
-        });
+        
+        var builder = new HostApplicationBuilder();
+        builder.Services.AddSingleton(new Meter("MeteredMemoryCache"));
+        builder.Services.AddOpenTelemetry()
+            .WithMetrics(metrics => metrics
+                .AddMeter("MeteredMemoryCache")
+                .AddInMemoryExporter(exportedItems));
 
-        var serviceProvider = services.BuildServiceProvider();
-        _disposables.Add(serviceProvider);
+        var host = builder.Build();
+        _disposables.Add(host);
 
-        var meter = serviceProvider.GetRequiredService<Meter>();
-        var meterProvider = serviceProvider.GetRequiredService<MeterProvider>();
+        // Start the host to activate the meter provider
+        await host.StartAsync();
+
+        var meter = host.Services.GetRequiredService<Meter>();
+        var meterProvider = host.Services.GetRequiredService<MeterProvider>();
 
         var tasks = new List<Task>();
         var caches = new ConcurrentBag<MeteredMemoryCache>();
@@ -522,12 +521,12 @@ public class ConcurrencyTests : IDisposable
         // Assert: Verify all caches created successfully and emitted metrics
         Assert.Equal(cacheCount, caches.Count);
 
-        var exportedMetrics = serviceProvider.GetServices<object>()
-            .OfType<List<Metric>>()
-            .FirstOrDefault() ?? new List<Metric>();
+        // Debug: Check what metrics were actually exported
+        var allMetricNames = exportedItems.Select(m => m.Name).ToList();
+        Assert.True(exportedItems.Count > 0, $"No metrics were exported. Expected at least some metrics, but got {exportedItems.Count} metrics. Available metric names: [{string.Join(", ", allMetricNames)}]");
 
-        var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_hits_total");
-        var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_misses_total");
+        var hitsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache_hits_total");
+        var missesMetric = exportedItems.FirstOrDefault(m => m.Name == "cache_misses_total");
 
         Assert.NotNull(hitsMetric);
         Assert.NotNull(missesMetric);
@@ -556,6 +555,7 @@ public class ConcurrencyTests : IDisposable
         }
 
         // Cleanup
+        await host.StopAsync();
         foreach (var cache in caches)
         {
             cache.Dispose();
@@ -564,7 +564,7 @@ public class ConcurrencyTests : IDisposable
 
     // Helper Methods
 
-    private IHost CreateHostWithMetrics(string cacheName)
+    private (IHost Host, List<Metric> ExportedItems) CreateHostWithMetrics(string cacheName)
     {
         var exportedItems = new List<Metric>();
         // Note: List<Metric> doesn't implement IDisposable, we'll dispose the host which cleans up resources
@@ -580,10 +580,10 @@ public class ConcurrencyTests : IDisposable
 
         var host = builder.Build();
         _disposables.Add(host);
-        return host;
+        return (host, exportedItems);
     }
 
-    private IHost CreateHostWithMultipleCaches()
+    private (IHost Host, List<Metric> ExportedItems) CreateHostWithMultipleCaches()
     {
         var exportedItems = new List<Metric>();
 
@@ -601,10 +601,10 @@ public class ConcurrencyTests : IDisposable
 
         var host = builder.Build();
         _disposables.Add(host);
-        return host;
+        return (host, exportedItems);
     }
 
-    private IHost CreateHostWithMetricsAndOptions(MeteredMemoryCacheOptions options)
+    private (IHost Host, List<Metric> ExportedItems) CreateHostWithMetricsAndOptions(MeteredMemoryCacheOptions options)
     {
         var exportedItems = new List<Metric>();
 
@@ -622,7 +622,7 @@ public class ConcurrencyTests : IDisposable
 
         var host = builder.Build();
         _disposables.Add(host);
-        return host;
+        return (host, exportedItems);
     }
 
     private static async Task FlushMetricsAsync(MeterProvider meterProvider)
@@ -631,22 +631,6 @@ public class ConcurrencyTests : IDisposable
         await Task.Delay(50); // Allow metric processing
     }
 
-    private static List<Metric> GetExportedMetrics(IHost host)
-    {
-        // Force flush to ensure all metrics are exported
-        var meterProvider = host.Services.GetService<MeterProvider>();
-        if (meterProvider != null)
-        {
-            meterProvider.ForceFlush(5000); // 5000ms = 5 seconds
-        }
-
-        // The InMemoryExporter stores metrics in a list that we can access
-        var exportedItems = host.Services.GetServices<object>()
-            .OfType<List<Metric>>()
-            .FirstOrDefault();
-
-        return exportedItems ?? new List<Metric>();
-    }
 
     private static long GetMetricValue(Metric metric)
     {
