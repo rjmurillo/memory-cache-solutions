@@ -5,8 +5,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
+using Unit;
 
 namespace Integration;
 
@@ -59,7 +61,20 @@ public class MultiCacheScenarioTests
         // Force metrics collection
         await FlushMetricsAsync(host);
 
+        // Wait for expected metrics using deterministic timing with cache-specific filtering
+        var userHitsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache_hits_total", "user-cache", 2, TimeSpan.FromSeconds(5));
+        var userMissesDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache_misses_total", "user-cache", 1, TimeSpan.FromSeconds(5));
+        var productHitsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache_hits_total", "product-cache", 1, TimeSpan.FromSeconds(5));
+        var productMissesDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache_misses_total", "product-cache", 2, TimeSpan.FromSeconds(5));
+        var sessionHitsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache_hits_total", "session-cache", 3, TimeSpan.FromSeconds(5));
+
         // Assert - Verify each cache has correct metrics
+        Assert.True(userHitsDetected, "User cache hit metrics should be detected within timeout");
+        Assert.True(userMissesDetected, "User cache miss metrics should be detected within timeout");
+        Assert.True(productHitsDetected, "Product cache hit metrics should be detected within timeout");
+        Assert.True(productMissesDetected, "Product cache miss metrics should be detected within timeout");
+        Assert.True(sessionHitsDetected, "Session cache hit metrics should be detected within timeout");
+
         var hitMetrics = FindMetrics(exportedItems, "cache_hits_total");
         var missMetrics = FindMetrics(exportedItems, "cache_misses_total");
 
@@ -68,23 +83,23 @@ public class MultiCacheScenarioTests
         var userMisses = missMetrics.Where(m => HasTag(m, "cache.name", "user-cache"));
         Assert.Single(userHits);
         Assert.Single(userMisses);
-        AssertMetricValue(userHits.First(), 2);
-        AssertMetricValue(userMisses.First(), 1);
+        AssertMetricValueForCache(userHits.First(), "user-cache", 2);
+        AssertMetricValueForCache(userMisses.First(), "user-cache", 1);
 
         // Product cache assertions
         var productHits = hitMetrics.Where(m => HasTag(m, "cache.name", "product-cache"));
         var productMisses = missMetrics.Where(m => HasTag(m, "cache.name", "product-cache"));
         Assert.Single(productHits);
         Assert.Single(productMisses);
-        AssertMetricValue(productHits.First(), 1);
-        AssertMetricValue(productMisses.First(), 2);
+        AssertMetricValueForCache(productHits.First(), "product-cache", 1);
+        AssertMetricValueForCache(productMisses.First(), "product-cache", 2);
 
         // Session cache assertions
         var sessionHits = hitMetrics.Where(m => HasTag(m, "cache.name", "session-cache"));
         var sessionMisses = missMetrics.Where(m => HasTag(m, "cache.name", "session-cache"));
         Assert.Single(sessionHits);
         Assert.Empty(sessionMisses); // No misses for session cache
-        AssertMetricValue(sessionHits.First(), 3);
+        AssertMetricValueForCache(sessionHits.First(), "session-cache", 3);
     }
 
     /// <summary>
@@ -160,23 +175,38 @@ public class MultiCacheScenarioTests
         var smallCache = serviceProvider.GetRequiredKeyedService<IMemoryCache>("small-cache");
         var mediumCache = serviceProvider.GetRequiredKeyedService<IMemoryCache>("medium-cache");
 
-        // Act - Force evictions in small cache (limit=1)
-        smallCache.Set("item1", "data1", new MemoryCacheEntryOptions { Size = 1 });
-        smallCache.Set("item2", "data2", new MemoryCacheEntryOptions { Size = 1 }); // Should evict item1
-        smallCache.Set("item3", "data3", new MemoryCacheEntryOptions { Size = 1 }); // Should evict item2
+        // Act - Force evictions using CancellationChangeToken for reliable evictions
+        var cts1 = new CancellationTokenSource();
+        var cts2 = new CancellationTokenSource();
+        var cts3 = new CancellationTokenSource();
+        var cts4 = new CancellationTokenSource();
+        var cts5 = new CancellationTokenSource();
+        var cts6 = new CancellationTokenSource();
 
-        // Act - Force evictions in medium cache (limit=2)
-        mediumCache.Set("med1", "data1", new MemoryCacheEntryOptions { Size = 1 });
-        mediumCache.Set("med2", "data2", new MemoryCacheEntryOptions { Size = 1 });
-        mediumCache.Set("med3", "data3", new MemoryCacheEntryOptions { Size = 1 }); // Should evict med1
+        smallCache.Set("item1", "data1", new MemoryCacheEntryOptions { Size = 1, ExpirationTokens = { new CancellationChangeToken(cts1.Token) } });
+        smallCache.Set("item2", "data2", new MemoryCacheEntryOptions { Size = 1, ExpirationTokens = { new CancellationChangeToken(cts2.Token) } });
+        smallCache.Set("item3", "data3", new MemoryCacheEntryOptions { Size = 1, ExpirationTokens = { new CancellationChangeToken(cts3.Token) } });
 
-        // Give time for eviction callbacks to execute
-        await Task.Delay(200);
+        mediumCache.Set("med1", "data1", new MemoryCacheEntryOptions { Size = 1, ExpirationTokens = { new CancellationChangeToken(cts4.Token) } });
+        mediumCache.Set("med2", "data2", new MemoryCacheEntryOptions { Size = 1, ExpirationTokens = { new CancellationChangeToken(cts5.Token) } });
+        mediumCache.Set("med3", "data3", new MemoryCacheEntryOptions { Size = 1, ExpirationTokens = { new CancellationChangeToken(cts6.Token) } });
+
+        // Trigger evictions by canceling tokens
+        cts1.Cancel(); // Evict item1 from small cache
+        cts2.Cancel(); // Evict item2 from small cache
+        cts4.Cancel(); // Evict med1 from medium cache
 
         // Force metrics collection
         await FlushMetricsAsync(host);
 
+        // Wait for expected eviction metrics using deterministic timing
+        var smallCacheEvictionsDetected = await WaitForMetricValueAsync(exportedItems, "cache_evictions_total", 2, TimeSpan.FromSeconds(5));
+        var mediumCacheEvictionsDetected = await WaitForMetricValueAsync(exportedItems, "cache_evictions_total", 1, TimeSpan.FromSeconds(5));
+
         // Assert
+        Assert.True(smallCacheEvictionsDetected, "Small cache evictions should be detected within timeout");
+        Assert.True(mediumCacheEvictionsDetected, "Medium cache evictions should be detected within timeout");
+
         var evictionMetrics = FindMetrics(exportedItems, "cache_evictions_total");
 
         var smallCacheEvictions = evictionMetrics.Where(m => HasTag(m, "cache.name", "small-cache"));
@@ -184,11 +214,11 @@ public class MultiCacheScenarioTests
 
         // Small cache should have 2 evictions
         Assert.Single(smallCacheEvictions);
-        AssertMetricValue(smallCacheEvictions.First(), 2);
+        AssertMetricValueForCache(smallCacheEvictions.First(), "small-cache", 2);
 
         // Medium cache should have 1 eviction
         Assert.Single(mediumCacheEvictions);
-        AssertMetricValue(mediumCacheEvictions.First(), 1);
+        AssertMetricValueForCache(mediumCacheEvictions.First(), "medium-cache", 1);
 
         // Verify correct tags are present
         AssertMetricHasTag(smallCacheEvictions.First(), "cache.name", "small-cache");
@@ -262,7 +292,14 @@ public class MultiCacheScenarioTests
         // Force metrics collection
         await FlushMetricsAsync(host);
 
+        // Wait for expected metrics using deterministic timing
+        var hitsDetected = await WaitForMetricValueAsync(exportedItems, "cache_hits_total", operationsPerCache, TimeSpan.FromSeconds(5));
+        var missesDetected = await WaitForMetricValueAsync(exportedItems, "cache_misses_total", operationsPerCache, TimeSpan.FromSeconds(5));
+
         // Assert
+        Assert.True(hitsDetected, "Expected hit metrics should be detected within timeout");
+        Assert.True(missesDetected, "Expected miss metrics should be detected within timeout");
+
         var hitMetrics = FindMetrics(exportedItems, "cache_hits_total");
         var missMetrics = FindMetrics(exportedItems, "cache_misses_total");
 
@@ -271,16 +308,16 @@ public class MultiCacheScenarioTests
         var cache1Misses = missMetrics.Where(m => HasTag(m, "cache.name", "concurrent-cache-1"));
         Assert.Single(cache1Hits);
         Assert.Single(cache1Misses);
-        AssertMetricValue(cache1Hits.First(), operationsPerCache / 2);
-        AssertMetricValue(cache1Misses.First(), operationsPerCache / 2);
+        AssertMetricValueForCache(cache1Hits.First(), "concurrent-cache-1", operationsPerCache / 2);
+        AssertMetricValueForCache(cache1Misses.First(), "concurrent-cache-1", operationsPerCache / 2);
 
         // Cache 2 assertions
         var cache2Hits = hitMetrics.Where(m => HasTag(m, "cache.name", "concurrent-cache-2"));
         var cache2Misses = missMetrics.Where(m => HasTag(m, "cache.name", "concurrent-cache-2"));
         Assert.Single(cache2Hits);
         Assert.Single(cache2Misses);
-        AssertMetricValue(cache2Hits.First(), operationsPerCache / 2);
-        AssertMetricValue(cache2Misses.First(), operationsPerCache / 2);
+        AssertMetricValueForCache(cache2Hits.First(), "concurrent-cache-2", operationsPerCache / 2);
+        AssertMetricValueForCache(cache2Misses.First(), "concurrent-cache-2", operationsPerCache / 2);
     }
 
     /// <summary>
@@ -331,10 +368,104 @@ public class MultiCacheScenarioTests
 
     // Helper Methods
 
+    /// <summary>
+    /// Deterministic wait helper that polls for expected metric count instead of using Task.Delay.
+    /// Eliminates sleep semantics and provides reliable test execution.
+    /// </summary>
+    private static async Task<bool> WaitForMetricCountAsync(List<Metric> exportedItems, string metricName, int expectedCount, TimeSpan timeout)
+    {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        while (stopwatch.Elapsed < timeout)
+        {
+            var currentCount = exportedItems.Count(m => m.Name == metricName);
+            if (currentCount >= expectedCount)
+            {
+                return true;
+            }
+            await Task.Delay(10); // Short polling interval
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Deterministic wait helper that polls for expected metric value instead of using Task.Delay.
+    /// Eliminates sleep semantics and provides reliable test execution.
+    /// </summary>
+    private static async Task<bool> WaitForMetricValueAsync(List<Metric> exportedItems, string metricName, long expectedValue, TimeSpan timeout)
+    {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        while (stopwatch.Elapsed < timeout)
+        {
+            var metrics = exportedItems.Where(m => m.Name == metricName);
+            foreach (var metric in metrics)
+            {
+                var metricPoints = new List<MetricPoint>();
+                foreach (ref readonly var mp in metric.GetMetricPoints())
+                {
+                    metricPoints.Add(mp);
+                }
+                var totalValue = metricPoints.Sum(mp => mp.GetSumLong());
+                if (totalValue >= expectedValue)
+                {
+                    return true;
+                }
+            }
+            await Task.Delay(10); // Short polling interval
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Deterministic wait helper that polls for expected metric value with specific cache name filter.
+    /// Eliminates sleep semantics and provides reliable test execution.
+    /// </summary>
+    private static async Task<bool> WaitForMetricValueWithCacheFilterAsync(List<Metric> exportedItems, string metricName, string cacheName, long expectedValue, TimeSpan timeout)
+    {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        while (stopwatch.Elapsed < timeout)
+        {
+            var metrics = exportedItems.Where(m => m.Name == metricName);
+            foreach (var metric in metrics)
+            {
+                var metricPoints = new List<MetricPoint>();
+                foreach (ref readonly var mp in metric.GetMetricPoints())
+                {
+                    metricPoints.Add(mp);
+                }
+                
+                // Filter by cache name
+                var filteredValue = 0L;
+                foreach (var mp in metricPoints)
+                {
+                    var hasCacheTag = false;
+                    foreach (var tag in mp.Tags)
+                    {
+                        if (tag.Key == "cache.name" && tag.Value?.ToString() == cacheName)
+                        {
+                            hasCacheTag = true;
+                            break;
+                        }
+                    }
+                    if (hasCacheTag)
+                    {
+                        filteredValue += mp.GetSumLong();
+                    }
+                }
+                
+                if (filteredValue >= expectedValue)
+                {
+                    return true;
+                }
+            }
+            await Task.Delay(10); // Short polling interval
+        }
+        return false;
+    }
+
     private static IHost CreateHostWithThreeNamedCaches(List<Metric> exportedItems)
     {
         var builder = new HostApplicationBuilder();
-        var meterName = $"MeteredMemoryCache_{Guid.NewGuid():N}";
+        var meterName = SharedUtilities.GetUniqueMeterName("test.three.caches");
 
         // Add OpenTelemetry with InMemory exporter
         builder.Services.AddOpenTelemetry()
@@ -353,7 +484,7 @@ public class MultiCacheScenarioTests
     private static IHost CreateHostWithTaggedCaches(List<Metric> exportedItems)
     {
         var builder = new HostApplicationBuilder();
-        var meterName = $"MeteredMemoryCache_{Guid.NewGuid():N}";
+        var meterName = SharedUtilities.GetUniqueMeterName("test.tagged.caches");
 
         // Add OpenTelemetry with InMemory exporter
         builder.Services.AddOpenTelemetry()
@@ -383,7 +514,7 @@ public class MultiCacheScenarioTests
     private static IHost CreateHostWithEvictionCaches(List<Metric> exportedItems)
     {
         var builder = new HostApplicationBuilder();
-        var meterName = $"MeteredMemoryCache_{Guid.NewGuid():N}";
+        var meterName = SharedUtilities.GetUniqueMeterName("test.eviction.caches");
 
         // Add OpenTelemetry with InMemory exporter
         builder.Services.AddOpenTelemetry()
@@ -439,7 +570,7 @@ public class MultiCacheScenarioTests
     private static IHost CreateHostWithConcurrencyCaches(List<Metric> exportedItems)
     {
         var builder = new HostApplicationBuilder();
-        var meterName = $"MeteredMemoryCache_{Guid.NewGuid():N}";
+        var meterName = SharedUtilities.GetUniqueMeterName("test.concurrency.caches");
 
         // Add OpenTelemetry with InMemory exporter
         builder.Services.AddOpenTelemetry()
@@ -508,6 +639,35 @@ public class MultiCacheScenarioTests
 
         var totalValue = metricPoints.Sum(mp => mp.GetSumLong());
         Assert.Equal(expectedValue, totalValue);
+    }
+
+    private static void AssertMetricValueForCache(Metric metric, string cacheName, long expectedValue)
+    {
+        var metricPoints = new List<MetricPoint>();
+        foreach (ref readonly var mp in metric.GetMetricPoints())
+        {
+            metricPoints.Add(mp);
+        }
+
+        var filteredValue = 0L;
+        foreach (var mp in metricPoints)
+        {
+            var hasCacheTag = false;
+            foreach (var tag in mp.Tags)
+            {
+                if (tag.Key == "cache.name" && tag.Value?.ToString() == cacheName)
+                {
+                    hasCacheTag = true;
+                    break;
+                }
+            }
+            if (hasCacheTag)
+            {
+                filteredValue += mp.GetSumLong();
+            }
+        }
+        
+        Assert.Equal(expectedValue, filteredValue);
     }
 
     private static void AssertMetricHasTag(Metric metric, string tagKey, string expectedValue)
