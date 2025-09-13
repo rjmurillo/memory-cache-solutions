@@ -290,15 +290,18 @@ public class MultiCacheScenarioTests
     [Fact]
     public async Task CachesWithDifferentMeterNames_EmitToCorrectMeters()
     {
-        // Arrange
+        // Arrange - Create separate hosts for complete isolation
         var mainMeterItems = new List<Metric>();
         var secondaryMeterItems = new List<Metric>();
-        using var host = CreateHostWithDifferentMeters(mainMeterItems, secondaryMeterItems);
-        await host.StartAsync();
+        
+        using var mainHost = CreateHostWithSingleMeter("MainMeter", mainMeterItems);
+        using var secondaryHost = CreateHostWithSingleMeter("SecondaryMeter", secondaryMeterItems);
+        
+        await mainHost.StartAsync();
+        await secondaryHost.StartAsync();
 
-        var serviceProvider = host.Services;
-        var mainCache = serviceProvider.GetRequiredKeyedService<IMemoryCache>("main-cache");
-        var secondaryCache = serviceProvider.GetRequiredKeyedService<IMemoryCache>("secondary-cache");
+        var mainCache = mainHost.Services.GetRequiredKeyedService<IMemoryCache>("main-cache");
+        var secondaryCache = secondaryHost.Services.GetRequiredKeyedService<IMemoryCache>("secondary-cache");
 
         // Act
         mainCache.Set("main-data", "main-value");
@@ -308,7 +311,8 @@ public class MultiCacheScenarioTests
         secondaryCache.TryGetValue("secondary-data", out _); // Hit
 
         // Force metrics collection
-        await FlushMetricsAsync(host);
+        await FlushMetricsAsync(mainHost);
+        await FlushMetricsAsync(secondaryHost);
 
         // Assert - Main meter should have metrics from main-cache
         var mainHitMetrics = FindMetrics(mainMeterItems, "cache_hits_total");
@@ -459,23 +463,19 @@ public class MultiCacheScenarioTests
         return builder.Build();
     }
 
-    private static IHost CreateHostWithDifferentMeters(List<Metric> mainMeterItems, List<Metric> secondaryMeterItems)
+    private static IHost CreateHostWithSingleMeter(string meterName, List<Metric> exportedItems)
     {
         var builder = new HostApplicationBuilder();
 
-        // Add OpenTelemetry with InMemory exporters for different meters
+        // Add OpenTelemetry with single meter for complete isolation
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("MainMeter")
-                .AddInMemoryExporter(mainMeterItems)
-                .AddMeter("SecondaryMeter")
-                .AddInMemoryExporter(secondaryMeterItems));
+                .AddMeter(meterName)
+                .AddInMemoryExporter(exportedItems));
 
-        // Add cache with main meter
-        builder.Services.AddNamedMeteredMemoryCache("main-cache", meterName: "MainMeter");
-
-        // Add cache with secondary meter
-        builder.Services.AddNamedMeteredMemoryCache("secondary-cache", meterName: "SecondaryMeter");
+        // Add cache with the specified meter
+        var cacheName = meterName == "MainMeter" ? "main-cache" : "secondary-cache";
+        builder.Services.AddNamedMeteredMemoryCache(cacheName, meterName: meterName);
 
         return builder.Build();
     }
