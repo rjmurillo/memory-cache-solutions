@@ -225,8 +225,8 @@ public class MetricEmissionAccuracyTests
     public void HitMissRatio_ExactCounting_ValidatesAccuracy()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.accuracy.1");
-        using var harness = new MetricCollectionHarness("test.accuracy.1", "cache_hits_total", "cache_misses_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.1"));
+        using var harness = new MetricCollectionHarness(meter.Name, "cache_hits_total", "cache_misses_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "accuracy-test");
 
@@ -262,8 +262,8 @@ public class MetricEmissionAccuracyTests
     public async Task EvictionMetrics_DeterministicScenario_ValidatesAccuracyAndTags()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.accuracy.2");
-        using var harness = new MetricCollectionHarness("test.accuracy.2", "cache_evictions_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.2"));
+        using var harness = new MetricCollectionHarness(meter.Name, "cache_evictions_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "eviction-test");
 
@@ -344,8 +344,8 @@ public class MetricEmissionAccuracyTests
     {
         using var inner1 = new MemoryCache(new MemoryCacheOptions());
         using var inner2 = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.accuracy.3");
-        using var harness = new MetricCollectionHarness("test.accuracy.3", "cache_hits_total", "cache_misses_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.3"));
+        using var harness = new MetricCollectionHarness(meter.Name, "cache_hits_total", "cache_misses_total");
 
         var cache1 = new MeteredMemoryCache(inner1, meter, cacheName: "cache-alpha");
         var cache2 = new MeteredMemoryCache(inner2, meter, cacheName: "cache-beta");
@@ -407,8 +407,8 @@ public class MetricEmissionAccuracyTests
     public void AdditionalTags_AccurateEmission_ValidatesCustomTagPropagation()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.accuracy.4");
-        using var harness = new MetricCollectionHarness("test.accuracy.4", "cache_hits_total", "cache_misses_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.4"));
+        using var harness = new MetricCollectionHarness(meter.Name, "cache_hits_total", "cache_misses_total");
 
         var options = new MeteredMemoryCacheOptions
         {
@@ -453,8 +453,8 @@ public class MetricEmissionAccuracyTests
     public void GetOrCreateMethod_AccurateMetrics_ValidatesFactoryScenarios()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.accuracy.5");
-        using var harness = new MetricCollectionHarness("test.accuracy.5", "cache_hits_total", "cache_misses_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.5"));
+        using var harness = new MetricCollectionHarness(meter.Name, "cache_hits_total", "cache_misses_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "getorcreate-test");
 
@@ -497,8 +497,8 @@ public class MetricEmissionAccuracyTests
     public void TryGetStronglyTyped_AccurateMetrics_ValidatesTypeConversion()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.accuracy.tryget.typed.validation");
-        using var harness = new MetricCollectionHarness("test.accuracy.tryget.typed.validation", "cache_hits_total", "cache_misses_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.tryget.typed.validation"));
+        using var harness = new MetricCollectionHarness(meter.Name, "cache_hits_total", "cache_misses_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "tryget-typed-test");
 
@@ -541,8 +541,8 @@ public class MetricEmissionAccuracyTests
     public async Task CreateEntryMethod_AccurateEvictionRegistration_ValidatesCallbackSetup()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.accuracy.7");
-        using var harness = new MetricCollectionHarness("test.accuracy.7", "cache_evictions_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.7"));
+        using var harness = new MetricCollectionHarness(meter.Name, "cache_evictions_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "createentry-test");
 
@@ -602,8 +602,8 @@ public class MetricEmissionAccuracyTests
     public void ZeroMeasurements_EdgeCase_ValidatesNoFalsePositives()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.accuracy.8");
-        using var harness = new MetricCollectionHarness("test.accuracy.8", "cache_hits_total", "cache_misses_total", "cache_evictions_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.8"));
+        using var harness = new MetricCollectionHarness(meter.Name, "cache_hits_total", "cache_misses_total", "cache_evictions_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "zero-test");
 
@@ -627,8 +627,8 @@ public class MetricEmissionAccuracyTests
         using var inner1 = new MemoryCache(new MemoryCacheOptions());
         using var inner2 = new MemoryCache(new MemoryCacheOptions());
         using var inner3 = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.accuracy.multicache");
-        using var harness = new MetricCollectionHarness("test.accuracy.multicache",
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.multicache"));
+        using var harness = new MetricCollectionHarness(meter.Name,
             "cache_hits_total", "cache_misses_total", "cache_evictions_total");
 
         // Create 3 caches with different configurations
@@ -779,8 +779,8 @@ public class MetricEmissionAccuracyTests
     public void HighVolumeOperations_AccurateAggregation_ValidatesScalability()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.accuracy.9");
-        using var harness = new MetricCollectionHarness("test.accuracy.9", "cache_hits_total", "cache_misses_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.9"));
+        using var harness = new MetricCollectionHarness(meter.Name, "cache_hits_total", "cache_misses_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "volume-test");
 

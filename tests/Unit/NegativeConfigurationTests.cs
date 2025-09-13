@@ -7,6 +7,7 @@ using CacheImplementations;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Unit;
 using Xunit;
 
 namespace Unit;
@@ -22,7 +23,7 @@ public class NegativeConfigurationTests
     public void Constructor_NullInnerCache_ThrowsArgumentNullException()
     {
         // Arrange
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
 
         // Act & Assert
         var exception = Assert.Throws<ArgumentNullException>(() =>
@@ -47,7 +48,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
 
         // Act & Assert
         var exception = Assert.Throws<ArgumentNullException>(() =>
@@ -59,7 +60,7 @@ public class NegativeConfigurationTests
     public void Constructor_NullInnerCacheWithOptions_ThrowsArgumentNullException()
     {
         // Arrange
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         var options = new MeteredMemoryCacheOptions();
 
         // Act & Assert
@@ -172,7 +173,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         var meteredCache = new MeteredMemoryCache(cache, meter);
 
         // Act & Assert - should not throw
@@ -186,7 +187,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         var meteredCache = new MeteredMemoryCache(cache, meter);
         meteredCache.Dispose();
 
@@ -200,7 +201,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         var meteredCache = new MeteredMemoryCache(cache, meter);
         meteredCache.Dispose();
 
@@ -214,7 +215,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         var meteredCache = new MeteredMemoryCache(cache, meter);
         meteredCache.Dispose();
 
@@ -228,7 +229,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         var meteredCache = new MeteredMemoryCache(cache, meter);
         meteredCache.Dispose();
 
@@ -242,7 +243,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         var meteredCache = new MeteredMemoryCache(cache, meter);
         meteredCache.Dispose();
 
@@ -256,7 +257,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         var meteredCache = new MeteredMemoryCache(cache, meter);
         meteredCache.Dispose();
 
@@ -270,7 +271,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         var innerCache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         var options = new MeteredMemoryCacheOptions { DisposeInner = true };
         var meteredCache = new MeteredMemoryCache(innerCache, meter, options);
 
@@ -286,7 +287,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var innerCache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         var options = new MeteredMemoryCacheOptions { DisposeInner = false };
         var meteredCache = new MeteredMemoryCache(innerCache, meter, options);
 
@@ -305,7 +306,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         using var meteredCache = new MeteredMemoryCache(cache, meter);
 
         // Act & Assert
@@ -319,7 +320,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         using var meteredCache = new MeteredMemoryCache(cache, meter);
 
         // Act & Assert
@@ -333,7 +334,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         using var meteredCache = new MeteredMemoryCache(cache, meter);
 
         // Act & Assert
@@ -347,7 +348,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         using var meteredCache = new MeteredMemoryCache(cache, meter);
 
         // Act & Assert
@@ -361,7 +362,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         using var meteredCache = new MeteredMemoryCache(cache, meter);
 
         // Act & Assert
@@ -375,7 +376,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         using var meteredCache = new MeteredMemoryCache(cache, meter);
 
         // Act & Assert
@@ -389,7 +390,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         using var meteredCache = new MeteredMemoryCache(cache, meter);
 
         // Act & Assert
@@ -406,7 +407,7 @@ public class NegativeConfigurationTests
         // Arrange
         var longName = new string('a', 1000);
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
 
         // Act & Assert - should not throw
         using var meteredCache = new MeteredMemoryCache(cache, meter, longName);
@@ -419,7 +420,7 @@ public class NegativeConfigurationTests
         // Arrange
         var specialName = "cache-with/special\\chars:and\"quotes'and<brackets>";
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
 
         // Act & Assert - should not throw
         using var meteredCache = new MeteredMemoryCache(cache, meter, specialName);
@@ -437,7 +438,7 @@ public class NegativeConfigurationTests
         }
 
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
 
         // Act & Assert - should not throw
         using var meteredCache = new MeteredMemoryCache(cache, meter, options);
@@ -449,7 +450,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
 
         // Act & Assert - should not throw, empty string is valid
         using var meteredCache = new MeteredMemoryCache(cache, meter, "");
@@ -461,7 +462,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
 
         // Act & Assert - should not throw, null is valid (no cache.name tag)
         using var meteredCache = new MeteredMemoryCache(cache, meter, (string?)null);
@@ -473,7 +474,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddSingleton<Meter>(sp => new Meter("test"));
+        services.AddSingleton<Meter>(sp => new Meter(SharedUtilities.GetUniqueMeterName("test")));
         services.AddNamedMeteredMemoryCache("test");
         var provider = services.BuildServiceProvider();
 
@@ -488,7 +489,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test"));
         using var meteredCache = new MeteredMemoryCache(cache, meter);
 
         // Act & Assert - Factory returning null for reference type should throw
@@ -587,7 +588,7 @@ public class NegativeConfigurationTests
     {
         // Arrange
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.normalization");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.normalization"));
 
         // Act - cache name with leading/trailing whitespace
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "  cache-name  ");

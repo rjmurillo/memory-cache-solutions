@@ -12,17 +12,14 @@ namespace Unit;
 
 public class ServiceCollectionExtensionsTests
 {
-    // Helper method to generate unique test names to prevent cross-test isolation issues
-    private static string GetUniqueTestName(string prefix = "test") => $"{prefix}-{Guid.NewGuid():N}";
-    private static string GetUniqueMeterName(string prefix = "meter") => $"{prefix}-{Guid.NewGuid():N}";
-    private static string GetUniqueCacheName(string prefix = "cache") => $"{prefix}-{Guid.NewGuid():N}";
+
     [Fact]
     public void AddNamedMeteredMemoryCache_RegistersRequiredServices()
     {
         // Arrange
         var services = new ServiceCollection();
-        var cacheName = GetUniqueCacheName("test-cache");
-        var meterName = GetUniqueMeterName("test-meter");
+        var cacheName = SharedUtilities.GetUniqueCacheName("test-cache");
+        var meterName = SharedUtilities.GetUniqueMeterName("test-meter");
 
         // Act
         services.AddNamedMeteredMemoryCache(cacheName, options =>
@@ -96,8 +93,8 @@ public class ServiceCollectionExtensionsTests
         var services = new ServiceCollection();
 
         // Act
-        var meterName1 = GetUniqueMeterName("meter1");
-        var meterName2 = GetUniqueMeterName("meter2");
+        var meterName1 = SharedUtilities.GetUniqueMeterName("meter1");
+        var meterName2 = SharedUtilities.GetUniqueMeterName("meter2");
 
         services.AddNamedMeteredMemoryCache("cache1",
             options => options.AdditionalTags["type"] = "primary",
@@ -272,7 +269,7 @@ public class ServiceCollectionExtensionsTests
         services.AddSingleton<IMemoryCache>(sp => new MemoryCache(new MemoryCacheOptions()));
 
         // Act
-        var decoratedMeterName = GetUniqueMeterName("decorated-meter");
+        var decoratedMeterName = SharedUtilities.GetUniqueMeterName("decorated-meter");
         services.DecorateMemoryCacheWithMetrics(cacheName: "decorated", meterName: decoratedMeterName);
         using var provider = services.BuildServiceProvider();
 
@@ -319,7 +316,7 @@ public class ServiceCollectionExtensionsTests
         services.AddSingleton<IMemoryCache>(sp => new MemoryCache(new MemoryCacheOptions()));
 
         // Act
-        var customMeterName = GetUniqueMeterName("custom-meter");
+        var customMeterName = SharedUtilities.GetUniqueMeterName("custom-meter");
         services.DecorateMemoryCacheWithMetrics(
             cacheName: "decorated-cache",
             meterName: customMeterName,
@@ -376,7 +373,7 @@ public class ServiceCollectionExtensionsTests
         var services = new ServiceCollection();
 
         // Act - Register multiple caches with same meter name to avoid keyed service conflicts
-        var sharedMeterName = GetUniqueMeterName("shared-meter");
+        var sharedMeterName = SharedUtilities.GetUniqueMeterName("shared-meter");
         Parallel.For(0, 10, i =>
         {
             services.AddNamedMeteredMemoryCache($"cache-{i}", meterName: sharedMeterName);
