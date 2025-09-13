@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 
 namespace Integration;
 
@@ -353,7 +354,7 @@ public class OpenTelemetryIntegrationTests
                 .AddInMemoryExporter(exportedItems)
                 // Configure metric readers for better test reliability
                 .SetMaxMetricStreams(1000)  // Ensure we can handle many metrics
-                .SetMaxMetricPointsPerMetricStream(1000)); // Handle high-volume scenarios
+                .AddView(instrument => new MetricStreamConfiguration { CardinalityLimit = 1000 })); // Handle high-volume scenarios
 
         // Decorate the cache with metrics
         builder.Services.DecorateMemoryCacheWithMetrics("test-cache");

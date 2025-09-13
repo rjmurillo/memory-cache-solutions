@@ -11,8 +11,11 @@ using Microsoft.Extensions.Caching.Memory;
 namespace Benchmarks;
 
 /// <summary>
-/// Benchmarks comparing performance overhead of named vs unnamed MeteredMemoryCache instances.
-/// Tests the impact of dimensional metrics (cache.name tags) on cache operation performance.
+/// Benchmarks comparing performance overhead of different cache implementations:
+/// - Raw MemoryCache (baseline)
+/// - MeteredMemoryCache (Counter&lt;T&gt; approach)
+/// - OptimizedMeteredMemoryCache (atomic operations approach)
+/// Tests the impact of dimensional metrics (cache.name tags) and metric collection strategies on cache operation performance.
 /// </summary>
 [Config(typeof(BenchmarkConfig))]
 [MemoryDiagnoser]
@@ -23,6 +26,8 @@ public class CacheBenchmarks
     private IMemoryCache _rawCache = null!;
     private IMemoryCache _meteredUnnamedCache = null!;
     private IMemoryCache _meteredNamedCache = null!;
+    private OptimizedMeteredMemoryCache _optimizedUnnamedCache = null!;
+    private OptimizedMeteredMemoryCache _optimizedNamedCache = null!;
     private Meter _meter = null!;
 
     private const string TestKey = "test-key";
@@ -50,10 +55,20 @@ public class CacheBenchmarks
         var namedInnerCache = new MemoryCache(new MemoryCacheOptions());
         _meteredNamedCache = new MeteredMemoryCache(namedInnerCache, _meter, CacheName, disposeInner: true);
 
+        // OptimizedMeteredMemoryCache without cache name (unnamed)
+        var optimizedUnnamedInnerCache = new MemoryCache(new MemoryCacheOptions());
+        _optimizedUnnamedCache = new OptimizedMeteredMemoryCache(optimizedUnnamedInnerCache, _meter, cacheName: null, disposeInner: true);
+
+        // OptimizedMeteredMemoryCache with cache name (named/dimensional metrics)
+        var optimizedNamedInnerCache = new MemoryCache(new MemoryCacheOptions());
+        _optimizedNamedCache = new OptimizedMeteredMemoryCache(optimizedNamedInnerCache, _meter, CacheName, disposeInner: true);
+
         // Pre-populate caches for hit scenarios
         _rawCache.Set(TestKey, TestValue);
         _meteredUnnamedCache.Set(TestKey, TestValue);
         _meteredNamedCache.Set(TestKey, TestValue);
+        _optimizedUnnamedCache.Set(TestKey, TestValue);
+        _optimizedNamedCache.Set(TestKey, TestValue);
     }
 
     [GlobalCleanup]
@@ -62,6 +77,8 @@ public class CacheBenchmarks
         _rawCache?.Dispose();
         _meteredUnnamedCache?.Dispose();
         _meteredNamedCache?.Dispose();
+        _optimizedUnnamedCache?.Dispose();
+        _optimizedNamedCache?.Dispose();
         _meter?.Dispose();
     }
 
@@ -96,6 +113,26 @@ public class CacheBenchmarks
         return _meteredNamedCache.Get(TestKey);
     }
 
+    /// <summary>
+    /// OptimizedMeteredMemoryCache hit performance without cache name (atomic counters).
+    /// Tests overhead of atomic increment operations without tag processing.
+    /// </summary>
+    [Benchmark]
+    public object? OptimizedCache_Unnamed_Hit()
+    {
+        return _optimizedUnnamedCache.Get(TestKey);
+    }
+
+    /// <summary>
+    /// OptimizedMeteredMemoryCache hit performance with cache name (atomic counters + periodic publishing).
+    /// Tests overhead of atomic operations with periodic metric publishing capability.
+    /// </summary>
+    [Benchmark]
+    public object? OptimizedCache_Named_Hit()
+    {
+        return _optimizedNamedCache.Get(TestKey);
+    }
+
     #endregion
 
     #region Cache Miss Benchmarks
@@ -127,6 +164,26 @@ public class CacheBenchmarks
     public object? MeteredCache_Named_Miss()
     {
         return _meteredNamedCache.Get("nonexistent-key");
+    }
+
+    /// <summary>
+    /// OptimizedMeteredMemoryCache miss performance without cache name.
+    /// Tests atomic increment overhead on cache misses.
+    /// </summary>
+    [Benchmark]
+    public object? OptimizedCache_Unnamed_Miss()
+    {
+        return _optimizedUnnamedCache.Get("nonexistent-key");
+    }
+
+    /// <summary>
+    /// OptimizedMeteredMemoryCache miss performance with cache name.
+    /// Tests atomic increment overhead with periodic publishing capability.
+    /// </summary>
+    [Benchmark]
+    public object? OptimizedCache_Named_Miss()
+    {
+        return _optimizedNamedCache.Get("nonexistent-key");
     }
 
     #endregion
@@ -163,6 +220,26 @@ public class CacheBenchmarks
     public void MeteredCache_Named_Set()
     {
         _meteredNamedCache.Set(PrecomputedSetKeys[++_setCounter % PrecomputedSetKeys.Length], TestValue);
+    }
+
+    /// <summary>
+    /// OptimizedMeteredMemoryCache set performance without cache name.
+    /// Tests atomic counter overhead during cache set operations.
+    /// </summary>
+    [Benchmark]
+    public void OptimizedCache_Unnamed_Set()
+    {
+        _optimizedUnnamedCache.Set(PrecomputedSetKeys[++_setCounter % PrecomputedSetKeys.Length], TestValue);
+    }
+
+    /// <summary>
+    /// OptimizedMeteredMemoryCache set performance with cache name.
+    /// Tests atomic counter overhead with periodic publishing capability.
+    /// </summary>
+    [Benchmark]
+    public void OptimizedCache_Named_Set()
+    {
+        _optimizedNamedCache.Set(PrecomputedSetKeys[++_setCounter % PrecomputedSetKeys.Length], TestValue);
     }
 
     #endregion
@@ -223,6 +300,42 @@ public class CacheBenchmarks
         return _meteredNamedCache.TryGetValue("nonexistent-key", out _);
     }
 
+    /// <summary>
+    /// OptimizedMeteredMemoryCache TryGetValue hit performance without cache name.
+    /// </summary>
+    [Benchmark]
+    public bool OptimizedCache_Unnamed_TryGetValue_Hit()
+    {
+        return _optimizedUnnamedCache.TryGetValue(TestKey, out _);
+    }
+
+    /// <summary>
+    /// OptimizedMeteredMemoryCache TryGetValue hit performance with cache name.
+    /// </summary>
+    [Benchmark]
+    public bool OptimizedCache_Named_TryGetValue_Hit()
+    {
+        return _optimizedNamedCache.TryGetValue(TestKey, out _);
+    }
+
+    /// <summary>
+    /// OptimizedMeteredMemoryCache TryGetValue miss performance without cache name.
+    /// </summary>
+    [Benchmark]
+    public bool OptimizedCache_Unnamed_TryGetValue_Miss()
+    {
+        return _optimizedUnnamedCache.TryGetValue("nonexistent-key", out _);
+    }
+
+    /// <summary>
+    /// OptimizedMeteredMemoryCache TryGetValue miss performance with cache name.
+    /// </summary>
+    [Benchmark]
+    public bool OptimizedCache_Named_TryGetValue_Miss()
+    {
+        return _optimizedNamedCache.TryGetValue("nonexistent-key", out _);
+    }
+
     #endregion
 
     #region CreateEntry Benchmarks
@@ -256,6 +369,28 @@ public class CacheBenchmarks
     public void MeteredCache_Named_CreateEntry()
     {
         using var entry = _meteredNamedCache.CreateEntry(PrecomputedCreateKeys[++_createCounter % PrecomputedCreateKeys.Length]);
+        entry.Value = TestValue;
+    }
+
+    /// <summary>
+    /// OptimizedMeteredMemoryCache CreateEntry performance without cache name.
+    /// Tests atomic counter overhead during entry creation.
+    /// </summary>
+    [Benchmark]
+    public void OptimizedCache_Unnamed_CreateEntry()
+    {
+        using var entry = _optimizedUnnamedCache.CreateEntry(PrecomputedCreateKeys[++_createCounter % PrecomputedCreateKeys.Length]);
+        entry.Value = TestValue;
+    }
+
+    /// <summary>
+    /// OptimizedMeteredMemoryCache CreateEntry performance with cache name.
+    /// Tests atomic counter overhead with periodic publishing capability.
+    /// </summary>
+    [Benchmark]
+    public void OptimizedCache_Named_CreateEntry()
+    {
+        using var entry = _optimizedNamedCache.CreateEntry(PrecomputedCreateKeys[++_createCounter % PrecomputedCreateKeys.Length]);
         entry.Value = TestValue;
     }
 
