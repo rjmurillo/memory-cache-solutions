@@ -276,9 +276,79 @@ export function teardown(data) {
     // Compare with initial stats if available
     if (data.initialCacheStats) {
       console.log("📈 Cache statistics comparison:");
-      console.log("   Initial stats captured at start of test");
-      console.log("   Final stats captured at end of test");
-      console.log("   Monitor for memory leaks and cache growth patterns");
+      
+      const initialStats = data.initialCacheStats;
+      const finalStats = finalCacheStats.json();
+      
+      // Configuration for regression thresholds
+      const thresholds = {
+        maxHitsIncrease: 10000,      // Maximum acceptable increase in hits
+        maxMissesIncrease: 1000,     // Maximum acceptable increase in misses
+        maxSizeIncrease: 100,        // Maximum acceptable increase in cache size
+        maxEntriesIncrease: 50,      // Maximum acceptable increase in entries
+        minHitRate: 0.7,             // Minimum acceptable hit rate
+        maxMemoryLeakPercent: 50     // Maximum acceptable memory increase percentage
+      };
+      
+      // Extract and compare key metrics
+      const metrics = [
+        { name: 'hits', initial: initialStats.hits || 0, final: finalStats.hits || 0 },
+        { name: 'misses', initial: initialStats.misses || 0, final: finalStats.misses || 0 },
+        { name: 'size', initial: initialStats.size || 0, final: finalStats.size || 0 },
+        { name: 'entries', initial: initialStats.entries || 0, final: finalStats.entries || 0 }
+      ];
+      
+      let hasRegressions = false;
+      const regressions = [];
+      
+      // Calculate and log differences for each metric
+      metrics.forEach(metric => {
+        const delta = metric.final - metric.initial;
+        const percentChange = metric.initial > 0 ? ((delta / metric.initial) * 100).toFixed(2) : 'N/A';
+        
+        console.log(`   ${metric.name.toUpperCase()}: ${metric.initial} → ${metric.final} (Δ${delta >= 0 ? '+' : ''}${delta}, ${percentChange}%)`);
+        
+        // Check for regressions based on thresholds
+        const thresholdKey = `max${metric.name.charAt(0).toUpperCase() + metric.name.slice(1)}Increase`;
+        if (thresholds[thresholdKey] && delta > thresholds[thresholdKey]) {
+          hasRegressions = true;
+          regressions.push(`${metric.name} increased by ${delta} (threshold: ${thresholds[thresholdKey]})`);
+        }
+      });
+      
+      // Calculate hit rate
+      const totalRequests = (finalStats.hits || 0) + (finalStats.misses || 0);
+      const initialTotalRequests = (initialStats.hits || 0) + (initialStats.misses || 0);
+      const finalHitRate = totalRequests > 0 ? ((finalStats.hits || 0) / totalRequests).toFixed(4) : 0;
+      const initialHitRate = initialTotalRequests > 0 ? ((initialStats.hits || 0) / initialTotalRequests).toFixed(4) : 0;
+      
+      console.log(`   HIT RATE: ${initialHitRate} → ${finalHitRate}`);
+      
+      // Check hit rate regression
+      if (finalHitRate < thresholds.minHitRate) {
+        hasRegressions = true;
+        regressions.push(`Hit rate ${finalHitRate} below threshold ${thresholds.minHitRate}`);
+      }
+      
+      // Check for memory leak indicators
+      const sizeIncreasePercent = initialStats.size > 0 ? 
+        (((finalStats.size || 0) - (initialStats.size || 0)) / initialStats.size * 100) : 0;
+      
+      if (sizeIncreasePercent > thresholds.maxMemoryLeakPercent) {
+        hasRegressions = true;
+        regressions.push(`Cache size increased by ${sizeIncreasePercent.toFixed(2)}% (threshold: ${thresholds.maxMemoryLeakPercent}%)`);
+      }
+      
+      // Log summary and handle regressions
+      if (hasRegressions) {
+        console.log("❌ REGRESSIONS DETECTED:");
+        regressions.forEach(regression => console.log(`   - ${regression}`));
+        console.log("   Monitor for memory leaks and cache growth patterns");
+        throw new Error(`Soak test failed due to regressions: ${regressions.join(', ')}`);
+      } else {
+        console.log("✅ No regressions detected - cache performance within acceptable thresholds");
+        console.log("   Monitor for memory leaks and cache growth patterns");
+      }
     }
   }
 
