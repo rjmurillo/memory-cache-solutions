@@ -1,6 +1,4 @@
 using CacheImplementations;
-using Microsoft.Extensions.Options;
-using Xunit;
 
 namespace Unit;
 

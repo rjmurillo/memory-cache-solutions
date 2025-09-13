@@ -2,11 +2,8 @@ using System.Diagnostics.Metrics;
 using CacheImplementations;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Primitives;
-using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using System.Linq;
-using Xunit;
 using System.Diagnostics;
 
 namespace Unit;

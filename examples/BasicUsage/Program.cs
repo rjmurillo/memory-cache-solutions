@@ -3,7 +3,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Metrics;
-using System.Diagnostics.Metrics;
 using CacheImplementations;
 
 namespace BasicUsage;

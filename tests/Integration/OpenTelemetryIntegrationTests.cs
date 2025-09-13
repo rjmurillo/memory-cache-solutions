@@ -1,9 +1,9 @@
-using System.Diagnostics.Metrics;
 using CacheImplementations;
+
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using OpenTelemetry;
+
 using OpenTelemetry.Metrics;
 
 namespace Integration;

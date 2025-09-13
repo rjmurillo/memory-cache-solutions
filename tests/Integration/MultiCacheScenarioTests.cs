@@ -1,13 +1,16 @@
 using System.Diagnostics.Metrics;
+
 using CacheImplementations;
+
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
-using OpenTelemetry;
+
 using OpenTelemetry.Metrics;
+
 using Unit;
 
 namespace Integration;

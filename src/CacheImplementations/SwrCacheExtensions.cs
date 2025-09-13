@@ -1,5 +1,3 @@
-using System;
-using System.Threading;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace CacheImplementations;

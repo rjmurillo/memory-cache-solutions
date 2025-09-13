@@ -1,6 +1,4 @@
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Jobs;
 using Microsoft.Extensions.Caching.Memory;
 using CacheImplementations;
 
