@@ -40,6 +40,7 @@ builder.Services.Decorate<IMemoryCache>(inner => new CoalescingMemoryCache(inner
 For single-flight scenarios, we recommend using these mature, production-ready solutions instead of implementing your own:
 
 ### Microsoft HybridCache (.NET 9+)
+
 - **First-party solution** from Microsoft with built-in cache stampede protection
 - **L1 + L2 cache support** (in-memory + distributed)
 - **Cache invalidation with tags** for bulk operations
@@ -63,6 +64,7 @@ public class SomeService(HybridCache cache)
 ```
 
 ### FusionCache (All .NET Versions)
+
 - **Mature OSS library** with comprehensive single-flight support
 - **Request coalescing** - only one factory runs per key concurrently
 - **Rich feature set**: soft/hard timeouts, fail-safe, eager refresh, backplane
@@ -86,6 +88,7 @@ public class SomeService(FusionCache cache)
 ```
 
 ### When to Choose Which
+
 - **Greenfield or .NET 9+**: Use **HybridCache** - first-party, GA, built-in stampede protection
 - **Need richer features or .NET < 9**: Use **FusionCache** - comprehensive feature set, excellent documentation
 
@@ -184,7 +187,6 @@ var value = await coalescing.GetOrCreateAsync("k", async entry => {
 - Includes convenience `TryGet<T>` & `GetOrCreate<T>` wrappers emitting structured counters.
 - Use when you need visibility (hit ratio, churn) without adopting a full external caching layer.
 
-
 ### Stale‑While‑Revalidate Extensions (`GetOrCreateSwrAsync` + `SwrOptions`)
 
 - Pattern: serve _fresh_ until TTL; while _stale_ (TTL elapsed but within `Ttl + Stale`) keep serving old value and trigger a _single_ background refresh (non-blocking); after `Ttl + Stale` the entry is evicted and callers block for a new value.
@@ -202,13 +204,13 @@ Example timing diagram (`Ttl = 30s`, `Stale = 2m`):
 
 ## Choosing an Approach
 
-| Scenario                                                                                   | Recommended                                                              |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| Prevent stampede for expensive async load integrated through existing `IMemoryCache` usage | `CoalescingMemoryCache`                                                  |
-| Need metrics (hit ratio, eviction reasons)                                                 | `MeteredMemoryCache` (can stack with coalescing via multiple decorators) |
-| Reduce tail latency by serving slightly stale data & refreshing in background              | SWR extensions                                                           |
+| Scenario                                                                                   | Recommended                                                                               |
+| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Prevent stampede for expensive async load integrated through existing `IMemoryCache` usage | `CoalescingMemoryCache`                                                                   |
+| Need metrics (hit ratio, eviction reasons)                                                 | `MeteredMemoryCache` (can stack with coalescing via multiple decorators)                  |
+| Reduce tail latency by serving slightly stale data & refreshing in background              | SWR extensions                                                                            |
 | Need single-flight (cache stampede protection) for .NET 9+                                 | **[Microsoft HybridCache](https://devblogs.microsoft.com/dotnet/hybrid-cache-is-now-ga)** |
-| Need single-flight with richer features or .NET < 9                                        | **[FusionCache](https://github.com/ZiggyCreatures/FusionCache)** |
+| Need single-flight with richer features or .NET < 9                                        | **[FusionCache](https://github.com/ZiggyCreatures/FusionCache)**                          |
 
 You can combine patterns: e.g., wrap the inner cache with metrics, then wrap that with coalescing for async factories.
 
@@ -216,13 +218,13 @@ You can combine patterns: e.g., wrap the inner cache with metrics, then wrap tha
 
 ## Concurrency, Cancellation & Failure Notes
 
-| Component             | Cancellation Behavior                                                                                                             | Failure Behavior                                                                                                                                       |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| CoalescingMemoryCache | Cancellation of the awaited task cancels only that caller; other awaiters continue. Factory exception propagates to all awaiters. | All awaiting callers observe the same exception; entry not cached; subsequent call retries.                                                            |
-| SWR                   | Foreground miss uses caller token; background refresh ignores caller tokens.                                                      | Background exceptions swallowed (stale value served).                                                                                                  |
-| MeteredMemoryCache    | N/A (no async).                                                                                                                   | Eviction reasons recorded regardless.                                                                                                                  |
-| HybridCache           | See [HybridCache documentation](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/hybrid?view=aspnetcore-9.0)     | See [HybridCache documentation](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/hybrid?view=aspnetcore-9.0)                          |
-| FusionCache           | See [FusionCache documentation](https://github.com/ZiggyCreatures/FusionCache)                                                   | See [FusionCache documentation](https://github.com/ZiggyCreatures/FusionCache)                                                                       |
+| Component             | Cancellation Behavior                                                                                                             | Failure Behavior                                                                                                              |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| CoalescingMemoryCache | Cancellation of the awaited task cancels only that caller; other awaiters continue. Factory exception propagates to all awaiters. | All awaiting callers observe the same exception; entry not cached; subsequent call retries.                                   |
+| SWR                   | Foreground miss uses caller token; background refresh ignores caller tokens.                                                      | Background exceptions swallowed (stale value served).                                                                         |
+| MeteredMemoryCache    | N/A (no async).                                                                                                                   | Eviction reasons recorded regardless.                                                                                         |
+| HybridCache           | See [HybridCache documentation](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/hybrid?view=aspnetcore-9.0)     | See [HybridCache documentation](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/hybrid?view=aspnetcore-9.0) |
+| FusionCache           | See [FusionCache documentation](https://github.com/ZiggyCreatures/FusionCache)                                                    | See [FusionCache documentation](https://github.com/ZiggyCreatures/FusionCache)                                                |
 
 ---
 
