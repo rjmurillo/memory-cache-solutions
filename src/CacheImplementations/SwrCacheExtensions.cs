@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Caching.Memory;
+using System.Collections.Concurrent;
 
 namespace CacheImplementations;
 
@@ -11,13 +12,15 @@ public static class SwrCacheExtensions
     {
         public readonly T Value;
         public readonly DateTimeOffset FreshUntil;
-        public int Refreshing; // 0 = no, 1 = yes
         public SwrBox(T value, DateTimeOffset freshUntil)
         {
             Value = value;
             FreshUntil = freshUntil;
         }
     }
+
+    // Global tracking of ongoing refreshes to prevent duplicate background refreshes
+    private static readonly ConcurrentDictionary<string, Task> _ongoingRefreshes = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Gets a value from cache, serving stale content while triggering a single background refresh when the
@@ -50,7 +53,7 @@ public static class SwrCacheExtensions
             {
                 return box.Value; // fresh
             }
-            TryStartBackgroundRefresh(cache, key, opt, factory, box);
+            TryStartBackgroundRefresh(cache, key, opt, factory);
             return box.Value; // serve stale
         }
 
@@ -68,22 +71,18 @@ public static class SwrCacheExtensions
         IMemoryCache cache,
         string key,
         SwrOptions opt,
-        Func<CancellationToken, Task<T>> factory,
-        SwrBox<T> box)
+        Func<CancellationToken, Task<T>> factory)
     {
-        if (Interlocked.CompareExchange(ref box.Refreshing, 1, 0) != 0)
-        {
-            return; // already refreshing
-        }
-
-        _ = Task.Run(async () =>
+        // Use global tracking to prevent duplicate background refreshes
+        _ = _ongoingRefreshes.GetOrAdd(key, k => Task.Run(async () =>
         {
             try
             {
                 var newValue = await factory(CancellationToken.None).ConfigureAwait(false);
                 var now = DateTimeOffset.UtcNow;
                 var newBox = new SwrBox<T>(newValue, now + opt.Ttl);
-                cache.Set(key, newBox, new MemoryCacheEntryOptions
+
+                cache.Set(k, newBox, new MemoryCacheEntryOptions
                 {
                     AbsoluteExpirationRelativeToNow = opt.Ttl + opt.Stale,
                 });
@@ -94,8 +93,12 @@ public static class SwrCacheExtensions
             }
             finally
             {
-                Volatile.Write(ref box.Refreshing, 0);
+                // Remove from ongoing refreshes when done
+                _ongoingRefreshes.TryRemove(k, out Task? _);
             }
-        });
+        }));
+
+        // If we just added a new task, it will start running
+        // If there was already a task, we just return without starting another
     }
 }
