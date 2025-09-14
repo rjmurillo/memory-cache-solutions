@@ -28,28 +28,79 @@ public class SwrCacheTests
     public async Task StaleValue_TriggersBackgroundRefresh_ServesOldThenNew()
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        var opts = new SwrOptions(TimeSpan.FromMilliseconds(50), TimeSpan.FromMilliseconds(200));
+        // Use longer TTL for this test to avoid timing issues
+        var opts = new SwrOptions(TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(5000));
         int calls = 0;
         int produced = 0;
+        var refreshStarted = new TaskCompletionSource<bool>();
+        var refreshCompleted = new TaskCompletionSource<bool>();
 
-        async Task<int> Factory(CancellationToken _)
+        async Task<int> Factory(CancellationToken ct)
         {
+            var callNumber = Interlocked.Increment(ref calls);
+            if (callNumber == 2)
+            {
+                refreshStarted.TrySetResult(true);
+            }
+            
             await Task.Yield();
-            calls++;
-            return ++produced;
+            var result = Interlocked.Increment(ref produced);
+            
+            if (callNumber == 2)
+            {
+                refreshCompleted.TrySetResult(true);
+            }
+            
+            return result;
         }
 
+        // First call - populates cache with value 1
         var first = await cache.GetOrCreateSwrAsync("k", opts, Factory);
+        Assert.Equal(1, first);
+        Assert.Equal(1, Volatile.Read(ref calls));
 
-        // Test that the cache returns the same value when called again (fresh)
-        var fresh = await cache.GetOrCreateSwrAsync("k", opts, Factory);
-        Assert.Equal(first, fresh); // should be the same value (fresh)
-        Assert.Equal(1, calls); // factory should only be called once
+        // Manually manipulate the cache entry to make it stale
+        // We need to replace the entry with one that has an expired FreshUntil time
+        if (cache.TryGetValue("k", out object? boxObj) && boxObj != null)
+        {
+            var boxType = boxObj.GetType();
+            var valueField = boxType.GetField("Value");
+            var freshUntilField = boxType.GetField("FreshUntil");
+            
+            if (valueField != null && freshUntilField != null)
+            {
+                var currentValue = valueField.GetValue(boxObj);
+                // Set FreshUntil to the past to make it stale
+                var staleFreshUntil = DateTimeOffset.UtcNow.AddMilliseconds(-10);
+                
+                // Create a new box with stale FreshUntil
+                var newBox = Activator.CreateInstance(boxType, currentValue, staleFreshUntil);
+                
+                // Replace the cache entry
+                cache.Set("k", newBox, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(5) // Still valid in cache
+                });
+            }
+        }
 
-        // Test that the cache works correctly for different keys
-        var second = await cache.GetOrCreateSwrAsync("k2", opts, Factory);
-        Assert.True(second > first); // should be a new value
-        Assert.Equal(2, calls); // factory should be called again for new key
+        // Second call - should serve stale value immediately and trigger background refresh
+        var stale = await cache.GetOrCreateSwrAsync("k", opts, Factory);
+        Assert.Equal(first, stale); // Should get the same stale value
+        
+        // Wait for background refresh to start
+        await refreshStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        
+        // Wait for background refresh to complete
+        await refreshCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        
+        // Allow cache to be updated
+        await Task.Yield();
+
+        // Third call - should get the refreshed value
+        var afterRefresh = await cache.GetOrCreateSwrAsync("k", opts, Factory);
+        Assert.Equal(2, afterRefresh); // Should get the new value from background refresh
+        Assert.Equal(2, Volatile.Read(ref calls)); // Factory should not be called again
     }
 
     [Fact]
