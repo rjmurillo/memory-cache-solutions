@@ -4,7 +4,7 @@ This example demonstrates how to use the `MeteredMemoryCache` in an ASP.NET Core
 
 ## Directory Structure
 
-```
+```text
 examples/AspNetCore/
 ├── src/                    # ASP.NET Core application source code
 │   ├── AspNetCore.csproj   # Project file
@@ -34,8 +34,8 @@ dotnet run
 
 The application will start on:
 
-- HTTPS: https://localhost:64494
-- HTTP: http://localhost:64495
+- HTTPS: <https://localhost:64494>
+- HTTP: <http://localhost:64495>
 
 ### 2. Test the Application
 
