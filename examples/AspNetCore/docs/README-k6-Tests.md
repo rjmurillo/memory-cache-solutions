@@ -370,9 +370,9 @@ jobs:
           dotnet run &
           sleep 30
       - name: Run Smoke Tests
-        run: k6 run examples/AspNetCore/k6-smoke-tests.js
+        run: k6 run examples/AspNetCore/tests/k6-smoke-tests.js
       - name: Run Load Tests
-        run: k6 run examples/AspNetCore/k6-average-load-tests.js
+        run: k6 run examples/AspNetCore/tests/k6-average-load-tests.js
 ```
 
 ### Jenkins Pipeline Example
