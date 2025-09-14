@@ -758,10 +758,12 @@ When writing XML documentation comments for C# code, follow these best practices
 
 ### General Principles
 
-- **Document all public types and members** with XML comments. Private/internal members may be documented if useful.
+- **Document ALL public, protected, and internal types and members** with XML comments. This is MANDATORY for this codebase.
+- **Private members may be documented if useful** for understanding complex logic or algorithms.
 - **Always use complete sentences** ending with periods.
 - **XML must be well-formed**; invalid XML will cause compiler warnings.
 - **At a minimum, every type and member should have a `<summary>` tag.**
+- **Internal types and members are treated with the same documentation requirements as public APIs** since they are part of the library's internal contract and are used by AI agents and developers for understanding the codebase.
 
 ### Tag Usage and Structure
 
@@ -808,6 +810,58 @@ When writing XML documentation comments for C# code, follow these best practices
 ```
 
 For more details, see the [Microsoft Learn XML documentation tags guide](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/xmldoc/recommended-tags).
+
+### Mandatory Documentation Requirements
+
+**CRITICAL: All public, protected, and internal types and members MUST be documented with XML comments.**
+
+This requirement applies to:
+
+- **All public types and members** (classes, interfaces, structs, enums, methods, properties, fields, events)
+- **All protected types and members** (inheritance-visible APIs)
+- **All internal types and members** (assembly-visible APIs)
+
+**Rationale:**
+- Internal APIs are part of the library's contract and are used by AI agents and developers
+- Comprehensive documentation improves code maintainability and understanding
+- AI agents rely on XML documentation for code analysis and generation
+- Internal types often represent important architectural decisions that need explanation
+
+**Enforcement:**
+- The build system treats missing XML documentation as errors (CS1591)
+- All commits must include proper XML documentation for new or modified public/protected/internal members
+- Code reviews will reject changes that lack proper documentation
+
+**Examples of what MUST be documented:**
+```csharp
+// ✅ REQUIRED - Internal class must be documented
+/// <summary>
+/// Provides utility methods for generating unique names in test scenarios.
+/// </summary>
+internal static class SharedUtilities
+{
+    // ✅ REQUIRED - Internal method must be documented
+    /// <summary>
+    /// Generates a unique test name by appending a GUID to the specified prefix.
+    /// </summary>
+    /// <param name="prefix">The prefix to use for the test name.</param>
+    /// <returns>A unique test name.</returns>
+    internal static string GetUniqueTestName(string prefix = "test") => $"{prefix}-{Guid.NewGuid():N}";
+}
+
+// ✅ REQUIRED - Protected method must be documented
+/// <summary>
+/// Creates a test subject for the specific implementation being tested.
+/// </summary>
+/// <param name="innerCache">The underlying cache to wrap.</param>
+/// <returns>A new test subject instance.</returns>
+protected abstract TTestSubject CreateTestSubject(IMemoryCache? innerCache = null);
+```
+
+**Violation Consequences:**
+- Build failures due to CS1591 errors
+- Code review rejection
+- Potential revert of commits lacking proper documentation
 
 ---
 
