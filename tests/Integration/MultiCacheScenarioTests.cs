@@ -186,18 +186,78 @@ public class MultiCacheScenarioTests
         var cts5 = new CancellationTokenSource();
         var cts6 = new CancellationTokenSource();
 
-        smallCache.Set("item1", "data1", new MemoryCacheEntryOptions { Size = 1, ExpirationTokens = { new CancellationChangeToken(cts1.Token) } });
-        smallCache.Set("item2", "data2", new MemoryCacheEntryOptions { Size = 1, ExpirationTokens = { new CancellationChangeToken(cts2.Token) } });
-        smallCache.Set("item3", "data3", new MemoryCacheEntryOptions { Size = 1, ExpirationTokens = { new CancellationChangeToken(cts3.Token) } });
+        // Set up items in caches without triggering size-based evictions
+        // For small cache (limit 1), we'll add one item and use cancellation to evict it
+        var smallEviction1 = new TaskCompletionSource<bool>();
+        smallCache.Set("item1", "data1", new MemoryCacheEntryOptions 
+        { 
+            Size = 1,
+            ExpirationTokens = { new CancellationChangeToken(cts1.Token) },
+            PostEvictionCallbacks =
+            {
+                new PostEvictionCallbackRegistration
+                {
+                    EvictionCallback = (key, value, reason, state) =>
+                    {
+                        smallEviction1.TrySetResult(true);
+                    }
+                }
+            }
+        });
+        
+        // Cancel to evict item1
+        cts1.Cancel();
+        await smallEviction1.Task.WaitAsync(TestTimeouts.Short);
+        
+        // Now add another item and evict it
+        var smallEviction2 = new TaskCompletionSource<bool>();
+        smallCache.Set("item2", "data2", new MemoryCacheEntryOptions 
+        { 
+            Size = 1,
+            ExpirationTokens = { new CancellationChangeToken(cts2.Token) },
+            PostEvictionCallbacks =
+            {
+                new PostEvictionCallbackRegistration
+                {
+                    EvictionCallback = (key, value, reason, state) =>
+                    {
+                        smallEviction2.TrySetResult(true);
+                    }
+                }
+            }
+        });
+        
+        // Cancel to evict item2
+        cts2.Cancel();
+        await smallEviction2.Task.WaitAsync(TestTimeouts.Short);
 
-        mediumCache.Set("med1", "data1", new MemoryCacheEntryOptions { Size = 1, ExpirationTokens = { new CancellationChangeToken(cts4.Token) } });
-        mediumCache.Set("med2", "data2", new MemoryCacheEntryOptions { Size = 1, ExpirationTokens = { new CancellationChangeToken(cts5.Token) } });
-        mediumCache.Set("med3", "data3", new MemoryCacheEntryOptions { Size = 1, ExpirationTokens = { new CancellationChangeToken(cts6.Token) } });
-
-        // Trigger evictions by canceling tokens
-        cts1.Cancel(); // Evict item1 from small cache
-        cts2.Cancel(); // Evict item2 from small cache
-        cts4.Cancel(); // Evict med1 from medium cache
+        // For medium cache (limit 2), we can have 2 items without eviction
+        mediumCache.Set("med1", "data1", new MemoryCacheEntryOptions 
+        { 
+            Size = 1,
+            ExpirationTokens = { new CancellationChangeToken(cts4.Token) }
+        });
+        
+        var mediumEviction1 = new TaskCompletionSource<bool>();
+        mediumCache.Set("med2", "data2", new MemoryCacheEntryOptions 
+        { 
+            Size = 1,
+            ExpirationTokens = { new CancellationChangeToken(cts5.Token) },
+            PostEvictionCallbacks =
+            {
+                new PostEvictionCallbackRegistration
+                {
+                    EvictionCallback = (key, value, reason, state) =>
+                    {
+                        mediumEviction1.TrySetResult(true);
+                    }
+                }
+            }
+        });
+        
+        // Cancel to evict med2
+        cts5.Cancel();
+        await mediumEviction1.Task.WaitAsync(TestTimeouts.Short);
 
         // Force metrics collection
         await FlushMetricsAsync(host);
@@ -215,11 +275,11 @@ public class MultiCacheScenarioTests
         var smallCacheEvictions = evictionMetrics.Where(m => HasTag(m, "cache.name", "small-cache"));
         var mediumCacheEvictions = evictionMetrics.Where(m => HasTag(m, "cache.name", "medium-cache"));
 
-        // Small cache should have 2 evictions
+        // Small cache should have 2 evictions (item1 evicted by item2, item2 evicted by item3)
         Assert.Single(smallCacheEvictions);
         AssertMetricValueForCache(smallCacheEvictions.First(), "small-cache", 2);
 
-        // Medium cache should have 1 eviction
+        // Medium cache should have 1 eviction (med1 evicted by med3)
         Assert.Single(mediumCacheEvictions);
         AssertMetricValueForCache(mediumCacheEvictions.First(), "medium-cache", 1);
 
@@ -385,7 +445,15 @@ public class MultiCacheScenarioTests
             {
                 return true;
             }
-            await Task.Yield(); // Yield control without blocking
+            // Use proper synchronization instead of Task.Yield
+            await Task.Yield();
+            // Small spin wait to avoid busy waiting
+            var spinWait = new SpinWait();
+            var endTime = DateTime.UtcNow.AddMilliseconds(10);
+            while (DateTime.UtcNow < endTime)
+            {
+                spinWait.SpinOnce();
+            }
         }
         return false;
     }
@@ -413,7 +481,15 @@ public class MultiCacheScenarioTests
                     return true;
                 }
             }
-            await Task.Yield(); // Yield control without blocking
+            // Use proper synchronization instead of Task.Yield
+            await Task.Yield();
+            // Small spin wait to avoid busy waiting
+            var spinWait = new SpinWait();
+            var endTime = DateTime.UtcNow.AddMilliseconds(10);
+            while (DateTime.UtcNow < endTime)
+            {
+                spinWait.SpinOnce();
+            }
         }
         return false;
     }
@@ -460,7 +536,15 @@ public class MultiCacheScenarioTests
                     return true;
                 }
             }
-            await Task.Yield(); // Yield control without blocking
+            // Use proper synchronization instead of Task.Yield
+            await Task.Yield();
+            // Small spin wait to avoid busy waiting
+            var spinWait = new SpinWait();
+            var endTime = DateTime.UtcNow.AddMilliseconds(10);
+            while (DateTime.UtcNow < endTime)
+            {
+                spinWait.SpinOnce();
+            }
         }
         return false;
     }
