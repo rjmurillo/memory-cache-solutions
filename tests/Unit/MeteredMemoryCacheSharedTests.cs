@@ -11,6 +11,14 @@ namespace Unit;
 /// </summary>
 public class MeteredMemoryCacheSharedTests : MeteredCacheTestBase<MeteredCacheTestSubject>
 {
+    /// <summary>
+    /// Creates a test subject for the MeteredMemoryCache implementation.
+    /// </summary>
+    /// <param name="innerCache">The underlying <see cref="IMemoryCache"/> to wrap. If <see langword="null"/>, a new <see cref="MemoryCache"/> is created.</param>
+    /// <param name="meter">The <see cref="Meter"/> instance to use. If <see langword="null"/>, a new meter is created with a unique name.</param>
+    /// <param name="cacheName">Optional logical name for the cache instance.</param>
+    /// <param name="disposeInner">Whether to dispose the <paramref name="innerCache"/> when the test subject is disposed.</param>
+    /// <returns>A new <see cref="MeteredCacheTestSubject"/> instance for testing the original MeteredMemoryCache implementation.</returns>
     protected override MeteredCacheTestSubject CreateTestSubject(
         IMemoryCache? innerCache = null,
         Meter? meter = null,
@@ -20,6 +28,15 @@ public class MeteredMemoryCacheSharedTests : MeteredCacheTestBase<MeteredCacheTe
         return new MeteredCacheTestSubject(innerCache, meter, cacheName, disposeInner);
     }
 
+    /// <summary>
+    /// Creates a test subject with options for the MeteredMemoryCache implementation.
+    /// </summary>
+    /// <param name="innerCache">The underlying <see cref="IMemoryCache"/> to wrap. If <see langword="null"/>, a new <see cref="MemoryCache"/> is created.</param>
+    /// <param name="meter">The <see cref="Meter"/> instance to use. If <see langword="null"/>, a new meter is created with a unique name.</param>
+    /// <param name="options">The options object for the cache. Must be of type <see cref="MeteredMemoryCacheOptions"/>.</param>
+    /// <param name="disposeInner">Whether to dispose the <paramref name="innerCache"/> when the test subject is disposed.</param>
+    /// <returns>A new <see cref="MeteredCacheTestSubject"/> instance configured with the specified options.</returns>
+    /// <exception cref="ArgumentException">Thrown if <paramref name="options"/> is not of type <see cref="MeteredMemoryCacheOptions"/>.</exception>
     protected override MeteredCacheTestSubject CreateTestSubjectWithOptions(
         IMemoryCache? innerCache,
         Meter? meter,

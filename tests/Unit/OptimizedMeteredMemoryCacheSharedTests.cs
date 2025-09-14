@@ -11,6 +11,14 @@ namespace Unit;
 /// </summary>
 public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<OptimizedMeteredCacheTestSubject>
 {
+    /// <summary>
+    /// Creates a test subject for the OptimizedMeteredMemoryCache implementation.
+    /// </summary>
+    /// <param name="innerCache">The underlying <see cref="IMemoryCache"/> to wrap. If <see langword="null"/>, a new <see cref="MemoryCache"/> is created.</param>
+    /// <param name="meter">The <see cref="Meter"/> instance to use. If <see langword="null"/>, a new meter is created with a unique name.</param>
+    /// <param name="cacheName">Optional logical name for the cache instance.</param>
+    /// <param name="disposeInner">Whether to dispose the <paramref name="innerCache"/> when the test subject is disposed.</param>
+    /// <returns>A new <see cref="OptimizedMeteredCacheTestSubject"/> instance for testing the optimized cache implementation with metrics enabled.</returns>
     protected override OptimizedMeteredCacheTestSubject CreateTestSubject(
         IMemoryCache? innerCache = null,
         Meter? meter = null,
