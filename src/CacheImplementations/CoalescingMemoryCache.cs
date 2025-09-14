@@ -81,9 +81,16 @@ public sealed class CoalescingMemoryCache : IMemoryCache
         return value;
     }
 
-    // IMemoryCache passthrough members
+    /// <summary>
+    /// Creates a new <see cref="ICacheEntry"/> for the specified key.
+    /// </summary>
+    /// <param name="key">The cache key for the entry.</param>
+    /// <returns>A new <see cref="ICacheEntry"/> instance.</returns>
     public ICacheEntry CreateEntry(object key) => _inner.CreateEntry(key);
 
+    /// <summary>
+    /// Disposes this cache instance and optionally the underlying cache.
+    /// </summary>
     public void Dispose()
     {
         if (_disposeInner)
@@ -92,7 +99,17 @@ public sealed class CoalescingMemoryCache : IMemoryCache
         }
     }
 
+    /// <summary>
+    /// Removes the cache entry with the specified key.
+    /// </summary>
+    /// <param name="key">The cache key to remove.</param>
     public void Remove(object key) => _inner.Remove(key);
 
+    /// <summary>
+    /// Attempts to get the cached value for the specified key.
+    /// </summary>
+    /// <param name="key">The cache key to retrieve.</param>
+    /// <param name="value">When this method returns, contains the cached value if found; otherwise, <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if the key was found; otherwise, <see langword="false"/>.</returns>
     public bool TryGetValue(object key, out object? value) => _inner.TryGetValue(key, out value);
 }

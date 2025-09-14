@@ -33,8 +33,8 @@ public static class ServiceCollectionExtensions
     /// <para>
     /// This method performs comprehensive service registration including:
     /// <list type="bullet">
-    /// <item><description>Named options configuration with validation using <see cref="Microsoft.Extensions.Options.OptionsBuilder{TOptions}.ValidateDataAnnotations"/> and <see cref="Microsoft.Extensions.Options.OptionsBuilder{TOptions}.ValidateOnStart"/></description></item>
-    /// <item><description>Keyed service registration for multi-cache scenarios using <see cref="Microsoft.Extensions.DependencyInjection.ServiceCollectionKeyedServiceExtensions.AddKeyedSingleton{TService}(IServiceCollection, object, System.Func{IServiceProvider, object, TService})"/></description></item>
+    /// <item><description>Named options configuration with validation using ValidateDataAnnotations and ValidateOnStart</description></item>
+    /// <item><description>Keyed service registration for multi-cache scenarios using AddKeyedSingleton</description></item>
     /// <item><description>Fallback singleton registration for single-cache applications</description></item>
     /// <item><description>Automatic <see cref="System.Diagnostics.Metrics.Meter"/> registration if not already present</description></item>
     /// <item><description>Options validator registration using <see cref="MeteredMemoryCacheOptionsValidator"/></description></item>
