@@ -99,7 +99,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
             
         var stats = GetCurrentStatistics();
         
-        if (stats.HitCount > 0)
+        if (stats.HitCount > 0 || stats.MissCount > 0 || stats.EvictionCount > 0)
         {
             var tags = string.IsNullOrEmpty(_cacheName) 
                 ? default(TagList) 
@@ -179,11 +179,11 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     {
         if (_disposed)
             return;
+        
+        // Publish any remaining metrics before setting disposed flag
+        PublishMetrics();
             
         _disposed = true;
-        
-        // Publish any remaining metrics
-        PublishMetrics();
         
         if (_disposeInner)
             _inner.Dispose();
