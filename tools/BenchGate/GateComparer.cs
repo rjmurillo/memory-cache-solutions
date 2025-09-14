@@ -2,8 +2,25 @@ using BenchGate.Statistics;
 
 namespace BenchGate;
 
+/// <summary>
+/// Represents a benchmark sample with statistical measurements.
+/// </summary>
+/// <param name="Id">The unique identifier for this benchmark sample.</param>
+/// <param name="Mean">The mean execution time in nanoseconds.</param>
+/// <param name="StdDev">The standard deviation of execution times.</param>
+/// <param name="N">The number of measurements taken.</param>
+/// <param name="AllocBytes">The total allocated bytes during execution.</param>
+/// <param name="Samples">Optional list of individual sample measurements.</param>
 public sealed record BenchmarkSample(string Id, double Mean, double StdDev, int N, double AllocBytes, List<double>? Samples = null);
 
+/// <summary>
+/// Compares benchmark samples between baseline and current runs to detect performance regressions and improvements.
+/// </summary>
+/// <param name="timeThresholdPct">The percentage threshold for time-based regressions.</param>
+/// <param name="allocThresholdBytes">The absolute threshold in bytes for allocation regressions.</param>
+/// <param name="allocThresholdPct">The percentage threshold for allocation regressions.</param>
+/// <param name="sigmaMult">The sigma multiplier for statistical significance testing.</param>
+/// <param name="useSigma">Whether to use sigma-based statistical significance testing.</param>
 public sealed class GateComparer(
     double timeThresholdPct,
     int allocThresholdBytes,
@@ -11,6 +28,12 @@ public sealed class GateComparer(
     double sigmaMult,
     bool useSigma)
 {
+    /// <summary>
+    /// Compares baseline and current benchmark samples to identify performance regressions and improvements.
+    /// </summary>
+    /// <param name="baseline">The baseline benchmark samples to compare against.</param>
+    /// <param name="current">The current benchmark samples to evaluate.</param>
+    /// <returns>A tuple containing lists of regression and improvement descriptions.</returns>
     public (List<string> regressions, List<string> improvements) Compare(IEnumerable<BenchmarkSample> baseline, IEnumerable<BenchmarkSample> current)
     {
         var baseMap = baseline.ToDictionary(b => b.Id, b => b);
