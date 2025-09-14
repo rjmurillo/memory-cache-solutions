@@ -14,6 +14,8 @@ M:System.Threading.Thread.Sleep(System.TimeSpan)|Use deterministic wait helpers 
 # DateTime.Now - Banned to enforce testable time handling
 P:System.DateTime.Now|Use System.TimeProvider or DateTimeOffset.UtcNow instead of DateTime.Now for testable time handling.
 P:System.DateTime.Today|Use System.TimeProvider or DateTimeOffset.UtcNow instead of DateTime.Today for testable time handling.
+P:System.DateTimeOffset.Now|Use System.TimeProvider or DateTimeOffset.UtcNow for testable time handling.
 
 # Environment.TickCount - Banned to enforce testable time handling
 P:System.Environment.TickCount|Use System.TimeProvider instead of Environment.TickCount for testable time handling.
+P:System.Environment.TickCount64|Use System.TimeProvider instead of Environment.TickCount64 for testable time handling.
