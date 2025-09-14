@@ -8,6 +8,8 @@ using Microsoft.Extensions.Primitives;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 
+using Unit;
+
 namespace Integration;
 
 /// <summary>
