@@ -25,6 +25,9 @@ public class ContentionBenchmarks
     [Params(1, 4, 16, 64)]
     public int Concurrency { get; set; }
 
+    /// <summary>
+    /// Sets up the benchmark environment by initializing cache instances.
+    /// </summary>
     [GlobalSetup]
     public void GlobalSetup()
     {

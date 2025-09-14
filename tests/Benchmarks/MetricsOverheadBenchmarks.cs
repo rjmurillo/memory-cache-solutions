@@ -11,7 +11,7 @@ namespace Benchmarks;
 
 /// <summary>
 /// Benchmarks comparing the overhead of different metric tracking approaches:
-/// - System.Diagnostics.Metrics.Counter<T>.Add()
+/// - System.Diagnostics.Metrics.Counter&lt;T&gt;.Add()
 /// - Interlocked.Increment/Add
 /// - No metrics (baseline)
 /// </summary>
@@ -26,6 +26,9 @@ public class MetricsOverheadBenchmarks
     private long _atomicCounter;
     private readonly TagList _tags = new() { { "cache.name", "test-cache" } };
     
+    /// <summary>
+    /// Sets up the benchmark environment by initializing the meter and counter.
+    /// </summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -34,6 +37,9 @@ public class MetricsOverheadBenchmarks
         _atomicCounter = 0;
     }
     
+    /// <summary>
+    /// Cleans up the benchmark environment by disposing the meter.
+    /// </summary>
     [GlobalCleanup]
     public void Cleanup()
     {

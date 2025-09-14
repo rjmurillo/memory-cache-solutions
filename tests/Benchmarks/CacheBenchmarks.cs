@@ -38,6 +38,9 @@ public class CacheBenchmarks
     private static readonly string[] PrecomputedSetKeys = GeneratePrecomputedKeys("set-key", 10000);
     private static readonly string[] PrecomputedCreateKeys = GeneratePrecomputedKeys("create-key", 10000);
 
+    /// <summary>
+    /// Sets up the benchmark environment by initializing all cache instances.
+    /// </summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -71,6 +74,9 @@ public class CacheBenchmarks
         _optimizedNamedCache.Set(TestKey, TestValue);
     }
 
+    /// <summary>
+    /// Cleans up the benchmark environment by disposing all cache instances.
+    /// </summary>
     [GlobalCleanup]
     public void Cleanup()
     {
@@ -419,6 +425,9 @@ public class CacheBenchmarks
 /// </summary>
 public class BenchmarkConfig : ManualConfig
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BenchmarkConfig"/> class.
+    /// </summary>
     public BenchmarkConfig()
     {
         AddExporter(MarkdownExporter.GitHub);
