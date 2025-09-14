@@ -113,7 +113,7 @@ public abstract class MeteredCacheTestBase<TTestSubject>
                     listener.EnableMeasurementEvents(inst);
                 }
             };
-            
+
             _listener.SetMeasurementEventCallback<long>((inst, measurement, tags, state) =>
             {
                 var tagDict = tags.ToArray().ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
@@ -349,9 +349,9 @@ public abstract class MeteredCacheTestBase<TTestSubject>
         subject.Cache.Set("k", 1, options);
         cts.Cancel();
         subject.Cache.TryGetValue("k", out _);
-        
+
         // Force compaction on inner cache through reflection
-        var innerCacheField = subject.Cache.GetType().GetField("_inner", 
+        var innerCacheField = subject.Cache.GetType().GetField("_inner",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         if (innerCacheField?.GetValue(subject.Cache) is MemoryCache innerCache)
         {

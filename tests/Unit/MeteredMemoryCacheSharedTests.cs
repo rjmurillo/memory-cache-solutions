@@ -156,10 +156,10 @@ public class MeteredMemoryCacheSharedTests : MeteredCacheTestBase<MeteredCacheTe
     public void PublishMetrics_NoOp_DoesNotThrow()
     {
         using var subject = CreateTestSubject();
-        
+
         // Should not throw - this is a no-op for MeteredMemoryCache
         subject.PublishMetrics();
-        
+
         Assert.True(true, "PublishMetrics completed without throwing");
     }
 }

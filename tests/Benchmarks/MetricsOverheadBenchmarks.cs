@@ -25,7 +25,7 @@ public class MetricsOverheadBenchmarks
     private Meter _meter = null!;
     private long _atomicCounter;
     private readonly TagList _tags = new() { { "cache.name", "test-cache" } };
-    
+
     /// <summary>
     /// Sets up the benchmark environment by initializing the meter and counter.
     /// </summary>
@@ -36,7 +36,7 @@ public class MetricsOverheadBenchmarks
         _counter = _meter.CreateCounter<long>("test_counter");
         _atomicCounter = 0;
     }
-    
+
     /// <summary>
     /// Cleans up the benchmark environment by disposing the meter.
     /// </summary>
@@ -45,7 +45,7 @@ public class MetricsOverheadBenchmarks
     {
         _meter?.Dispose();
     }
-    
+
     /// <summary>
     /// Baseline: No metric tracking
     /// </summary>
@@ -55,7 +55,7 @@ public class MetricsOverheadBenchmarks
         // Simulate some minimal work
         return 42;
     }
-    
+
     /// <summary>
     /// Using System.Diagnostics.Metrics.Counter with tags
     /// </summary>
@@ -64,7 +64,7 @@ public class MetricsOverheadBenchmarks
     {
         _counter.Add(1, _tags);
     }
-    
+
     /// <summary>
     /// Using System.Diagnostics.Metrics.Counter without tags
     /// </summary>
@@ -73,7 +73,7 @@ public class MetricsOverheadBenchmarks
     {
         _counter.Add(1);
     }
-    
+
     /// <summary>
     /// Using Interlocked.Increment (atomic operation)
     /// </summary>
@@ -82,7 +82,7 @@ public class MetricsOverheadBenchmarks
     {
         return Interlocked.Increment(ref _atomicCounter);
     }
-    
+
     /// <summary>
     /// Using Interlocked.Add (atomic operation)
     /// </summary>
@@ -91,7 +91,7 @@ public class MetricsOverheadBenchmarks
     {
         return Interlocked.Add(ref _atomicCounter, 1);
     }
-    
+
     /// <summary>
     /// Simulating the full cache hit scenario with Counter
     /// </summary>
@@ -100,13 +100,13 @@ public class MetricsOverheadBenchmarks
     {
         // Simulate cache lookup
         var hit = true;
-        
+
         if (hit)
         {
             _counter.Add(1, _tags);
         }
     }
-    
+
     /// <summary>
     /// Simulating the full cache hit scenario with Interlocked
     /// </summary>
@@ -115,13 +115,13 @@ public class MetricsOverheadBenchmarks
     {
         // Simulate cache lookup
         var hit = true;
-        
+
         if (hit)
         {
             Interlocked.Increment(ref _atomicCounter);
         }
     }
-    
+
     /// <summary>
     /// High contention scenario with Counter (multiple threads)
     /// </summary>
@@ -133,7 +133,7 @@ public class MetricsOverheadBenchmarks
             _counter.Add(1, _tags);
         });
     }
-    
+
     /// <summary>
     /// High contention scenario with Interlocked (multiple threads)
     /// </summary>

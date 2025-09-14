@@ -26,25 +26,25 @@ public sealed class OptimizedMeteredCacheTestSubject : IMeteredCacheTestSubject
     /// </summary>
     /// <value>The <see cref="OptimizedMeteredMemoryCache"/> instance.</value>
     public IMemoryCache Cache => _cache;
-    
+
     /// <summary>
     /// Gets the <see cref="Meter"/> instance used by the cache for metric collection.
     /// </summary>
     /// <value>The meter instance, either provided during construction or created internally.</value>
     public Meter Meter { get; }
-    
+
     /// <summary>
     /// Gets the logical name of the cache instance.
     /// </summary>
     /// <value>The cache name, or <see langword="null"/> if no name was provided.</value>
     public string? CacheName => _cache.Name;
-    
+
     /// <summary>
     /// Gets a value indicating whether metrics are enabled for this cache instance.
     /// </summary>
     /// <value><see langword="true"/> if metrics are enabled; otherwise, <see langword="false"/>.</value>
     public bool MetricsEnabled { get; }
-    
+
     /// <summary>
     /// Gets the implementation type name for test identification.
     /// </summary>

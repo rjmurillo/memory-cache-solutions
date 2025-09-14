@@ -217,9 +217,9 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
     public void CacheName_Normalization_HandlesWhitespaceCorrectly(string? inputName, string? expectedName)
     {
         using var subject = CreateTestSubject(cacheName: inputName);
-        
+
         Assert.Equal(expectedName, subject.CacheName);
-        
+
         var stats = subject.GetCurrentStatistics() as CacheStatistics;
         Assert.NotNull(stats);
         Assert.Equal(expectedName, stats.CacheName);
@@ -233,24 +233,24 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
     {
         OptimizedMeteredCacheTestSubject? subject = null;
         MetricCollectionHarness? harness = null;
-        
+
         try
         {
             subject = CreateTestSubject(cacheName: "dispose-test");
             harness = new MetricCollectionHarness(subject.Meter.Name, "cache_hits_total", "cache_misses_total");
 
-        // Perform operations
-        subject.Cache.TryGetValue("miss", out _);
-        subject.Cache.Set("hit", "value");
-        subject.Cache.TryGetValue("hit", out _);
+            // Perform operations
+            subject.Cache.TryGetValue("miss", out _);
+            subject.Cache.Set("hit", "value");
+            subject.Cache.TryGetValue("hit", out _);
 
-        // Dispose should publish remaining metrics automatically
-        subject.Dispose();
-        subject = null; // Prevent double disposal
+            // Dispose should publish remaining metrics automatically
+            subject.Dispose();
+            subject = null; // Prevent double disposal
 
-        // Metrics should be published during disposal
-        Assert.Equal(1, harness.AggregatedCounters.GetValueOrDefault("cache_hits_total", 0));
-        Assert.Equal(1, harness.AggregatedCounters.GetValueOrDefault("cache_misses_total", 0));
+            // Metrics should be published during disposal
+            Assert.Equal(1, harness.AggregatedCounters.GetValueOrDefault("cache_hits_total", 0));
+            Assert.Equal(1, harness.AggregatedCounters.GetValueOrDefault("cache_misses_total", 0));
         }
         finally
         {

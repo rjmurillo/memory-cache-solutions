@@ -29,19 +29,19 @@ public interface IMeteredCacheTestSubject : IDisposable
     /// </summary>
     /// <value>The cache instance wrapped by this test subject.</value>
     IMemoryCache Cache { get; }
-    
+
     /// <summary>
     /// Gets the <see cref="Meter"/> instance used by the cache for metric collection.
     /// </summary>
     /// <value>The meter instance, either provided during construction or created internally.</value>
     Meter Meter { get; }
-    
+
     /// <summary>
     /// Gets the logical name of the cache instance.
     /// </summary>
     /// <value>The cache name, or <see langword="null"/> if no name was provided.</value>
     string? CacheName { get; }
-    
+
     /// <summary>
     /// Gets a value indicating whether metrics are enabled for this cache instance.
     /// </summary>
@@ -51,7 +51,7 @@ public interface IMeteredCacheTestSubject : IDisposable
     /// Some implementations may support disabling metrics for performance testing.
     /// </remarks>
     bool MetricsEnabled { get; }
-    
+
     /// <summary>
     /// Gets the implementation type name for test identification and debugging.
     /// </summary>
@@ -61,7 +61,7 @@ public interface IMeteredCacheTestSubject : IDisposable
     /// identify which implementation is being tested in shared test scenarios.
     /// </remarks>
     string ImplementationType { get; }
-    
+
     /// <summary>
     /// Gets current cache statistics if supported by the implementation.
     /// </summary>
@@ -83,7 +83,7 @@ public interface IMeteredCacheTestSubject : IDisposable
     /// </para>
     /// </remarks>
     object? GetCurrentStatistics();
-    
+
     /// <summary>
     /// Publishes accumulated metrics if supported by the implementation.
     /// </summary>

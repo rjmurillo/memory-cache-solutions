@@ -18,14 +18,14 @@ public class OptimizedMeteredMemoryCacheSpecificTests
         using var meter = new Meter($"test.optimized.{Guid.NewGuid()}");
 
         var cache = new OptimizedMeteredMemoryCache(
-            inner, 
-            meter, 
-            cacheName: "test-cache", 
-            disposeInner: true, 
+            inner,
+            meter,
+            cacheName: "test-cache",
+            disposeInner: true,
             enableMetrics: false);
 
         Assert.Equal("test-cache", cache.Name);
-        
+
         var stats = cache.GetCurrentStatistics();
         Assert.Equal("test-cache", stats.CacheName);
         Assert.Equal(0, stats.HitCount);
@@ -41,10 +41,10 @@ public class OptimizedMeteredMemoryCacheSpecificTests
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter($"test.validation.{Guid.NewGuid()}");
 
-        Assert.Throws<ArgumentNullException>(() => 
+        Assert.Throws<ArgumentNullException>(() =>
             new OptimizedMeteredMemoryCache(null!, meter));
-        
-        Assert.Throws<ArgumentNullException>(() => 
+
+        Assert.Throws<ArgumentNullException>(() =>
             new OptimizedMeteredMemoryCache(inner, null!));
     }
 
@@ -56,7 +56,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
         using var cache = new OptimizedMeteredMemoryCache(inner, meter, "zero-test");
 
         var stats = cache.GetCurrentStatistics();
-        
+
         Assert.Equal(0, stats.HitCount);
         Assert.Equal(0, stats.MissCount);
         Assert.Equal(0, stats.EvictionCount);
@@ -82,7 +82,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
         cache.TryGetValue("key1", out _);  // hit
 
         var stats = cache.GetCurrentStatistics();
-        
+
         Assert.Equal(3, stats.HitCount);
         Assert.Equal(2, stats.MissCount);
         Assert.Equal(2, stats.CurrentEntryCount);
@@ -110,7 +110,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
         cache.TryGetValue("hit", out _);
         var stats3 = cache.GetCurrentStatistics();
         Assert.Equal(50.0, stats3.HitRatio, 1); // 1 hit / (1 hit + 1 miss) = 50%
-        
+
         // Test: Only hits - should be 100%
         using var freshCache = new OptimizedMeteredMemoryCache(new MemoryCache(new MemoryCacheOptions()), meter);
         freshCache.Set("hit", "value");
@@ -149,7 +149,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
 
         var emittedMetrics = new List<string>();
         using var listener = new MeterListener();
-        
+
         listener.InstrumentPublished = (inst, meterListener) =>
         {
             if (inst.Meter.Name == meter.Name && inst.Name.StartsWith("cache_"))
@@ -157,7 +157,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
                 meterListener.EnableMeasurementEvents(inst);
             }
         };
-        
+
         listener.SetMeasurementEventCallback<long>((inst, measurement, tags, state) =>
         {
             emittedMetrics.Add(inst.Name);
@@ -393,7 +393,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
 
         var emittedMetrics = new List<string>();
         using var listener = new MeterListener();
-        
+
         listener.InstrumentPublished = (inst, meterListener) =>
         {
             if (inst.Meter.Name == meter.Name && inst.Name == "cache_evictions_total")
@@ -401,7 +401,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
                 meterListener.EnableMeasurementEvents(inst);
             }
         };
-        
+
         listener.SetMeasurementEventCallback<long>((inst, measurement, tags, state) =>
         {
             emittedMetrics.Add($"{inst.Name}:{measurement}");
@@ -438,7 +438,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
 
         var emittedTags = new List<KeyValuePair<string, object?>[]>();
         using var listener = new MeterListener();
-        
+
         listener.InstrumentPublished = (inst, meterListener) =>
         {
             if (inst.Meter.Name == meter.Name && inst.Name.StartsWith("cache_"))
@@ -446,7 +446,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
                 meterListener.EnableMeasurementEvents(inst);
             }
         };
-        
+
         listener.SetMeasurementEventCallback<long>((inst, measurement, tags, state) =>
         {
             emittedTags.Add(tags.ToArray());
