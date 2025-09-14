@@ -3,6 +3,7 @@ using CacheImplementations;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Primitives;
 
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -115,18 +116,42 @@ public class OpenTelemetryIntegrationTests
 
             var cache = h.Services.GetRequiredService<IMemoryCache>();
 
-            // Act - add items to force eviction
-            cache.Set("key1", "value1", new MemoryCacheEntryOptions { Size = 1 });
-            cache.Set("key2", "value2", new MemoryCacheEntryOptions { Size = 1 }); // Should evict key1
+            // Act - add items to force eviction using cancellation token for deterministic eviction
+            var cts = new CancellationTokenSource();
+            var evictionSignal = new TaskCompletionSource<bool>();
 
-            // Give time for eviction callback to execute
-            await Task.Yield();
+            cache.Set("key1", "value1", new MemoryCacheEntryOptions
+            {
+                Size = 1,
+                ExpirationTokens = { new CancellationChangeToken(cts.Token) },
+                PostEvictionCallbacks =
+                {
+                    new PostEvictionCallbackRegistration
+                    {
+                        EvictionCallback = (key, value, reason, state) =>
+                        {
+                            evictionSignal.TrySetResult(true);
+                        }
+                    }
+                }
+            });
+
+            // Trigger eviction deterministically
+            cts.Cancel();
+
+            // Wait for eviction callback to complete with environment-aware timeout
+            await evictionSignal.Task.WaitAsync(TestTimeouts.Short);
 
             // Force metrics collection with enhanced validation
             await FlushMetricsAsync(h);
 
+            // Wait for metrics to be available using synchronization helper
+            var evictionMetric = await TestSynchronization.WaitForConditionAsync(
+                () => FindMetric(exportedItems, "cache_evictions_total"),
+                metric => metric != null,
+                TestTimeouts.Medium);
+
             // Assert
-            var evictionMetric = FindMetric(exportedItems, "cache_evictions_total");
             Assert.NotNull(evictionMetric);
             AssertMetricValue(evictionMetric, 1);
         });

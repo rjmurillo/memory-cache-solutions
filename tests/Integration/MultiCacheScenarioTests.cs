@@ -202,9 +202,9 @@ public class MultiCacheScenarioTests
         // Force metrics collection
         await FlushMetricsAsync(host);
 
-        // Wait for expected eviction metrics using deterministic timing
-        var smallCacheEvictionsDetected = await WaitForMetricValueAsync(exportedItems, "cache_evictions_total", 2, TimeSpan.FromSeconds(5));
-        var mediumCacheEvictionsDetected = await WaitForMetricValueAsync(exportedItems, "cache_evictions_total", 1, TimeSpan.FromSeconds(5));
+        // Wait for expected eviction metrics using environment-aware timeouts
+        var smallCacheEvictionsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache_evictions_total", "small-cache", 2, TestTimeouts.Long);
+        var mediumCacheEvictionsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache_evictions_total", "medium-cache", 1, TestTimeouts.Long);
 
         // Assert
         Assert.True(smallCacheEvictionsDetected, "Small cache evictions should be detected within timeout");
@@ -620,7 +620,13 @@ public class MultiCacheScenarioTests
         var meterProvider = host.Services.GetService<MeterProvider>();
         if (meterProvider != null)
         {
-            meterProvider.ForceFlush(5000); // 5000ms = 5 seconds
+            // Use environment-aware timeout for CI compatibility
+            var flushTimeout = TestTimeouts.Medium.TotalMilliseconds;
+            var flushSucceeded = meterProvider.ForceFlush((int)flushTimeout);
+            if (!flushSucceeded)
+            {
+                throw new InvalidOperationException($"Failed to flush metrics within {flushTimeout}ms timeout period");
+            }
         }
 
         // Give additional time for async operations
