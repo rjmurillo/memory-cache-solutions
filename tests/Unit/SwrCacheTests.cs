@@ -42,15 +42,15 @@ public class SwrCacheTests
             {
                 refreshStarted.TrySetResult(true);
             }
-            
+
             await Task.Yield();
             var result = Interlocked.Increment(ref produced);
-            
+
             if (callNumber == 2)
             {
                 refreshCompleted.TrySetResult(true);
             }
-            
+
             return result;
         }
 
@@ -66,16 +66,16 @@ public class SwrCacheTests
             var boxType = boxObj.GetType();
             var valueField = boxType.GetField("Value");
             var freshUntilField = boxType.GetField("FreshUntil");
-            
+
             if (valueField != null && freshUntilField != null)
             {
                 var currentValue = valueField.GetValue(boxObj);
                 // Set FreshUntil to the past to make it stale
                 var staleFreshUntil = DateTimeOffset.UtcNow.AddMilliseconds(-10);
-                
+
                 // Create a new box with stale FreshUntil
                 var newBox = Activator.CreateInstance(boxType, currentValue, staleFreshUntil);
-                
+
                 // Replace the cache entry
                 cache.Set("k", newBox, new MemoryCacheEntryOptions
                 {
@@ -87,19 +87,21 @@ public class SwrCacheTests
         // Second call - should serve stale value immediately and trigger background refresh
         var stale = await cache.GetOrCreateSwrAsync("k", opts, Factory);
         Assert.Equal(first, stale); // Should get the same stale value
-        
-        // Wait for background refresh to start
-        await refreshStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        
-        // Wait for background refresh to complete
-        await refreshCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        
-        // Allow cache to be updated
-        await Task.Yield();
 
-        // Third call - should get the refreshed value
-        var afterRefresh = await cache.GetOrCreateSwrAsync("k", opts, Factory);
-        Assert.Equal(2, afterRefresh); // Should get the new value from background refresh
+        // Wait for background refresh to start with environment-aware timeout
+        await refreshStarted.Task.WaitAsync(TestTimeouts.Medium);
+
+        // Wait for background refresh to complete with environment-aware timeout
+        await refreshCompleted.Task.WaitAsync(TestTimeouts.Medium);
+
+        // Wait for cache to be updated using synchronization helper
+        var finalValue = await TestSynchronization.WaitForConditionAsync(
+            () => cache.GetOrCreateSwrAsync("k", opts, Factory).Result,
+            value => value == 2, // Should get the new value from background refresh
+            TestTimeouts.Medium);
+
+        // Verify final state
+        Assert.Equal(2, finalValue); // Should get the new value from background refresh
         Assert.Equal(2, Volatile.Read(ref calls)); // Factory should not be called again
     }
 

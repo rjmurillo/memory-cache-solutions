@@ -369,12 +369,17 @@ public class ServiceCollectionExtensionsTests
     {
         // Arrange
         var services = new ServiceCollection();
+        var lockObj = new object();
 
         // Act - Register multiple caches with same meter name to avoid keyed service conflicts
+        // Use locking to synchronize concurrent registrations since ServiceCollection is not thread-safe
         var sharedMeterName = SharedUtilities.GetUniqueMeterName("shared-meter");
         Parallel.For(0, 10, i =>
         {
-            services.AddNamedMeteredMemoryCache($"cache-{i}", meterName: sharedMeterName);
+            lock (lockObj)
+            {
+                services.AddNamedMeteredMemoryCache($"cache-{i}", meterName: sharedMeterName);
+            }
         });
 
         // Assert - Should not throw when building provider
@@ -394,28 +399,21 @@ public class ServiceCollectionExtensionsTests
         Assert.IsType<MeteredMemoryCache>(cache5);
         Assert.IsType<MeteredMemoryCache>(cache9);
 
-        // Verify that at least some caches were registered properly (concurrent execution may affect exact count)
+        // Verify that all caches were registered properly (with synchronization, all should succeed)
         var optionsMonitor = provider.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>();
         var registeredCaches = 0;
 
         for (int i = 0; i < 10; i++)
         {
-            try
+            var options = optionsMonitor.Get($"cache-{i}");
+            if (options.CacheName == $"cache-{i}")
             {
-                var options = optionsMonitor.Get($"cache-{i}");
-                if (options.CacheName == $"cache-{i}")
-                {
-                    registeredCaches++;
-                }
-            }
-            catch
-            {
-                // Some registrations might fail in concurrent scenarios - this is acceptable
+                registeredCaches++;
             }
         }
 
-        // Verify that at least half of the caches were registered successfully
-        Assert.True(registeredCaches >= 5, $"Expected at least 5 caches to be registered, but only {registeredCaches} were found");
+        // With proper synchronization, all caches should be registered successfully
+        Assert.Equal(10, registeredCaches);
     }
 
     [Fact]

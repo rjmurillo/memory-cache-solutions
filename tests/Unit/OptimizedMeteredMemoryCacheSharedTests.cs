@@ -1,6 +1,7 @@
 using System.Diagnostics.Metrics;
 using CacheImplementations;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Primitives;
 using Unit.Shared;
 
 namespace Unit;
@@ -139,8 +140,16 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
 
         // Create entry that will be evicted
         using var cts = new CancellationTokenSource();
+        var evictionSignal = new TaskCompletionSource<bool>();
         var options = new MemoryCacheEntryOptions();
         options.AddExpirationToken(new Microsoft.Extensions.Primitives.CancellationChangeToken(cts.Token));
+        options.PostEvictionCallbacks.Add(new PostEvictionCallbackRegistration
+        {
+            EvictionCallback = (key, value, reason, state) =>
+            {
+                evictionSignal.TrySetResult(true);
+            }
+        });
         subject.Cache.Set("evict-me", "value", options);
 
         var statsBeforeEviction = subject.GetCurrentStatistics() as CacheStatistics;
@@ -158,11 +167,14 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
             innerCache.Compact(0.0);
         }
 
-        // Wait for eviction callback to execute using deterministic approach
-        await Task.Yield();
-        await Task.Yield();
+        // Wait for eviction callback to execute using proper synchronization
+        await evictionSignal.Task.WaitAsync(TestTimeouts.Short);
 
-        var statsAfterEviction = subject.GetCurrentStatistics() as CacheStatistics;
+        var statsAfterEviction = await TestSynchronization.WaitForConditionAsync(
+            () => subject.GetCurrentStatistics() as CacheStatistics,
+            stats => stats != null && stats.EvictionCount >= 1,
+            TestTimeouts.Short);
+
         Assert.NotNull(statsAfterEviction);
         Assert.True(statsAfterEviction.EvictionCount >= 1, $"Expected at least 1 eviction, got {statsAfterEviction.EvictionCount}");
         Assert.True(statsAfterEviction.CurrentEntryCount <= 0, $"Expected 0 entries after eviction, got {statsAfterEviction.CurrentEntryCount}");

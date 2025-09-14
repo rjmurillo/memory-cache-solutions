@@ -266,30 +266,48 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public async Task CreateEntry_RegistersEvictionCallback()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.callback.{Guid.NewGuid()}");
-        using var cache = new OptimizedMeteredMemoryCache(inner, meter, "callback-test");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.callback"));
+        using var cache = new OptimizedMeteredMemoryCache(inner, meter, SharedUtilities.GetUniqueCacheName("callback-test"));
 
-        // Create entry that will be evicted
-        using (var entry = cache.CreateEntry("evict-key"))
+        // Track evictions with thread-safe counter and synchronization signal
+        var evictionCount = 0;
+        var evictionSignal = new TaskCompletionSource<bool>();
+
+        // Create entry that will be evicted using cancellation token for deterministic eviction
+        var cts = new CancellationTokenSource();
+        cache.Set("evict-key", "evict-value", new MemoryCacheEntryOptions
         {
-            entry.Value = "evict-value";
-            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMilliseconds(1);
-        }
+            ExpirationTokens = { new CancellationChangeToken(cts.Token) },
+            PostEvictionCallbacks =
+            {
+                new PostEvictionCallbackRegistration
+                {
+                    EvictionCallback = (key, value, reason, state) =>
+                    {
+                        Interlocked.Increment(ref evictionCount);
+                        evictionSignal.TrySetResult(true);
+                    }
+                }
+            }
+        });
 
         var statsBeforeEviction = cache.GetCurrentStatistics();
         Assert.Equal(1, statsBeforeEviction.CurrentEntryCount);
 
-        // Wait for expiration and force cleanup using deterministic approach
-        await Task.Yield();
-        cache.TryGetValue("evict-key", out _);
-        inner.Compact(0.0);
+        // Trigger eviction deterministically
+        cts.Cancel();
 
-        // Give eviction callback time to execute using deterministic approach
-        await Task.Yield();
-        await Task.Yield();
+        // Wait for eviction callback to complete with timeout
+        await evictionSignal.Task.WaitAsync(TestTimeouts.Short);
 
-        var statsAfterEviction = cache.GetCurrentStatistics();
-        Assert.True(statsAfterEviction.EvictionCount >= 1, "Eviction callback should have been triggered");
+        // Wait for statistics to be updated
+        var statsAfterEviction = await TestSynchronization.WaitForConditionAsync(
+            () => cache.GetCurrentStatistics(),
+            stats => Volatile.Read(ref evictionCount) > 0 && stats.EvictionCount >= 1,
+            TestTimeouts.Short);
+
+        Assert.True(Volatile.Read(ref evictionCount) >= 1, "Eviction callback should have been triggered");
+        Assert.True(statsAfterEviction.EvictionCount >= 1, "Eviction count should be updated in statistics");
         Assert.True(statsAfterEviction.CurrentEntryCount <= 0, "Entry count should decrease after eviction");
     }
 
