@@ -137,9 +137,8 @@ GET {{HostAddress}}/api/products/search
 Accept: {{Accept}}
 
 ### Search Products - Whitespace query (400 test)
-GET {{HostAddress}}/api/products/search?query=   
+GET {{HostAddress}}/api/products/search?query=%20%20%20
 Accept: {{Accept}}
-
 ###
 
 # ===========================================
@@ -292,7 +291,7 @@ Accept: {{Accept}}
 GET {{HostAddress}}/api/products/category/invalid
 Accept: {{Accept}}
 
-### Missing Content-Type - POST without proper headers
+### Missing Content-Type - PUT without proper headers
 PUT {{HostAddress}}/api/users/{{userId}}
 Accept: {{Accept}}
 
@@ -326,9 +325,8 @@ Accept: {{Accept}}
 ###
 
 # ===========================================
-# CONCURRENT ACCESS TESTS
+# HIGH-CHURN ACCESS TESTS (SEQUENTIAL; USE k6 FOR PARALLEL LOAD)
 # ===========================================
-
 ### Concurrent User Request 1
 GET {{HostAddress}}/api/users/1
 Accept: {{Accept}}
