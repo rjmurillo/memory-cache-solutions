@@ -6,7 +6,7 @@ REM Check if PowerShell Core is available
 where pwsh >nul 2>&1
 if %errorlevel% equ 0 (
     echo Running with PowerShell Core...
-    pwsh %~dp0\run-k6-tests.ps1 %*
+    pwsh -NoProfile -File "%~dp0run-k6-tests.ps1" %*
     goto :eof
 )
 
@@ -14,7 +14,7 @@ REM Check if Windows PowerShell is available
 where PowerShell >nul 2>&1
 if %errorlevel% equ 0 (
     echo Running with Windows PowerShell...
-    PowerShell -ExecutionPolicy Bypass -File %~dp0\run-k6-tests.ps1 %*
+    PowerShell -NoProfile -ExecutionPolicy Bypass -File "%~dp0run-k6-tests.ps1" %*
     goto :eof
 )
 
