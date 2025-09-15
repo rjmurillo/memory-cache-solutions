@@ -31,7 +31,7 @@ This document provides comprehensive performance analysis of MeteredMemoryCache,
 
 ### 1. Cache Hit Performance
 
-```
+```text
 Operation: Cache Hit (existing key retrieval)
 ┌─────────────────────────┬──────────┬───────────┬────────────┐
 │ Implementation          │ Mean     │ StdDev    │ Ratio      │

@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+
 using Microsoft.Extensions.Caching.Memory;
-using System.Collections.Generic;
 
 namespace CacheImplementations;
 
@@ -11,7 +11,7 @@ namespace CacheImplementations;
 /// Instruments:
 ///  - cache_hits_total (<see cref="Counter{T}"/> where T is <see langword="long"/>)
 ///  - cache_misses_total (<see cref="Counter{T}"/> where T is <see langword="long"/>)
-///  - cache_evictions_total (<see cref="Counter{T}"/> where T is <see langword="long"/>) with tag "reason" = <see cref="PostEvictionReason"/> string
+///  - cache_evictions_total (<see cref="Counter{T}"/> where T is <see langword="long"/>) with tag "reason" = <see cref="PostEvictionReason"/> (as string)
 /// </summary>
 [DebuggerDisplay("{Name ?? \"(unnamed)\"}")]
 public sealed class MeteredMemoryCache : IMemoryCache

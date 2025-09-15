@@ -1,10 +1,10 @@
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Diagnostics.Metrics;
+
 using CacheImplementations;
+
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Primitives;
-using Xunit;
 
 namespace Unit;
 
@@ -77,8 +77,8 @@ public class TagListThreadSafetyTests
         // This test reproduces the scenario where multiple threads simultaneously emit metrics
         // using the shared _tags TagList field, which can cause enumeration exceptions
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.concurrent.metrics");
-        using var listener = new TestMetricsListener("cache_hits_total", "cache_misses_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.concurrent.metrics"));
+        using var listener = new TestMetricsListener(meter.Name, "cache_hits_total", "cache_misses_total");
 
         var cache = new MeteredMemoryCache(inner, meter, "concurrent-cache");
 
@@ -132,13 +132,13 @@ public class TagListThreadSafetyTests
     }
 
     [Fact]
-    public void ConcurrentEvictionCallbacks_WithSharedTagList_ShouldNotThrow()
+    public async Task ConcurrentEvictionCallbacks_WithSharedTagList_ShouldNotThrow()
     {
         // This test reproduces the scenario where eviction callbacks execute concurrently
         // and attempt to enumerate the shared _tags TagList, causing thread-safety issues
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.concurrent.evictions");
-        using var listener = new TestMetricsListener("cache_evictions_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.concurrent.evictions"));
+        using var listener = new TestMetricsListener(meter.Name, "cache_evictions_total");
 
         var cache = new MeteredMemoryCache(inner, meter, "eviction-cache");
         var exceptions = new ConcurrentBag<Exception>();
@@ -198,7 +198,7 @@ public class TagListThreadSafetyTests
             inner.Compact(0.0);
 
             // Give some time for asynchronous eviction callbacks to complete
-            Thread.Sleep(100);
+            await Task.Yield();
         }
         finally
         {
@@ -214,13 +214,13 @@ public class TagListThreadSafetyTests
     }
 
     [Fact]
-    public void MixedConcurrentOperations_WithTagListEnumeration_ShouldNotThrow()
+    public async Task MixedConcurrentOperations_WithTagListEnumeration_ShouldNotThrow()
     {
         // This test combines cache operations and evictions to maximize the probability
         // of concurrent TagList enumeration, which is the root cause of thread-safety issues
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.mixed.operations");
-        using var listener = new TestMetricsListener("cache_hits_total", "cache_misses_total", "cache_evictions_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.mixed.operations"));
+        using var listener = new TestMetricsListener(meter.Name, "cache_hits_total", "cache_misses_total", "cache_evictions_total");
 
         var options = new MeteredMemoryCacheOptions
         {
@@ -289,7 +289,7 @@ public class TagListThreadSafetyTests
 
         // Force final compaction to trigger any remaining evictions
         inner.Compact(0.0);
-        Thread.Sleep(50); // Allow async eviction callbacks to complete
+        await Task.Yield(); // Allow async eviction callbacks to complete
 
         // Verify no thread-safety exceptions occurred
         Assert.Empty(exceptions);
@@ -297,13 +297,13 @@ public class TagListThreadSafetyTests
     }
 
     [Fact]
-    public void StressTest_TagListEnumeration_UnderExtremeLoad()
+    public async Task StressTest_TagListEnumeration_UnderExtremeLoad()
     {
         // Extreme stress test designed to maximize the probability of exposing
         // race conditions in TagList enumeration under very high load
         using var inner = new MemoryCache(new MemoryCacheOptions { SizeLimit = 1000 });
-        using var meter = new Meter("test.stress.enumeration");
-        using var listener = new TestMetricsListener("cache_hits_total", "cache_misses_total", "cache_evictions_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.stress.enumeration"));
+        using var listener = new TestMetricsListener(meter.Name, "cache_hits_total", "cache_misses_total", "cache_evictions_total");
 
         var options = new MeteredMemoryCacheOptions
         {
@@ -369,7 +369,7 @@ public class TagListThreadSafetyTests
 
         // Force final processing of any remaining evictions
         inner.Compact(0.0);
-        Thread.Sleep(100);
+        await Task.Yield();
 
         // Verify no thread-safety violations occurred under extreme load
         Assert.Empty(exceptions);
@@ -382,7 +382,7 @@ public class TagListThreadSafetyTests
         // This test specifically attempts to reproduce InvalidOperationException
         // that occurs when TagList is modified during enumeration
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.invalid.operation");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.invalid.operation"));
 
         // Create a custom meter listener that intentionally enumerates tags multiple times
         // to increase the chance of hitting the enumeration during modification window

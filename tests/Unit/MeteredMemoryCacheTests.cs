@@ -2,11 +2,8 @@ using System.Diagnostics.Metrics;
 using CacheImplementations;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Primitives;
-using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using System.Linq;
-using Xunit;
 using System.Diagnostics;
 
 namespace Unit;
@@ -18,6 +15,8 @@ public class MeteredMemoryCacheTests
         private readonly MeterListener _listener = new();
         private readonly List<(string Name, long Value, IEnumerable<KeyValuePair<string, object?>> Tags)> _measurements = new();
         private readonly Dictionary<string, long> _counters = [];
+        private readonly string[] _instrumentNames;
+        private readonly string? _meterNameFilter;
         private readonly object _lock = new();
         public IReadOnlyDictionary<string, long> Counters
         {
@@ -55,16 +54,25 @@ public class MeteredMemoryCacheTests
                         return true;
                     }
                 }
-                await Task.Delay(10); // Short polling interval
+                await Task.Yield(); // Yield control without blocking
             }
             return false;
         }
 
-        public TestListener(params string[] instrumentNames)
+        public TestListener(params string[] instrumentNames) : this(null, instrumentNames)
         {
+        }
+
+        public TestListener(string? meterNameFilter, params string[] instrumentNames)
+        {
+            _instrumentNames = instrumentNames;
+            _meterNameFilter = meterNameFilter;
+
             _listener.InstrumentPublished = (inst, listener) =>
             {
-                if (instrumentNames.Contains(inst.Name))
+                // Filter by both instrument name AND meter name to prevent cross-test contamination
+                if (_instrumentNames.Contains(inst.Name) &&
+                    (_meterNameFilter == null || inst.Meter.Name == _meterNameFilter))
                 {
                     listener.EnableMeasurementEvents(inst);
                 }
@@ -117,11 +125,11 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
-    public void RecordsHitAndMiss()
+    public void MeteredMemoryCache_HitAndMissOperations_RecordsCorrectMetrics()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache");
-        using var listener = new TestListener("cache_hits_total", "cache_misses_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache"));
+        using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: null);
 
@@ -134,11 +142,11 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
-    public async Task RecordsEviction()
+    public async Task MeteredMemoryCache_EvictionScenario_RecordsEvictionMetrics()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache2");
-        using var listener = new TestListener("cache_evictions_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache2"));
+        using var listener = new TestListener(meter.Name, "cache_evictions_total");
         var cache = new MeteredMemoryCache(inner, meter, cacheName: null);
 
         using var cts = new CancellationTokenSource();
@@ -158,11 +166,11 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
-    public void EmitsCacheNameTagOnMetrics()
+    public void MeteredMemoryCache_WithCacheName_EmitsCacheNameTag()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache3");
-        using var listener = new TestListener("cache_hits_total", "cache_misses_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache3"));
+        using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "test-cache-name");
 
@@ -176,7 +184,7 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
-    public void TagListMutationBug_DocumentsInconsistentPatternUsage()
+    public async Task TagListMutationBug_DocumentsInconsistentPatternUsage()
     {
         // This test documents the inconsistent pattern in MeteredMemoryCache:
         // - Eviction callbacks use CreateEvictionTags() to create a copy (CORRECT)
@@ -200,7 +208,8 @@ public class MeteredMemoryCacheTests
 
         listener.InstrumentPublished = (inst, meterListener) =>
         {
-            if (inst.Name.StartsWith("cache_"))
+            // Filter by meter name to prevent cross-test contamination
+            if (inst.Name.StartsWith("cache_") && inst.Meter.Name == meter.Name)
             {
                 meterListener.EnableMeasurementEvents(inst);
             }
@@ -225,7 +234,7 @@ public class MeteredMemoryCacheTests
         cts.Cancel();
         cache.TryGetValue("evict-me", out _); // Trigger eviction processing
         inner.Compact(0.0);
-        Thread.Sleep(10); // Allow eviction callback to execute
+        await Task.Yield(); // Allow eviction callback to execute
 
         // Create defensive copy to avoid Collection Modified Exception during enumeration
         var metricsSnapshot = emittedMetrics.ToArray();
@@ -259,7 +268,7 @@ public class MeteredMemoryCacheTests
         // Instead of using the CreateEvictionTags pattern that creates a copy.
 
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.readonly.field.bug");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.readonly.field.bug"));
 
         // Create a cache with both cache name and additional tags to maximize the TagList content
         var options = new MeteredMemoryCacheOptions
@@ -275,7 +284,8 @@ public class MeteredMemoryCacheTests
 
         listener.InstrumentPublished = (inst, meterListener) =>
         {
-            if (inst.Name.StartsWith("cache_"))
+            // Filter by meter name to prevent cross-test contamination
+            if (inst.Name.StartsWith("cache_") && inst.Meter.Name == meter.Name)
             {
                 meterListener.EnableMeasurementEvents(inst);
             }
@@ -343,7 +353,7 @@ public class MeteredMemoryCacheTests
     public void OptionsConstructor_WithCacheName_SetsNameProperty()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache4");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache4"));
         var options = new MeteredMemoryCacheOptions
         {
             CacheName = "named-cache"
@@ -386,7 +396,8 @@ public class MeteredMemoryCacheTests
 
         listener.InstrumentPublished = (inst, meterListener) =>
         {
-            if (inst.Name.StartsWith("cache_"))
+            // Filter by meter name to prevent cross-test contamination
+            if (inst.Name.StartsWith("cache_") && inst.Meter.Name == meter.Name)
             {
                 meterListener.EnableMeasurementEvents(inst);
             }
@@ -439,7 +450,7 @@ public class MeteredMemoryCacheTests
     public void OptionsConstructor_WithNullCacheName_NamePropertyIsNull()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache5");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache5"));
         var options = new MeteredMemoryCacheOptions
         {
             CacheName = null
@@ -499,8 +510,8 @@ public class MeteredMemoryCacheTests
         var evictionTasks = cancellationTokenSources.Select(cts => Task.Run(async () =>
         {
             cts.Cancel();
-            // Small delay to let eviction callbacks queue up
-            await Task.Delay(1);
+            // Yield to let eviction callbacks queue up
+            await Task.Yield();
         })).ToArray();
 
         // Wait for evictions to be triggered
@@ -514,7 +525,7 @@ public class MeteredMemoryCacheTests
         inner.Compact(0.0);
 
         // Allow time for any remaining callbacks to execute
-        Thread.Sleep(50);
+        await Task.Yield();
 
         // Clean up
         foreach (var cts in cancellationTokenSources)
@@ -727,14 +738,14 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
-    public void GetOrCreateMissClassificationRaceCondition_OnlyCountMissWhenFactoryRuns()
+    public void GetOrCreate_RaceConditionScenario_OnlyCountsMissWhenFactoryRuns()
     {
         // This test demonstrates the race condition in GetOrCreate where miss counter
         // is incremented even when the factory doesn't actually run due to concurrent cache population
 
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.miss.race.{Guid.NewGuid()}");
-        using var listener = new TestListener("cache_hits_total", "cache_misses_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.miss.race"));
+        using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
 
         var cache = new MeteredMemoryCache(inner, meter, "miss-race-test");
 
@@ -775,7 +786,7 @@ public class MeteredMemoryCacheTests
     public void OptionsConstructor_WithEmptyCacheName_NamePropertyIsNull()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache6");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache6"));
         var options = new MeteredMemoryCacheOptions
         {
             CacheName = ""
@@ -790,8 +801,8 @@ public class MeteredMemoryCacheTests
     public void OptionsConstructor_WithAdditionalTags_EmitsAllTagsOnMetrics()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache7");
-        using var listener = new TestListener("cache_hits_total", "cache_misses_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache7"));
+        using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
 
         var options = new MeteredMemoryCacheOptions
         {
@@ -820,8 +831,8 @@ public class MeteredMemoryCacheTests
     public void OptionsConstructor_WithDuplicateCacheNameTag_CacheNameTakesPrecedence()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache8");
-        using var listener = new TestListener("cache_hits_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache8"));
+        using var listener = new TestListener(meter.Name, "cache_hits_total");
 
         var options = new MeteredMemoryCacheOptions
         {
@@ -847,7 +858,7 @@ public class MeteredMemoryCacheTests
     public void OptionsConstructor_WithDisposeInner_DisposesInnerCacheOnDispose()
     {
         var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache9");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache9"));
         var options = new MeteredMemoryCacheOptions
         {
             DisposeInner = true
@@ -864,7 +875,7 @@ public class MeteredMemoryCacheTests
     public void OptionsConstructor_WithoutDisposeInner_DoesNotDisposeInnerCache()
     {
         var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache10");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache10"));
         var options = new MeteredMemoryCacheOptions
         {
             DisposeInner = false
@@ -885,7 +896,7 @@ public class MeteredMemoryCacheTests
     public void StringConstructor_WithCacheName_SetsNameProperty()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache11");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache11"));
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "string-cache");
 
@@ -896,7 +907,7 @@ public class MeteredMemoryCacheTests
     public void StringConstructor_WithNullCacheName_NamePropertyIsNull()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache12");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache12"));
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: null);
 
@@ -907,7 +918,7 @@ public class MeteredMemoryCacheTests
     public void StringConstructor_WithEmptyCacheName_NamePropertyIsNull()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache13");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache13"));
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "");
 
@@ -918,7 +929,7 @@ public class MeteredMemoryCacheTests
     public void StringConstructor_WithDisposeInner_DisposesInnerCacheOnDispose()
     {
         var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache14");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache14"));
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "dispose-test", disposeInner: true);
         cache.Dispose();
@@ -931,7 +942,7 @@ public class MeteredMemoryCacheTests
     public void StringConstructor_WithoutDisposeInner_DoesNotDisposeInnerCache()
     {
         var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache15");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache15"));
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "no-dispose-test", disposeInner: false);
         cache.Dispose();
@@ -948,8 +959,8 @@ public class MeteredMemoryCacheTests
     public void TryGet_WithNamedCache_RecordsMetricsWithCacheName()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache16");
-        using var listener = new TestListener("cache_hits_total", "cache_misses_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache16"));
+        using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "tryget-cache");
 
@@ -976,8 +987,8 @@ public class MeteredMemoryCacheTests
     public void GetOrCreate_WithNamedCache_RecordsMetricsWithCacheName()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache17");
-        using var listener = new TestListener("cache_hits_total", "cache_misses_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache17"));
+        using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "getorcreate-cache");
 
@@ -999,12 +1010,12 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
-    public void MultipleNamedCaches_EmitSeparateMetrics()
+    public void MeteredMemoryCache_MultipleNamedCaches_EmitSeparateMetrics()
     {
         using var inner1 = new MemoryCache(new MemoryCacheOptions());
         using var inner2 = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache18");
-        using var listener = new TestListener("cache_hits_total", "cache_misses_total");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache18"));
+        using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
 
         var cache1 = new MeteredMemoryCache(inner1, meter, cacheName: "cache-one");
         var cache2 = new MeteredMemoryCache(inner2, meter, cacheName: "cache-two");
@@ -1041,7 +1052,7 @@ public class MeteredMemoryCacheTests
     public void Constructor_NullabilityValidation_NullAndEmpty(string? invalidInput)
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache19");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache19"));
 
         // Should not throw for null/empty cache names and Name should be null
         var cache = new MeteredMemoryCache(inner, meter, cacheName: invalidInput);
@@ -1052,7 +1063,7 @@ public class MeteredMemoryCacheTests
     public void Constructor_NullabilityValidation_WhitespaceString()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache19b");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache19b"));
 
         // Whitespace-only strings are normalized to null to prevent tag cardinality issues
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "   ");
@@ -1063,7 +1074,7 @@ public class MeteredMemoryCacheTests
     public void Constructor_ArgumentNullException_Validation()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter("test.metered.cache19c");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache19c"));
 
         // Should throw for null required parameters
         Assert.Throws<ArgumentNullException>(() => new MeteredMemoryCache(null!, meter, cacheName: "test"));
@@ -1080,7 +1091,7 @@ public class MeteredMemoryCacheTests
     {
         // This test validates comprehensive null safety checks for factory results
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.null.factory.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.null.factory"));
 
         var cache = new MeteredMemoryCache(inner, meter, "null-factory-test");
 
@@ -1111,7 +1122,7 @@ public class MeteredMemoryCacheTests
     {
         // Test that factory exceptions are properly propagated without being caught
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.factory.exception.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.factory.exception"));
 
         var cache = new MeteredMemoryCache(inner, meter, "exception-test");
 
@@ -1129,7 +1140,7 @@ public class MeteredMemoryCacheTests
     {
         // This test validates cache name normalization to prevent tag cardinality issues
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.name.normalization.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.name.normalization"));
 
         // Test 1: Whitespace-only cache name should result in no cache.name tag
         var cache1 = new MeteredMemoryCache(inner, meter, "   ");

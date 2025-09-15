@@ -1,28 +1,23 @@
-using System;
 using System.Diagnostics.Metrics;
-using System.Linq;
-using System.Threading.Tasks;
+
 using CacheImplementations;
+
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Xunit;
 
 namespace Unit;
 
 public class ServiceCollectionExtensionsTests
 {
-    // Helper method to generate unique test names to prevent cross-test isolation issues
-    private static string GetUniqueTestName(string prefix = "test") => $"{prefix}-{Guid.NewGuid():N}";
-    private static string GetUniqueMeterName(string prefix = "meter") => $"{prefix}-{Guid.NewGuid():N}";
-    private static string GetUniqueCacheName(string prefix = "cache") => $"{prefix}-{Guid.NewGuid():N}";
+
     [Fact]
     public void AddNamedMeteredMemoryCache_RegistersRequiredServices()
     {
         // Arrange
         var services = new ServiceCollection();
-        var cacheName = GetUniqueCacheName("test-cache");
-        var meterName = GetUniqueMeterName("test-meter");
+        var cacheName = SharedUtilities.GetUniqueCacheName("test-cache");
+        var meterName = SharedUtilities.GetUniqueMeterName("test-meter");
 
         // Act
         services.AddNamedMeteredMemoryCache(cacheName, options =>
@@ -96,12 +91,15 @@ public class ServiceCollectionExtensionsTests
         var services = new ServiceCollection();
 
         // Act
+        var meterName1 = SharedUtilities.GetUniqueMeterName("meter1");
+        var meterName2 = SharedUtilities.GetUniqueMeterName("meter2");
+
         services.AddNamedMeteredMemoryCache("cache1",
             options => options.AdditionalTags["type"] = "primary",
-            meterName: "meter1");
+            meterName: meterName1);
         services.AddNamedMeteredMemoryCache("cache2",
             options => options.AdditionalTags["type"] = "secondary",
-            meterName: "meter2");
+            meterName: meterName2);
 
         using var provider = services.BuildServiceProvider();
 
@@ -269,7 +267,8 @@ public class ServiceCollectionExtensionsTests
         services.AddSingleton<IMemoryCache>(sp => new MemoryCache(new MemoryCacheOptions()));
 
         // Act
-        services.DecorateMemoryCacheWithMetrics(cacheName: "decorated", meterName: "decorated-meter");
+        var decoratedMeterName = SharedUtilities.GetUniqueMeterName("decorated-meter");
+        services.DecorateMemoryCacheWithMetrics(cacheName: "decorated", meterName: decoratedMeterName);
         using var provider = services.BuildServiceProvider();
 
         // Assert
@@ -278,7 +277,7 @@ public class ServiceCollectionExtensionsTests
 
         Assert.NotNull(cache);
         Assert.NotNull(meter);
-        Assert.Equal("decorated-meter", meter.Name);
+        Assert.Equal(decoratedMeterName, meter.Name);
         Assert.IsType<MeteredMemoryCache>(cache);
 
         // Assert cache name preservation in decorator
@@ -315,9 +314,10 @@ public class ServiceCollectionExtensionsTests
         services.AddSingleton<IMemoryCache>(sp => new MemoryCache(new MemoryCacheOptions()));
 
         // Act
+        var customMeterName = SharedUtilities.GetUniqueMeterName("custom-meter");
         services.DecorateMemoryCacheWithMetrics(
             cacheName: "decorated-cache",
-            meterName: "custom-meter",
+            meterName: customMeterName,
             configureOptions: options =>
             {
                 options.DisposeInner = true;
@@ -335,7 +335,7 @@ public class ServiceCollectionExtensionsTests
         Assert.Equal("decorated-cache", meteredCache.Name);
 
         var meter = provider.GetRequiredService<Meter>();
-        Assert.Equal("custom-meter", meter.Name);
+        Assert.Equal(customMeterName, meter.Name);
     }
 
     [Fact]
@@ -369,12 +369,17 @@ public class ServiceCollectionExtensionsTests
     {
         // Arrange
         var services = new ServiceCollection();
+        var lockObj = new object();
 
         // Act - Register multiple caches with same meter name to avoid keyed service conflicts
-        var sharedMeterName = GetUniqueMeterName("shared-meter");
+        // Use locking to synchronize concurrent registrations since ServiceCollection is not thread-safe
+        var sharedMeterName = SharedUtilities.GetUniqueMeterName("shared-meter");
         Parallel.For(0, 10, i =>
         {
-            services.AddNamedMeteredMemoryCache($"cache-{i}", meterName: sharedMeterName);
+            lock (lockObj)
+            {
+                services.AddNamedMeteredMemoryCache($"cache-{i}", meterName: sharedMeterName);
+            }
         });
 
         // Assert - Should not throw when building provider
@@ -394,28 +399,21 @@ public class ServiceCollectionExtensionsTests
         Assert.IsType<MeteredMemoryCache>(cache5);
         Assert.IsType<MeteredMemoryCache>(cache9);
 
-        // Verify that at least some caches were registered properly (concurrent execution may affect exact count)
+        // Verify that all caches were registered properly (with synchronization, all should succeed)
         var optionsMonitor = provider.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>();
         var registeredCaches = 0;
 
         for (int i = 0; i < 10; i++)
         {
-            try
+            var options = optionsMonitor.Get($"cache-{i}");
+            if (options.CacheName == $"cache-{i}")
             {
-                var options = optionsMonitor.Get($"cache-{i}");
-                if (options.CacheName == $"cache-{i}")
-                {
-                    registeredCaches++;
-                }
-            }
-            catch
-            {
-                // Some registrations might fail in concurrent scenarios - this is acceptable
+                registeredCaches++;
             }
         }
 
-        // Verify that at least half of the caches were registered successfully
-        Assert.True(registeredCaches >= 5, $"Expected at least 5 caches to be registered, but only {registeredCaches} were found");
+        // With proper synchronization, all caches should be registered successfully
+        Assert.Equal(10, registeredCaches);
     }
 
     [Fact]

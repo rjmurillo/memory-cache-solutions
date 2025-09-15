@@ -1,0 +1,579 @@
+# Cache-Specific Test Scenarios
+# This file focuses specifically on testing cache behavior, metrics, and performance
+# Based on the MeteredMemoryCache implementation in the ASP.NET Core example
+
+# Cache-specific variables
+@testUserId = 1
+@testProductId = 100
+@testCategoryId = 5
+@cacheNames = user-profiles,product-catalog,session-data,api-responses
+
+### Cache Warm-up - Populate caches with initial data
+GET {{HostAddress}}/api/users/{{testUserId}}
+Accept: {{Accept}}
+
+### Cache Warm-up - Populate product cache
+GET {{HostAddress}}/api/products/{{testProductId}}
+Accept: {{Accept}}
+
+### Cache Warm-up - Populate category cache
+GET {{HostAddress}}/api/products/category/{{testCategoryId}}
+Accept: {{Accept}}
+
+### Cache Warm-up - Populate search cache
+GET {{HostAddress}}/api/products/search?query=test&page=1&pageSize=10
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE HIT/MISS VERIFICATION
+# ===========================================
+
+### Cache Hit Test - User Profile Cache
+# First request (should be cache miss)
+GET {{HostAddress}}/api/users/{{testUserId}}
+Accept: {{Accept}}
+
+### Cache Hit Test - User Profile Cache (Second request - should be cache hit)
+GET {{HostAddress}}/api/users/{{testUserId}}
+Accept: {{Accept}}
+
+### Cache Hit Test - User Profile Cache (Third request - should be cache hit)
+GET {{HostAddress}}/api/users/{{testUserId}}
+Accept: {{Accept}}
+
+### Cache Hit Test - Product Catalog Cache
+# First request (should be cache miss)
+GET {{HostAddress}}/api/products/{{testProductId}}
+Accept: {{Accept}}
+
+### Cache Hit Test - Product Catalog Cache (Second request - should be cache hit)
+GET {{HostAddress}}/api/products/{{testProductId}}
+Accept: {{Accept}}
+
+### Cache Hit Test - Product Catalog Cache (Third request - should be cache hit)
+GET {{HostAddress}}/api/products/{{testProductId}}
+Accept: {{Accept}}
+
+### Cache Hit Test - Category Cache
+# First request (should be cache miss)
+GET {{HostAddress}}/api/products/category/{{testCategoryId}}
+Accept: {{Accept}}
+
+### Cache Hit Test - Category Cache (Second request - should be cache hit)
+GET {{HostAddress}}/api/products/category/{{testCategoryId}}
+Accept: {{Accept}}
+
+### Cache Hit Test - Category Cache (Third request - should be cache hit)
+GET {{HostAddress}}/api/products/category/{{testCategoryId}}
+Accept: {{Accept}}
+
+### Cache Hit Test - Search Cache
+# First request (should be cache miss)
+GET {{HostAddress}}/api/products/search?query=test&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Cache Hit Test - Search Cache (Second request - should be cache hit)
+GET {{HostAddress}}/api/products/search?query=test&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Cache Hit Test - Search Cache (Third request - should be cache hit)
+GET {{HostAddress}}/api/products/search?query=test&page=1&pageSize=10
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE INVALIDATION TESTING
+# ===========================================
+
+### Pre-Invalidation: Get user to ensure it's cached
+GET {{HostAddress}}/api/users/{{testUserId}}
+Accept: {{Accept}}
+
+### Invalidate User Cache: Update user (should invalidate cache)
+PUT {{HostAddress}}/api/users/{{testUserId}}
+Content-Type: {{ContentType}}
+Accept: {{Accept}}
+
+{
+  "name": "Cache Invalidation Test User",
+  "email": "invalidation-test@example.com"
+}
+
+### Post-Invalidation: Get user (should be cache miss due to invalidation)
+GET {{HostAddress}}/api/users/{{testUserId}}
+Accept: {{Accept}}
+
+### Post-Invalidation: Get user again (should be cache hit)
+GET {{HostAddress}}/api/users/{{testUserId}}
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# MANUAL CACHE CLEARING
+# ===========================================
+
+### Clear User Profiles Cache
+DELETE {{HostAddress}}/api/cache/user-profiles
+Accept: {{Accept}}
+
+### Verify User Cache Cleared - Should be cache miss
+GET {{HostAddress}}/api/users/{{testUserId}}
+Accept: {{Accept}}
+
+### Clear Product Catalog Cache
+DELETE {{HostAddress}}/api/cache/product-catalog
+Accept: {{Accept}}
+
+### Verify Product Cache Cleared - Should be cache miss
+GET {{HostAddress}}/api/products/{{testProductId}}
+Accept: {{Accept}}
+
+### Clear Session Data Cache
+DELETE {{HostAddress}}/api/cache/session-data
+Accept: {{Accept}}
+
+### Clear API Responses Cache
+DELETE {{HostAddress}}/api/cache/api-responses
+Accept: {{Accept}}
+
+### Clear Non-existent Cache - Should return 404
+DELETE {{HostAddress}}/api/cache/non-existent-cache
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE METRICS VERIFICATION
+# ===========================================
+
+### Check Cache Metrics - Before any operations
+GET {{HostAddress}}/metrics
+Accept: text/plain
+
+### Generate Cache Activity - Create some cache hits and misses
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Generate More Cache Activity
+GET {{HostAddress}}/api/users/2
+Accept: {{Accept}}
+
+### Generate Product Cache Activity
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Generate Category Cache Activity
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Check Cache Metrics - After generating activity
+GET {{HostAddress}}/metrics
+Accept: text/plain
+
+### Check Cache Statistics - Application-level stats
+GET {{HostAddress}}/api/cache/stats
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE SIZE AND EVICTION TESTING
+# ===========================================
+
+### Fill User Cache - Create cache pressure
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Fill User Cache - More entries
+GET {{HostAddress}}/api/users/2
+Accept: {{Accept}}
+
+### Fill User Cache - Continue filling
+GET {{HostAddress}}/api/users/3
+Accept: {{Accept}}
+
+### Fill User Cache - More entries
+GET {{HostAddress}}/api/users/4
+Accept: {{Accept}}
+
+### Fill User Cache - Continue
+GET {{HostAddress}}/api/users/5
+Accept: {{Accept}}
+
+### Fill User Cache - More
+GET {{HostAddress}}/api/users/6
+Accept: {{Accept}}
+
+### Fill User Cache - Continue
+GET {{HostAddress}}/api/users/7
+Accept: {{Accept}}
+
+### Fill User Cache - More
+GET {{HostAddress}}/api/users/8
+Accept: {{Accept}}
+
+### Fill User Cache - Continue
+GET {{HostAddress}}/api/users/9
+Accept: {{Accept}}
+
+### Fill User Cache - More
+GET {{HostAddress}}/api/users/10
+Accept: {{Accept}}
+
+### Fill User Cache - Even more
+GET {{HostAddress}}/api/users/11
+Accept: {{Accept}}
+
+### Fill User Cache - Continue
+GET {{HostAddress}}/api/users/12
+Accept: {{Accept}}
+
+### Fill User Cache - More
+GET {{HostAddress}}/api/users/13
+Accept: {{Accept}}
+
+### Fill User Cache - Continue
+GET {{HostAddress}}/api/users/14
+Accept: {{Accept}}
+
+### Fill User Cache - More
+GET {{HostAddress}}/api/users/15
+Accept: {{Accept}}
+
+### Check Cache Stats - After filling cache
+GET {{HostAddress}}/api/cache/stats
+Accept: {{Accept}}
+
+### Test Early Cache Entries - Should still be cached
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Test Early Cache Entries - Another early entry
+GET {{HostAddress}}/api/users/2
+Accept: {{Accept}}
+
+### Test Recent Cache Entries - Should be cached
+GET {{HostAddress}}/api/users/15
+Accept: {{Accept}}
+
+### Test Recent Cache Entries - Another recent entry
+GET {{HostAddress}}/api/users/14
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE EXPIRATION TESTING
+# ===========================================
+
+### Test User Cache Expiration - Users have 15-minute sliding expiration
+GET {{HostAddress}}/api/users/{{testUserId}}
+Accept: {{Accept}}
+
+### Test Product Cache Expiration - Products have 1-hour absolute expiration
+GET {{HostAddress}}/api/products/{{testProductId}}
+Accept: {{Accept}}
+
+### Test Category Cache Expiration - Categories have 30-minute absolute expiration
+GET {{HostAddress}}/api/products/category/{{testCategoryId}}
+Accept: {{Accept}}
+
+### Test Search Cache Expiration - Search results have 10-minute absolute expiration
+GET {{HostAddress}}/api/products/search?query=expiration-test&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Verify Cache Still Works - After expiration setup
+GET {{HostAddress}}/api/users/{{testUserId}}
+Accept: {{Accept}}
+
+### Verify Product Cache Still Works
+GET {{HostAddress}}/api/products/{{testProductId}}
+Accept: {{Accept}}
+
+### Verify Category Cache Still Works
+GET {{HostAddress}}/api/products/category/{{testCategoryId}}
+Accept: {{Accept}}
+
+### Verify Search Cache Still Works
+GET {{HostAddress}}/api/products/search?query=expiration-test&page=1&pageSize=10
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE PRIORITY TESTING
+# ===========================================
+
+### Test High Priority Cache - User profiles (Priority: Normal, but high business value)
+GET {{HostAddress}}/api/users/{{testUserId}}
+Accept: {{Accept}}
+
+### Test High Priority Cache - Products (Priority: High)
+GET {{HostAddress}}/api/products/{{testProductId}}
+Accept: {{Accept}}
+
+### Test Normal Priority Cache - Categories (Priority: Normal)
+GET {{HostAddress}}/api/products/category/{{testCategoryId}}
+Accept: {{Accept}}
+
+### Test Low Priority Cache - Search results (Priority: Low)
+GET {{HostAddress}}/api/products/search?query=priority-test&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Fill Cache to Trigger Eviction - Create pressure
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Fill Cache to Trigger Eviction - More entries
+GET {{HostAddress}}/api/users/2
+Accept: {{Accept}}
+
+### Fill Cache to Trigger Eviction - Continue
+GET {{HostAddress}}/api/users/3
+Accept: {{Accept}}
+
+### Fill Cache to Trigger Eviction - More
+GET {{HostAddress}}/api/users/4
+Accept: {{Accept}}
+
+### Fill Cache to Trigger Eviction - Continue
+GET {{HostAddress}}/api/users/5
+Accept: {{Accept}}
+
+### Fill Cache to Trigger Eviction - More
+GET {{HostAddress}}/api/users/6
+Accept: {{Accept}}
+
+### Fill Cache to Trigger Eviction - Continue
+GET {{HostAddress}}/api/users/7
+Accept: {{Accept}}
+
+### Fill Cache to Trigger Eviction - More
+GET {{HostAddress}}/api/users/8
+Accept: {{Accept}}
+
+### Fill Cache to Trigger Eviction - Continue
+GET {{HostAddress}}/api/users/9
+Accept: {{Accept}}
+
+### Fill Cache to Trigger Eviction - More
+GET {{HostAddress}}/api/users/10
+Accept: {{Accept}}
+
+### Test Priority Preservation - High priority should be preserved
+GET {{HostAddress}}/api/products/{{testProductId}}
+Accept: {{Accept}}
+
+### Test Priority Preservation - User profiles should be preserved
+GET {{HostAddress}}/api/users/{{testUserId}}
+Accept: {{Accept}}
+
+### Test Priority Preservation - Categories should be preserved
+GET {{HostAddress}}/api/products/category/{{testCategoryId}}
+Accept: {{Accept}}
+
+### Test Priority Eviction - Low priority search might be evicted
+GET {{HostAddress}}/api/products/search?query=priority-test&page=1&pageSize=10
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE SIZE TESTING
+# ===========================================
+
+### Test User Cache Size - Users have Size = 1
+GET {{HostAddress}}/api/users/{{testUserId}}
+Accept: {{Accept}}
+
+### Test Product Cache Size - Products have Size = 2
+GET {{HostAddress}}/api/products/{{testProductId}}
+Accept: {{Accept}}
+
+### Test Category Cache Size - Categories have Size = 10
+GET {{HostAddress}}/api/products/category/{{testCategoryId}}
+Accept: {{Accept}}
+
+### Test Search Cache Size - Search results have Size = 5
+GET {{HostAddress}}/api/products/search?query=size-test&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Check Cache Stats - Verify size allocations
+GET {{HostAddress}}/api/cache/stats
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE TAG VERIFICATION
+# ===========================================
+
+### Generate Activity for Tag Verification - User profiles cache
+GET {{HostAddress}}/api/users/{{testUserId}}
+Accept: {{Accept}}
+
+### Generate Activity for Tag Verification - Product catalog cache
+GET {{HostAddress}}/api/products/{{testProductId}}
+Accept: {{Accept}}
+
+### Generate Activity for Tag Verification - Category cache
+GET {{HostAddress}}/api/products/category/{{testCategoryId}}
+Accept: {{Accept}}
+
+### Check Metrics for Tags - Verify cache.name and additional tags
+GET {{HostAddress}}/metrics
+Accept: text/plain
+
+### Verify Cache Tags in Metrics - Look for cache_type and priority tags
+GET {{HostAddress}}/metrics
+Accept: text/plain
+
+###
+
+# ===========================================
+# CACHE CONCURRENCY TESTING
+# ===========================================
+
+### Concurrent Cache Access 1 - User cache
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Concurrent Cache Access 2 - User cache
+GET {{HostAddress}}/api/users/2
+Accept: {{Accept}}
+
+### Concurrent Cache Access 3 - User cache
+GET {{HostAddress}}/api/users/3
+Accept: {{Accept}}
+
+### Concurrent Cache Access 4 - Product cache
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Concurrent Cache Access 5 - Product cache
+GET {{HostAddress}}/api/products/101
+Accept: {{Accept}}
+
+### Concurrent Cache Access 6 - Product cache
+GET {{HostAddress}}/api/products/102
+Accept: {{Accept}}
+
+### Concurrent Cache Access 7 - Category cache
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Concurrent Cache Access 8 - Category cache
+GET {{HostAddress}}/api/products/category/2
+Accept: {{Accept}}
+
+### Concurrent Cache Access 9 - Category cache
+GET {{HostAddress}}/api/products/category/3
+Accept: {{Accept}}
+
+### Concurrent Cache Access 10 - Search cache
+GET {{HostAddress}}/api/products/search?query=concurrent&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Concurrent Cache Access 11 - Search cache
+GET {{HostAddress}}/api/products/search?query=test&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Concurrent Cache Access 12 - Search cache
+GET {{HostAddress}}/api/products/search?query=cache&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Check Metrics After Concurrency - Verify no race conditions
+GET {{HostAddress}}/metrics
+Accept: text/plain
+
+### Check Cache Stats After Concurrency - Verify consistency
+GET {{HostAddress}}/api/cache/stats
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE PERFORMANCE TESTING
+# ===========================================
+
+### Performance Test - Cache Miss (should be slower)
+GET {{HostAddress}}/api/users/100
+Accept: {{Accept}}
+
+### Performance Test - Cache Hit (should be faster)
+GET {{HostAddress}}/api/users/100
+Accept: {{Accept}}
+
+### Performance Test - Cache Hit (should be faster)
+GET {{HostAddress}}/api/users/100
+Accept: {{Accept}}
+
+### Performance Test - Product Cache Miss
+GET {{HostAddress}}/api/products/200
+Accept: {{Accept}}
+
+### Performance Test - Product Cache Hit
+GET {{HostAddress}}/api/products/200
+Accept: {{Accept}}
+
+### Performance Test - Product Cache Hit
+GET {{HostAddress}}/api/products/200
+Accept: {{Accept}}
+
+### Performance Test - Category Cache Miss
+GET {{HostAddress}}/api/products/category/10
+Accept: {{Accept}}
+
+### Performance Test - Category Cache Hit
+GET {{HostAddress}}/api/products/category/10
+Accept: {{Accept}}
+
+### Performance Test - Category Cache Hit
+GET {{HostAddress}}/api/products/category/10
+Accept: {{Accept}}
+
+### Performance Test - Search Cache Miss
+GET {{HostAddress}}/api/products/search?query=performance&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Performance Test - Search Cache Hit
+GET {{HostAddress}}/api/products/search?query=performance&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Performance Test - Search Cache Hit
+GET {{HostAddress}}/api/products/search?query=performance&page=1&pageSize=10
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# FINAL CACHE VERIFICATION
+# ===========================================
+
+### Final Cache Stats Check - Overall cache health
+GET {{HostAddress}}/api/cache/stats
+Accept: {{Accept}}
+
+### Final Metrics Check - Verify all cache metrics
+GET {{HostAddress}}/metrics
+Accept: text/plain
+
+### Final Cache Hit Test - Ensure caching still works
+GET {{HostAddress}}/api/users/{{testUserId}}
+Accept: {{Accept}}
+
+### Final Cache Hit Test - Product cache
+GET {{HostAddress}}/api/products/{{testProductId}}
+Accept: {{Accept}}
+
+### Final Cache Hit Test - Category cache
+GET {{HostAddress}}/api/products/category/{{testCategoryId}}
+Accept: {{Accept}}
+
+### Final Cache Hit Test - Search cache
+GET {{HostAddress}}/api/products/search?query=final-test&page=1&pageSize=10
+Accept: {{Accept}}

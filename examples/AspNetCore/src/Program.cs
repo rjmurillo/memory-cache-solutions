@@ -36,7 +36,7 @@ public class Program
     {
         // Add controllers
         services.AddControllers();
-        
+
         // Add API documentation
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen();
@@ -58,7 +58,7 @@ public class Program
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<ICacheStatsService, CacheStatsService>();
-        
+
         // Configure HTTP clients (for external API calls)
         services.AddHttpClient<IExternalApiService, ExternalApiService>(client =>
         {
@@ -73,39 +73,39 @@ public class Program
     private static void ConfigureCaches(IServiceCollection services)
     {
         // User profile cache - frequently accessed, medium size
-        services.AddNamedMeteredMemoryCache("user-profiles", 
+        services.AddNamedMeteredMemoryCache("user-profiles",
             meterName: "AspNetCore.Cache",
-            configure: options =>
+            configureOptions: options =>
             {
-                options.SizeLimit = 5000;
-                options.CompactionPercentage = 0.1;
+                options.AdditionalTags["cache_type"] = "user_profiles";
+                options.AdditionalTags["environment"] = "development";
             });
 
         // Product catalog cache - less frequent updates, larger size
-        services.AddNamedMeteredMemoryCache("product-catalog", 
+        services.AddNamedMeteredMemoryCache("product-catalog",
             meterName: "AspNetCore.Cache",
-            configure: options =>
+            configureOptions: options =>
             {
-                options.SizeLimit = 10000;
-                options.CompactionPercentage = 0.2;
+                options.AdditionalTags["cache_type"] = "product_catalog";
+                options.AdditionalTags["environment"] = "development";
             });
 
         // Session data cache - small, frequent evictions
-        services.AddNamedMeteredMemoryCache("session-data", 
+        services.AddNamedMeteredMemoryCache("session-data",
             meterName: "AspNetCore.Cache",
-            configure: options =>
+            configureOptions: options =>
             {
-                options.SizeLimit = 1000;
-                options.CompactionPercentage = 0.3;
+                options.AdditionalTags["cache_type"] = "session_data";
+                options.AdditionalTags["environment"] = "development";
             });
 
         // API response cache - for external API responses
-        services.AddNamedMeteredMemoryCache("api-responses", 
+        services.AddNamedMeteredMemoryCache("api-responses",
             meterName: "AspNetCore.Cache",
-            configure: options =>
+            configureOptions: options =>
             {
-                options.SizeLimit = 2000;
-                options.CompactionPercentage = 0.2;
+                options.AdditionalTags["cache_type"] = "api_responses";
+                options.AdditionalTags["environment"] = "development";
             });
     }
 
@@ -132,7 +132,7 @@ public class Program
         app.MapControllers();
 
         // Add a simple metrics endpoint for demo
-        app.MapGet("/metrics-demo", () => 
+        app.MapGet("/metrics-demo", () =>
         {
             return Results.Ok(new { message = "Check /metrics for Prometheus metrics" });
         });
@@ -354,17 +354,17 @@ public class UserService : IUserService
     public async Task<UserDto?> GetUserAsync(int id)
     {
         var cacheKey = $"user:{id}";
-        
-        if (_cache.TryGetValue(cacheKey, out UserDto cachedUser))
+
+        if (_cache.TryGetValue(cacheKey, out UserDto? cachedUser) && cachedUser is not null)
         {
             _logger.LogDebug("User {UserId} found in cache", id);
             return cachedUser;
         }
 
         _logger.LogDebug("User {UserId} not in cache, fetching from API", id);
-        
+
         var user = await _externalApi.GetUserAsync(id);
-        
+
         if (user != null)
         {
             _cache.Set(cacheKey, user, new MemoryCacheEntryOptions
@@ -387,7 +387,7 @@ public class UserService : IUserService
         foreach (var id in ids)
         {
             var cacheKey = $"user:{id}";
-            if (_cache.TryGetValue(cacheKey, out UserDto cachedUser))
+            if (_cache.TryGetValue(cacheKey, out UserDto? cachedUser) && cachedUser is not null)
             {
                 users.Add(cachedUser);
                 _logger.LogDebug("User {UserId} found in cache", id);
@@ -401,11 +401,11 @@ public class UserService : IUserService
         // Batch fetch uncached users
         if (uncachedIds.Any())
         {
-            _logger.LogDebug("Fetching {Count} users from API: {UserIds}", 
+            _logger.LogDebug("Fetching {Count} users from API: {UserIds}",
                 uncachedIds.Count, string.Join(",", uncachedIds));
-            
+
             var fetchedUsers = await _externalApi.GetUsersAsync(uncachedIds.ToArray());
-            
+
             foreach (var user in fetchedUsers)
             {
                 var cacheKey = $"user:{user.Id}";
@@ -415,7 +415,7 @@ public class UserService : IUserService
                     Priority = CacheItemPriority.Normal,
                     Size = 1
                 });
-                
+
                 users.Add(user);
             }
         }
@@ -426,7 +426,7 @@ public class UserService : IUserService
     public async Task<bool> UpdateUserAsync(int id, UpdateUserDto updateDto)
     {
         var updated = await _externalApi.UpdateUserAsync(id, updateDto);
-        
+
         if (updated)
         {
             // Invalidate cache after update
@@ -468,14 +468,14 @@ public class ProductService : IProductService
     public async Task<ProductDto?> GetProductAsync(int id)
     {
         var cacheKey = $"product:{id}";
-        
-        if (_cache.TryGetValue(cacheKey, out ProductDto cachedProduct))
+
+        if (_cache.TryGetValue(cacheKey, out ProductDto? cachedProduct) && cachedProduct is not null)
         {
             return cachedProduct;
         }
 
         var product = await _externalApi.GetProductAsync(id);
-        
+
         if (product != null)
         {
             _cache.Set(cacheKey, product, new MemoryCacheEntryOptions
@@ -492,14 +492,14 @@ public class ProductService : IProductService
     public async Task<IEnumerable<ProductDto>> GetProductsByCategoryAsync(int categoryId)
     {
         var cacheKey = $"products:category:{categoryId}";
-        
-        if (_cache.TryGetValue(cacheKey, out IEnumerable<ProductDto> cachedProducts))
+
+        if (_cache.TryGetValue(cacheKey, out IEnumerable<ProductDto>? cachedProducts) && cachedProducts is not null)
         {
             return cachedProducts;
         }
 
         var products = await _externalApi.GetProductsByCategoryAsync(categoryId);
-        
+
         _cache.Set(cacheKey, products, new MemoryCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30),
@@ -514,14 +514,14 @@ public class ProductService : IProductService
     {
         // Cache search results with query, page, and pageSize in key
         var cacheKey = $"search:products:{query.ToLowerInvariant()}:{page}:{pageSize}";
-        
-        if (_cache.TryGetValue(cacheKey, out IEnumerable<ProductDto> cachedResults))
+
+        if (_cache.TryGetValue(cacheKey, out IEnumerable<ProductDto>? cachedResults) && cachedResults is not null)
         {
             return cachedResults;
         }
 
         var results = await _externalApi.SearchProductsAsync(query, page, pageSize);
-        
+
         _cache.Set(cacheKey, results, new MemoryCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10), // Search results expire quickly
@@ -566,7 +566,7 @@ public class ExternalApiService : IExternalApiService
     {
         // Simulate API call delay
         await Task.Delay(Random.Shared.Next(100, 300));
-        
+
         return new UserDto
         {
             Id = id,
@@ -580,7 +580,7 @@ public class ExternalApiService : IExternalApiService
     {
         // Simulate batch API call
         await Task.Delay(Random.Shared.Next(200, 500));
-        
+
         return ids.Select(id => new UserDto
         {
             Id = id,
@@ -600,7 +600,7 @@ public class ExternalApiService : IExternalApiService
     public async Task<ProductDto?> GetProductAsync(int id)
     {
         await Task.Delay(Random.Shared.Next(100, 300));
-        
+
         return new ProductDto
         {
             Id = id,
@@ -614,7 +614,7 @@ public class ExternalApiService : IExternalApiService
     public async Task<IEnumerable<ProductDto>> GetProductsByCategoryAsync(int categoryId)
     {
         await Task.Delay(Random.Shared.Next(200, 500));
-        
+
         return Enumerable.Range(1, 10).Select(i => new ProductDto
         {
             Id = categoryId * 100 + i,
@@ -628,9 +628,9 @@ public class ExternalApiService : IExternalApiService
     public async Task<IEnumerable<ProductDto>> SearchProductsAsync(string query, int page, int pageSize)
     {
         await Task.Delay(Random.Shared.Next(300, 800)); // Search is slower
-        
+
         var skip = (page - 1) * pageSize;
-        
+
         return Enumerable.Range(skip + 1, pageSize).Select(i => new ProductDto
         {
             Id = i,
@@ -682,14 +682,14 @@ public class CacheStatsService : ICacheStatsService
         try
         {
             var cache = _serviceProvider.GetKeyedService<IMemoryCache>(cacheName);
-            
+
             if (cache is MemoryCache memCache)
             {
                 // Note: MemoryCache doesn't have a public Clear method
                 // In production, you might need to track keys separately or use a custom cache
                 return true; // Simulate success
             }
-            
+
             return false;
         }
         catch
@@ -712,7 +712,7 @@ public record UpdateUserDto
 {
     [Required]
     public string Name { get; init; } = string.Empty;
-    
+
     [Required]
     [EmailAddress]
     public string Email { get; init; } = string.Empty;

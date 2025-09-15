@@ -1,0 +1,957 @@
+# Performance and Concurrency Test Scenarios
+# This file focuses on testing performance characteristics and concurrent access patterns
+# Based on the MeteredMemoryCache implementation in the ASP.NET Core example
+
+# Performance test variables
+@concurrentUsers = 1,2,3,4,5,6,7,8,9,10
+@concurrentProducts = 100,101,102,103,104,105,106,107,108,109
+@concurrentCategories = 1,2,3,4,5,6,7,8,9,10
+@searchQueries = laptop,phone,tablet,monitor,keyboard,mouse,headphones,speaker,camera,printer
+
+### Performance Baseline - Single request to establish baseline
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Performance Baseline - Product request
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Performance Baseline - Category request
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Performance Baseline - Search request
+GET {{HostAddress}}/api/products/search?query=baseline&page=1&pageSize=10
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE WARM-UP FOR PERFORMANCE TESTING
+# ===========================================
+
+### Warm-up User Cache - Populate cache for performance tests
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Warm-up User Cache - More users
+GET {{HostAddress}}/api/users/2
+Accept: {{Accept}}
+
+### Warm-up User Cache - More users
+GET {{HostAddress}}/api/users/3
+Accept: {{Accept}}
+
+### Warm-up User Cache - More users
+GET {{HostAddress}}/api/users/4
+Accept: {{Accept}}
+
+### Warm-up User Cache - More users
+GET {{HostAddress}}/api/users/5
+Accept: {{Accept}}
+
+### Warm-up Product Cache - Populate product cache
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Warm-up Product Cache - More products
+GET {{HostAddress}}/api/products/101
+Accept: {{Accept}}
+
+### Warm-up Product Cache - More products
+GET {{HostAddress}}/api/products/102
+Accept: {{Accept}}
+
+### Warm-up Product Cache - More products
+GET {{HostAddress}}/api/products/103
+Accept: {{Accept}}
+
+### Warm-up Product Cache - More products
+GET {{HostAddress}}/api/products/104
+Accept: {{Accept}}
+
+### Warm-up Category Cache - Populate category cache
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Warm-up Category Cache - More categories
+GET {{HostAddress}}/api/products/category/2
+Accept: {{Accept}}
+
+### Warm-up Category Cache - More categories
+GET {{HostAddress}}/api/products/category/3
+Accept: {{Accept}}
+
+### Warm-up Category Cache - More categories
+GET {{HostAddress}}/api/products/category/4
+Accept: {{Accept}}
+
+### Warm-up Category Cache - More categories
+GET {{HostAddress}}/api/products/category/5
+Accept: {{Accept}}
+
+### Warm-up Search Cache - Populate search cache
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Warm-up Search Cache - More searches
+GET {{HostAddress}}/api/products/search?query=phone&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Warm-up Search Cache - More searches
+GET {{HostAddress}}/api/products/search?query=tablet&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Warm-up Search Cache - More searches
+GET {{HostAddress}}/api/products/search?query=monitor&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Warm-up Search Cache - More searches
+GET {{HostAddress}}/api/products/search?query=keyboard&page=1&pageSize=10
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE HIT PERFORMANCE TESTING
+# ===========================================
+
+### Cache Hit Performance Test 1 - User (should be fast)
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 2 - User (should be fast)
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 3 - User (should be fast)
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 4 - User (should be fast)
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 5 - User (should be fast)
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 1 - Product (should be fast)
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 2 - Product (should be fast)
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 3 - Product (should be fast)
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 4 - Product (should be fast)
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 5 - Product (should be fast)
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 1 - Category (should be fast)
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 2 - Category (should be fast)
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 3 - Category (should be fast)
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 4 - Category (should be fast)
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 5 - Category (should be fast)
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 1 - Search (should be fast)
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 2 - Search (should be fast)
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 3 - Search (should be fast)
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 4 - Search (should be fast)
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Cache Hit Performance Test 5 - Search (should be fast)
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE MISS PERFORMANCE TESTING
+# ===========================================
+
+### Cache Miss Performance Test 1 - New User (should be slower)
+GET {{HostAddress}}/api/users/100
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 2 - New User (should be slower)
+GET {{HostAddress}}/api/users/101
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 3 - New User (should be slower)
+GET {{HostAddress}}/api/users/102
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 4 - New User (should be slower)
+GET {{HostAddress}}/api/users/103
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 5 - New User (should be slower)
+GET {{HostAddress}}/api/users/104
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 1 - New Product (should be slower)
+GET {{HostAddress}}/api/products/200
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 2 - New Product (should be slower)
+GET {{HostAddress}}/api/products/201
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 3 - New Product (should be slower)
+GET {{HostAddress}}/api/products/202
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 4 - New Product (should be slower)
+GET {{HostAddress}}/api/products/203
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 5 - New Product (should be slower)
+GET {{HostAddress}}/api/products/204
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 1 - New Category (should be slower)
+GET {{HostAddress}}/api/products/category/10
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 2 - New Category (should be slower)
+GET {{HostAddress}}/api/products/category/11
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 3 - New Category (should be slower)
+GET {{HostAddress}}/api/products/category/12
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 4 - New Category (should be slower)
+GET {{HostAddress}}/api/products/category/13
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 5 - New Category (should be slower)
+GET {{HostAddress}}/api/products/category/14
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 1 - New Search (should be slower)
+GET {{HostAddress}}/api/products/search?query=performance&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 2 - New Search (should be slower)
+GET {{HostAddress}}/api/products/search?query=concurrency&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 3 - New Search (should be slower)
+GET {{HostAddress}}/api/products/search?query=testing&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 4 - New Search (should be slower)
+GET {{HostAddress}}/api/products/search?query=metrics&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Cache Miss Performance Test 5 - New Search (should be slower)
+GET {{HostAddress}}/api/products/search?query=monitoring&page=1&pageSize=10
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CONCURRENT ACCESS TESTING
+# ===========================================
+
+### Concurrent User Access 1 - Test thread safety
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Concurrent User Access 2 - Test thread safety
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Concurrent User Access 3 - Test thread safety
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Concurrent User Access 4 - Test thread safety
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Concurrent User Access 5 - Test thread safety
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Concurrent User Access 6 - Test thread safety
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Concurrent User Access 7 - Test thread safety
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Concurrent User Access 8 - Test thread safety
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Concurrent User Access 9 - Test thread safety
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Concurrent User Access 10 - Test thread safety
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Concurrent Product Access 1 - Test thread safety
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Concurrent Product Access 2 - Test thread safety
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Concurrent Product Access 3 - Test thread safety
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Concurrent Product Access 4 - Test thread safety
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Concurrent Product Access 5 - Test thread safety
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Concurrent Product Access 6 - Test thread safety
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Concurrent Product Access 7 - Test thread safety
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Concurrent Product Access 8 - Test thread safety
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Concurrent Product Access 9 - Test thread safety
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Concurrent Product Access 10 - Test thread safety
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Concurrent Category Access 1 - Test thread safety
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Concurrent Category Access 2 - Test thread safety
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Concurrent Category Access 3 - Test thread safety
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Concurrent Category Access 4 - Test thread safety
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Concurrent Category Access 5 - Test thread safety
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Concurrent Category Access 6 - Test thread safety
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Concurrent Category Access 7 - Test thread safety
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Concurrent Category Access 8 - Test thread safety
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Concurrent Category Access 9 - Test thread safety
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Concurrent Category Access 10 - Test thread safety
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Concurrent Search Access 1 - Test thread safety
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Concurrent Search Access 2 - Test thread safety
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Concurrent Search Access 3 - Test thread safety
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Concurrent Search Access 4 - Test thread safety
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Concurrent Search Access 5 - Test thread safety
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Concurrent Search Access 6 - Test thread safety
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Concurrent Search Access 7 - Test thread safety
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Concurrent Search Access 8 - Test thread safety
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Concurrent Search Access 9 - Test thread safety
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Concurrent Search Access 10 - Test thread safety
+GET {{HostAddress}}/api/products/search?query=laptop&page=1&pageSize=10
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# MIXED CONCURRENT ACCESS TESTING
+# ===========================================
+
+### Mixed Concurrent Access 1 - User
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 2 - Product
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 3 - Category
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 4 - Search
+GET {{HostAddress}}/api/products/search?query=mixed&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 5 - User
+GET {{HostAddress}}/api/users/2
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 6 - Product
+GET {{HostAddress}}/api/products/101
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 7 - Category
+GET {{HostAddress}}/api/products/category/2
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 8 - Search
+GET {{HostAddress}}/api/products/search?query=concurrent&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 9 - User
+GET {{HostAddress}}/api/users/3
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 10 - Product
+GET {{HostAddress}}/api/products/102
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 11 - Category
+GET {{HostAddress}}/api/products/category/3
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 12 - Search
+GET {{HostAddress}}/api/products/search?query=testing&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 13 - User
+GET {{HostAddress}}/api/users/4
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 14 - Product
+GET {{HostAddress}}/api/products/103
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 15 - Category
+GET {{HostAddress}}/api/products/category/4
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 16 - Search
+GET {{HostAddress}}/api/products/search?query=performance&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 17 - User
+GET {{HostAddress}}/api/users/5
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 18 - Product
+GET {{HostAddress}}/api/products/104
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 19 - Category
+GET {{HostAddress}}/api/products/category/5
+Accept: {{Accept}}
+
+### Mixed Concurrent Access 20 - Search
+GET {{HostAddress}}/api/products/search?query=metrics&page=1&pageSize=10
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# BATCH OPERATION PERFORMANCE TESTING
+# ===========================================
+
+### Batch User Performance Test 1 - Small batch
+GET {{HostAddress}}/api/users?ids=1&ids=2&ids=3
+Accept: {{Accept}}
+
+### Batch User Performance Test 2 - Medium batch
+GET {{HostAddress}}/api/users?ids=1&ids=2&ids=3&ids=4&ids=5
+Accept: {{Accept}}
+
+### Batch User Performance Test 3 - Large batch
+GET {{HostAddress}}/api/users?ids=1&ids=2&ids=3&ids=4&ids=5&ids=6&ids=7&ids=8&ids=9&ids=10
+Accept: {{Accept}}
+
+### Batch User Performance Test 4 - Mixed cache state batch
+GET {{HostAddress}}/api/users?ids=1&ids=2&ids=100&ids=101&ids=102
+Accept: {{Accept}}
+
+### Batch User Performance Test 5 - All cache hits batch
+GET {{HostAddress}}/api/users?ids=1&ids=2&ids=3&ids=4&ids=5
+Accept: {{Accept}}
+
+### Batch User Performance Test 6 - All cache misses batch
+GET {{HostAddress}}/api/users?ids=200&ids=201&ids=202&ids=203&ids=204
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# CACHE PRESSURE TESTING
+# ===========================================
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/2
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/3
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/4
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/5
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/6
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/7
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/8
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/9
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/10
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/11
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/12
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/13
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/14
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/15
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/16
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/17
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/18
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/19
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/20
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/21
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/22
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/23
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/24
+Accept: {{Accept}}
+
+### Cache Pressure Test - Fill user cache
+GET {{HostAddress}}/api/users/25
+Accept: {{Accept}}
+
+### Cache Pressure Test - Check if early entries still cached
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Cache Pressure Test - Check if early entries still cached
+GET {{HostAddress}}/api/users/2
+Accept: {{Accept}}
+
+### Cache Pressure Test - Check if early entries still cached
+GET {{HostAddress}}/api/users/3
+Accept: {{Accept}}
+
+### Cache Pressure Test - Check if recent entries cached
+GET {{HostAddress}}/api/users/25
+Accept: {{Accept}}
+
+### Cache Pressure Test - Check if recent entries cached
+GET {{HostAddress}}/api/users/24
+Accept: {{Accept}}
+
+### Cache Pressure Test - Check if recent entries cached
+GET {{HostAddress}}/api/users/23
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# METRICS PERFORMANCE TESTING
+# ===========================================
+
+### Metrics Performance Test - Check metrics before activity
+GET {{HostAddress}}/metrics
+Accept: text/plain
+
+### Metrics Performance Test - Generate activity
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Metrics Performance Test - Generate more activity
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Metrics Performance Test - Generate more activity
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Metrics Performance Test - Generate more activity
+GET {{HostAddress}}/api/products/search?query=metrics&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Metrics Performance Test - Check metrics after activity
+GET {{HostAddress}}/metrics
+Accept: text/plain
+
+### Metrics Performance Test - Check cache stats
+GET {{HostAddress}}/api/cache/stats
+Accept: {{Accept}}
+
+### Metrics Performance Test - Generate high volume activity
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Metrics Performance Test - Generate high volume activity
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Metrics Performance Test - Generate high volume activity
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Metrics Performance Test - Generate high volume activity
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Metrics Performance Test - Generate high volume activity
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Metrics Performance Test - Check metrics after high volume
+GET {{HostAddress}}/metrics
+Accept: text/plain
+
+### Metrics Performance Test - Check cache stats after high volume
+GET {{HostAddress}}/api/cache/stats
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# STRESS TESTING
+# ===========================================
+
+### Stress Test - Rapid user requests
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid user requests
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid user requests
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid user requests
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid user requests
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid user requests
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid user requests
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid user requests
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid user requests
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid user requests
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid product requests
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Stress Test - Rapid product requests
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Stress Test - Rapid product requests
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Stress Test - Rapid product requests
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Stress Test - Rapid product requests
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Stress Test - Rapid product requests
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Stress Test - Rapid product requests
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Stress Test - Rapid product requests
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Stress Test - Rapid product requests
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Stress Test - Rapid product requests
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Stress Test - Rapid category requests
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid category requests
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid category requests
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid category requests
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid category requests
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid category requests
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid category requests
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid category requests
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid category requests
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid category requests
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Stress Test - Rapid search requests
+GET {{HostAddress}}/api/products/search?query=stress&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Stress Test - Rapid search requests
+GET {{HostAddress}}/api/products/search?query=stress&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Stress Test - Rapid search requests
+GET {{HostAddress}}/api/products/search?query=stress&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Stress Test - Rapid search requests
+GET {{HostAddress}}/api/products/search?query=stress&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Stress Test - Rapid search requests
+GET {{HostAddress}}/api/products/search?query=stress&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Stress Test - Rapid search requests
+GET {{HostAddress}}/api/products/search?query=stress&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Stress Test - Rapid search requests
+GET {{HostAddress}}/api/products/search?query=stress&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Stress Test - Rapid search requests
+GET {{HostAddress}}/api/products/search?query=stress&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Stress Test - Rapid search requests
+GET {{HostAddress}}/api/products/search?query=stress&page=1&pageSize=10
+Accept: {{Accept}}
+
+### Stress Test - Rapid search requests
+GET {{HostAddress}}/api/products/search?query=stress&page=1&pageSize=10
+Accept: {{Accept}}
+
+###
+
+# ===========================================
+# FINAL PERFORMANCE VERIFICATION
+# ===========================================
+
+### Final Performance Check - Health endpoint
+GET {{HostAddress}}/health
+Accept: {{Accept}}
+
+### Final Performance Check - Metrics endpoint
+GET {{HostAddress}}/metrics
+Accept: text/plain
+
+### Final Performance Check - Cache stats
+GET {{HostAddress}}/api/cache/stats
+Accept: {{Accept}}
+
+### Final Performance Check - User endpoint
+GET {{HostAddress}}/api/users/1
+Accept: {{Accept}}
+
+### Final Performance Check - Product endpoint
+GET {{HostAddress}}/api/products/100
+Accept: {{Accept}}
+
+### Final Performance Check - Category endpoint
+GET {{HostAddress}}/api/products/category/1
+Accept: {{Accept}}
+
+### Final Performance Check - Search endpoint
+GET {{HostAddress}}/api/products/search?query=final&page=1&pageSize=10
+Accept: {{Accept}}

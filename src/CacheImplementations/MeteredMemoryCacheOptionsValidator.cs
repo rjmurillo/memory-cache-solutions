@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using Microsoft.Extensions.Options;
 
 namespace CacheImplementations;
@@ -73,6 +71,32 @@ public sealed class MeteredMemoryCacheOptionsValidator : IValidateOptions<Metere
         if (options.AdditionalTags.Any(kvp => string.IsNullOrWhiteSpace(kvp.Key)))
         {
             failures.Add("AdditionalTags keys must be non-empty.");
+        }
+
+        // Validate AdditionalTags values
+        if (options.AdditionalTags.Any(kvp => kvp.Value is null))
+        {
+            failures.Add("AdditionalTags values cannot be null.");
+        }
+
+        // Validate AdditionalTags value types (should be string, number, or boolean)
+        var invalidValueTypes = options.AdditionalTags
+            .Where(kvp => kvp.Value is not null &&
+                         kvp.Value is not string &&
+                         kvp.Value is not int &&
+                         kvp.Value is not long &&
+                         kvp.Value is not double &&
+                         kvp.Value is not float &&
+                         kvp.Value is not decimal &&
+                         kvp.Value is not bool)
+            .ToList();
+
+        if (invalidValueTypes.Any())
+        {
+            var invalidTypes = invalidValueTypes.Select(kvp => $"{kvp.Key}:{kvp.Value?.GetType().Name}")
+                .Take(5) // Limit to first 5 for readability
+                .ToList();
+            failures.Add($"AdditionalTags values must be string, number, or boolean. Invalid types: {string.Join(", ", invalidTypes)}");
         }
 
         return failures.Count > 0

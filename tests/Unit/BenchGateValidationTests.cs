@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text.Json;
+
 using BenchGate;
-using Xunit;
 
 namespace Unit;
 
@@ -301,7 +297,7 @@ public class BenchGateValidationTests
         Assert.Empty(improvements);
     }
 
-    #region Helper Methods
+    // Helper Methods
 
     private static string CreateBenchmarkJson(string title, (string name, double mean, double stdDev, int n, double alloc)[] benchmarks)
     {
@@ -347,6 +343,4 @@ public class BenchGateValidationTests
 
         return benchmarks;
     }
-
-    #endregion
 }

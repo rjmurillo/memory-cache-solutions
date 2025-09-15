@@ -1,7 +1,6 @@
 // Copyright (c) 2025, MeteredMemoryCache contributors
-using System;
 using System.Diagnostics.Metrics;
-using System.Linq;
+
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -34,8 +33,8 @@ public static class ServiceCollectionExtensions
     /// <para>
     /// This method performs comprehensive service registration including:
     /// <list type="bullet">
-    /// <item><description>Named options configuration with validation using <see cref="Microsoft.Extensions.Options.OptionsBuilder{TOptions}.ValidateDataAnnotations"/> and <see cref="Microsoft.Extensions.Options.OptionsBuilder{TOptions}.ValidateOnStart"/></description></item>
-    /// <item><description>Keyed service registration for multi-cache scenarios using <see cref="Microsoft.Extensions.DependencyInjection.ServiceCollectionKeyedServiceExtensions.AddKeyedSingleton{TService}(IServiceCollection, object, System.Func{IServiceProvider, object, TService})"/></description></item>
+    /// <item><description>Named options configuration with validation using ValidateDataAnnotations and ValidateOnStart</description></item>
+    /// <item><description>Keyed service registration for multi-cache scenarios using AddKeyedSingleton</description></item>
     /// <item><description>Fallback singleton registration for single-cache applications</description></item>
     /// <item><description>Automatic <see cref="System.Diagnostics.Metrics.Meter"/> registration if not already present</description></item>
     /// <item><description>Options validator registration using <see cref="MeteredMemoryCacheOptionsValidator"/></description></item>
@@ -179,22 +178,24 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<Meter>(sp => sp.GetRequiredKeyedService<Meter>(effectiveMeterName));
 
         // Use named options configuration to prevent global contamination
-        var optionsName = $"DecoratedCache_{Guid.NewGuid():N}";
+        // Use timestamp + random to reduce collision probability
+        var optionsName = $"DecoratedCache_{DateTimeOffset.UtcNow.Ticks}_{Guid.NewGuid():N}";
         services.AddOptions<MeteredMemoryCacheOptions>(optionsName)
             .Configure(opts =>
             {
                 opts.CacheName = cacheName;
                 opts.DisposeInner = false; // Don't dispose shared cache in decorator
                 configureOptions?.Invoke(opts);
-            });
+            })
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
 
         // Register the options validator
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<MeteredMemoryCacheOptions>, MeteredMemoryCacheOptionsValidator>());
 
         // Manual decoration - find existing IMemoryCache registration and replace it
-        var existingDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IMemoryCache))
-        ?? throw new InvalidOperationException($"No IMemoryCache registration found. Register IMemoryCache before calling {nameof(DecorateMemoryCacheWithMetrics)}.");
+        var existingDescriptor = FindAndValidateSingleMemoryCacheRegistration(services);
 
         // Remove the existing registration
         services.Remove(existingDescriptor);
@@ -235,5 +236,25 @@ public static class ServiceCollectionExtensions
         }
 
         throw new InvalidOperationException("Unable to resolve inner IMemoryCache instance.");
+    }
+
+    /// <summary>
+    /// Finds and validates that there is exactly one IMemoryCache registration.
+    /// </summary>
+    private static ServiceDescriptor FindAndValidateSingleMemoryCacheRegistration(IServiceCollection services)
+    {
+        var existingDescriptors = services.Where(d => d.ServiceType == typeof(IMemoryCache)).ToList();
+
+        if (existingDescriptors.Count == 0)
+        {
+            throw new InvalidOperationException($"No IMemoryCache registration found. Register IMemoryCache before calling {nameof(DecorateMemoryCacheWithMetrics)}.");
+        }
+
+        if (existingDescriptors.Count > 1)
+        {
+            throw new InvalidOperationException($"Multiple IMemoryCache registrations found ({existingDescriptors.Count}). {nameof(DecorateMemoryCacheWithMetrics)} can only decorate a single IMemoryCache registration.");
+        }
+
+        return existingDescriptors[0];
     }
 }

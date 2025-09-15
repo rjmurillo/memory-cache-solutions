@@ -1,14 +1,14 @@
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Jobs;
 using Microsoft.Extensions.Caching.Memory;
 using CacheImplementations;
+using System.Diagnostics.Metrics;
 
 namespace Benchmarks;
 
 /// <summary>
 /// Benchmarks focused on contention scenarios (multiple concurrent callers for same key) vs hit/miss separation.
 /// This class isolates contention so other benchmark classes can remain single-threaded for clearer micro-metrics.
+/// Tests MeteredMemoryCache and OptimizedMeteredMemoryCache under concurrent load.
 /// </summary>
 [MemoryDiagnoser]
 [ThreadingDiagnoser]
@@ -16,8 +16,9 @@ namespace Benchmarks;
 public class ContentionBenchmarks
 {
     private MemoryCache _raw = null!; // initialized in GlobalSetup
-    private SingleFlightCache _singleFlight = null!; // initialized in GlobalSetup
-    private CoalescingMemoryCache _coalescing = null!; // initialized in GlobalSetup
+    private MeteredMemoryCache _metered = null!; // initialized in GlobalSetup
+    private OptimizedMeteredMemoryCache _optimized = null!; // initialized in GlobalSetup
+    private Meter _meter = null!;
 
     private const string HotKey = "hot_key";
     private int _valueCounter;
@@ -28,16 +29,26 @@ public class ContentionBenchmarks
     [Params(1, 4, 16, 64)]
     public int Concurrency { get; set; }
 
+    /// <summary>
+    /// Sets up the benchmark environment by initializing cache instances.
+    /// </summary>
     [GlobalSetup]
     public void GlobalSetup()
     {
         _valueCounter = 0;
         _raw = new MemoryCache(new MemoryCacheOptions());
-        _singleFlight = new SingleFlightCache(_raw);
-        _coalescing = new CoalescingMemoryCache(_raw);
+        _meter = new Meter("ContentionBenchmarkMeter");
+
+        var meteredInner = new MemoryCache(new MemoryCacheOptions());
+        _metered = new MeteredMemoryCache(meteredInner, _meter, "contention-cache", disposeInner: true);
+
+        var optimizedInner = new MemoryCache(new MemoryCacheOptions());
+        _optimized = new OptimizedMeteredMemoryCache(optimizedInner, _meter, "contention-cache", disposeInner: true);
 
         // Pre-populate to measure pure hit contention separately from miss contention.
         _raw.Set(HotKey, 42, TimeSpan.FromMinutes(5));
+        _metered.Set(HotKey, 42, TimeSpan.FromMinutes(5));
+        _optimized.Set(HotKey, 42, TimeSpan.FromMinutes(5));
     }
 
     /// <summary>
@@ -54,6 +65,14 @@ public class ContentionBenchmarks
         {
             _raw.Set(HotKey, 42, TimeSpan.FromMinutes(5));
         }
+        if (!_metered.TryGetValue(HotKey, out _))
+        {
+            _metered.Set(HotKey, 42, TimeSpan.FromMinutes(5));
+        }
+        if (!_optimized.TryGetValue(HotKey, out _))
+        {
+            _optimized.Set(HotKey, 42, TimeSpan.FromMinutes(5));
+        }
     }
 
     private Task<int> SimulatedFactoryAsync()
@@ -64,73 +83,107 @@ public class ContentionBenchmarks
     }
 
     /// <summary>
-    /// Contended hits for SingleFlightCache (all calls should be cache hits, minimal synchronization work after first).
+    /// Raw MemoryCache contended hit baseline.
     /// </summary>
-    [Benchmark]
-    public async Task<int> SingleFlight_Contention_Hit()
+    [Benchmark(Baseline = true)]
+    public async Task<object?> Raw_Contention_Hit()
     {
-        var tasks = new Task<int>[Concurrency];
+        var tasks = new Task<object?>[Concurrency];
         for (int i = 0; i < tasks.Length; i++)
         {
-            tasks[i] = _singleFlight.GetOrCreateAsync(HotKey, TimeSpan.FromMinutes(5), SimulatedFactoryAsync);
+            tasks[i] = Task.FromResult(_raw.Get(HotKey));
         }
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
         return results[0];
     }
 
     /// <summary>
-    /// Contended miss (first call creates) then subsequent calls in the same batch coalesce; forces removal before batch.
+    /// MeteredMemoryCache contended hit.
     /// </summary>
     [Benchmark]
-    public async Task<int> SingleFlight_Contention_Miss()
+    public async Task<object?> Metered_Contention_Hit()
+    {
+        var tasks = new Task<object?>[Concurrency];
+        for (int i = 0; i < tasks.Length; i++)
+        {
+            tasks[i] = Task.FromResult(_metered.Get(HotKey));
+        }
+        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+        return results[0];
+    }
+
+    /// <summary>
+    /// OptimizedMeteredMemoryCache contended hit.
+    /// </summary>
+    [Benchmark]
+    public async Task<object?> Optimized_Contention_Hit()
+    {
+        var tasks = new Task<object?>[Concurrency];
+        for (int i = 0; i < tasks.Length; i++)
+        {
+            tasks[i] = Task.FromResult(_optimized.Get(HotKey));
+        }
+        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+        return results[0];
+    }
+
+    /// <summary>
+    /// Raw MemoryCache contended miss baseline.
+    /// </summary>
+    [Benchmark]
+    public async Task<object?> Raw_Contention_Miss()
     {
         _raw.Remove(HotKey);
-        var tasks = new Task<int>[Concurrency];
+        var tasks = new Task<object?>[Concurrency];
         for (int i = 0; i < tasks.Length; i++)
         {
-            tasks[i] = _singleFlight.GetOrCreateAsync(HotKey, TimeSpan.FromMinutes(5), SimulatedFactoryAsync);
+            tasks[i] = Task.FromResult(_raw.Get(HotKey));
         }
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
         return results[0];
     }
 
     /// <summary>
-    /// Coalescing cache contended hit.
+    /// MeteredMemoryCache contended miss.
     /// </summary>
     [Benchmark]
-    public async Task<int> Coalescing_Contention_Hit()
+    public async Task<object?> Metered_Contention_Miss()
     {
-        var tasks = new Task<int>[Concurrency];
+        _metered.Remove(HotKey);
+        var tasks = new Task<object?>[Concurrency];
         for (int i = 0; i < tasks.Length; i++)
         {
-            tasks[i] = _coalescing.GetOrCreateAsync(HotKey, _ => Task.FromResult(100));
+            tasks[i] = Task.FromResult(_metered.Get(HotKey));
         }
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
         return results[0];
     }
 
     /// <summary>
-    /// Coalescing cache contended miss.
+    /// OptimizedMeteredMemoryCache contended miss.
     /// </summary>
     [Benchmark]
-    public async Task<int> Coalescing_Contention_Miss()
+    public async Task<object?> Optimized_Contention_Miss()
     {
-        _raw.Remove(HotKey);
-        var tasks = new Task<int>[Concurrency];
+        _optimized.Remove(HotKey);
+        var tasks = new Task<object?>[Concurrency];
         for (int i = 0; i < tasks.Length; i++)
         {
-            tasks[i] = _coalescing.GetOrCreateAsync(HotKey, _ => Task.FromResult(Interlocked.Increment(ref _valueCounter)));
+            tasks[i] = Task.FromResult(_optimized.Get(HotKey));
         }
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
         return results[0];
     }
 
     /// <summary>
-    /// Cleanup after all benchmarks: dispose underlying MemoryCache to avoid skewing MemoryDiagnoser / GC metrics.
+    /// Cleanup after all benchmarks: dispose underlying caches to avoid skewing MemoryDiagnoser / GC metrics.
     /// </summary>
     [GlobalCleanup]
     public void GlobalCleanup()
     {
         _raw.Dispose();
+        _metered.Dispose();
+        _optimized.Dispose();
+        _meter.Dispose();
     }
 }

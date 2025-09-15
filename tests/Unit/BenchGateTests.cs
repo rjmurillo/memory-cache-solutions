@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
 using BenchGate;
 // reference tools project namespace
-using Xunit;
 
 namespace Unit;
 

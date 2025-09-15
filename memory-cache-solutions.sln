@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31903.59
+# Visual Studio Version 18
+VisualStudioVersion = 18.0.11010.61
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
@@ -13,7 +13,17 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unit", "tests\Unit\Unit.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Benchmarks", "tests\Benchmarks\Benchmarks.csproj", "{BCEA5B0F-B3E7-4ED5-8A6B-9249BABBC416}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Integration", "tests\Integration\Integration.csproj", "{3D8F7A2B-1C4E-4F6D-9A8B-2E5C6D7F8A9B}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BenchGate", "tools\BenchGate\BenchGate.csproj", "{A5A9F5A8-9B6E-4F78-8A6B-5FD9F9E2E5C1}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{4B5C6D7E-8F9A-4B5C-6D7E-8F9A4B5C6D7E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MultiCache", "examples\MultiCache\MultiCache.csproj", "{5E6F7A8B-9C0D-4E5F-7A8B-9C0D4E5F7A8B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasicUsage", "examples\BasicUsage\BasicUsage.csproj", "{6F8A9B0C-1D2E-4F6A-8B9C-0D1E2F3A4B5C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{8B0C1D2E-3F4A-4B8C-0D1E-2F3A4B5C6D7E}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "baselines", "baselines", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
 	ProjectSection(SolutionItems) = preProject
@@ -28,6 +38,32 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "baselines", "baselines", "{
 		benchmarks\baseline\current.windows-11-arm.ARM64.json = benchmarks\baseline\current.windows-11-arm.ARM64.json
 		benchmarks\baseline\current.windows-latest.X64.json = benchmarks\baseline\current.windows-latest.X64.json
 		benchmarks\baseline\README.md = benchmarks\baseline\README.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "AspNetCore", "AspNetCore", "{953D38AD-C12D-E66E-FFB6-F5CDBD881778}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{B0505558-FA9E-8E9B-6CA7-BDB51AEB6218}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AspNetCore", "examples\AspNetCore\src\AspNetCore.csproj", "{8539BD81-2D63-4D7C-8DC3-AF1E92EF5254}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0E654088-7AE5-402D-B4A2-C7A795AD7104}"
+	ProjectSection(SolutionItems) = preProject
+		examples\AspNetCore\tests\AspNetCore.http = examples\AspNetCore\tests\AspNetCore.http
+		examples\AspNetCore\tests\CacheTests.http = examples\AspNetCore\tests\CacheTests.http
+		examples\AspNetCore\tests\ErrorHandlingTests.http = examples\AspNetCore\tests\ErrorHandlingTests.http
+		examples\AspNetCore\tests\http-client.env.json = examples\AspNetCore\tests\http-client.env.json
+		examples\AspNetCore\tests\k6-average-load-tests.js = examples\AspNetCore\tests\k6-average-load-tests.js
+		examples\AspNetCore\tests\k6-breakpoint-tests.js = examples\AspNetCore\tests\k6-breakpoint-tests.js
+		examples\AspNetCore\tests\k6-config.js = examples\AspNetCore\tests\k6-config.js
+		examples\AspNetCore\tests\k6-smoke-tests.js = examples\AspNetCore\tests\k6-smoke-tests.js
+		examples\AspNetCore\tests\k6-soak-tests.js = examples\AspNetCore\tests\k6-soak-tests.js
+		examples\AspNetCore\tests\k6-spike-tests.js = examples\AspNetCore\tests\k6-spike-tests.js
+		examples\AspNetCore\tests\k6-stress-tests.js = examples\AspNetCore\tests\k6-stress-tests.js
+		examples\AspNetCore\tests\package.json = examples\AspNetCore\tests\package.json
+		examples\AspNetCore\tests\PerformanceTests.http = examples\AspNetCore\tests\PerformanceTests.http
+		examples\AspNetCore\tests\run-k6-tests.bat = examples\AspNetCore\tests\run-k6-tests.bat
+		examples\AspNetCore\tests\run-k6-tests.ps1 = examples\AspNetCore\tests\run-k6-tests.ps1
+		examples\AspNetCore\tests\run-k6-tests.sh = examples\AspNetCore\tests\run-k6-tests.sh
 	EndProjectSection
 EndProject
 Global
@@ -76,6 +112,18 @@ Global
 		{BCEA5B0F-B3E7-4ED5-8A6B-9249BABBC416}.Release|x64.Build.0 = Release|Any CPU
 		{BCEA5B0F-B3E7-4ED5-8A6B-9249BABBC416}.Release|x86.ActiveCfg = Release|Any CPU
 		{BCEA5B0F-B3E7-4ED5-8A6B-9249BABBC416}.Release|x86.Build.0 = Release|Any CPU
+		{3D8F7A2B-1C4E-4F6D-9A8B-2E5C6D7F8A9B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3D8F7A2B-1C4E-4F6D-9A8B-2E5C6D7F8A9B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3D8F7A2B-1C4E-4F6D-9A8B-2E5C6D7F8A9B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3D8F7A2B-1C4E-4F6D-9A8B-2E5C6D7F8A9B}.Debug|x64.Build.0 = Debug|Any CPU
+		{3D8F7A2B-1C4E-4F6D-9A8B-2E5C6D7F8A9B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{3D8F7A2B-1C4E-4F6D-9A8B-2E5C6D7F8A9B}.Debug|x86.Build.0 = Debug|Any CPU
+		{3D8F7A2B-1C4E-4F6D-9A8B-2E5C6D7F8A9B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3D8F7A2B-1C4E-4F6D-9A8B-2E5C6D7F8A9B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3D8F7A2B-1C4E-4F6D-9A8B-2E5C6D7F8A9B}.Release|x64.ActiveCfg = Release|Any CPU
+		{3D8F7A2B-1C4E-4F6D-9A8B-2E5C6D7F8A9B}.Release|x64.Build.0 = Release|Any CPU
+		{3D8F7A2B-1C4E-4F6D-9A8B-2E5C6D7F8A9B}.Release|x86.ActiveCfg = Release|Any CPU
+		{3D8F7A2B-1C4E-4F6D-9A8B-2E5C6D7F8A9B}.Release|x86.Build.0 = Release|Any CPU
 		{A5A9F5A8-9B6E-4F78-8A6B-5FD9F9E2E5C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A5A9F5A8-9B6E-4F78-8A6B-5FD9F9E2E5C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A5A9F5A8-9B6E-4F78-8A6B-5FD9F9E2E5C1}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -88,6 +136,42 @@ Global
 		{A5A9F5A8-9B6E-4F78-8A6B-5FD9F9E2E5C1}.Release|x64.Build.0 = Release|Any CPU
 		{A5A9F5A8-9B6E-4F78-8A6B-5FD9F9E2E5C1}.Release|x86.ActiveCfg = Release|Any CPU
 		{A5A9F5A8-9B6E-4F78-8A6B-5FD9F9E2E5C1}.Release|x86.Build.0 = Release|Any CPU
+		{5E6F7A8B-9C0D-4E5F-7A8B-9C0D4E5F7A8B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E6F7A8B-9C0D-4E5F-7A8B-9C0D4E5F7A8B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E6F7A8B-9C0D-4E5F-7A8B-9C0D4E5F7A8B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5E6F7A8B-9C0D-4E5F-7A8B-9C0D4E5F7A8B}.Debug|x64.Build.0 = Debug|Any CPU
+		{5E6F7A8B-9C0D-4E5F-7A8B-9C0D4E5F7A8B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5E6F7A8B-9C0D-4E5F-7A8B-9C0D4E5F7A8B}.Debug|x86.Build.0 = Debug|Any CPU
+		{5E6F7A8B-9C0D-4E5F-7A8B-9C0D4E5F7A8B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E6F7A8B-9C0D-4E5F-7A8B-9C0D4E5F7A8B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5E6F7A8B-9C0D-4E5F-7A8B-9C0D4E5F7A8B}.Release|x64.ActiveCfg = Release|Any CPU
+		{5E6F7A8B-9C0D-4E5F-7A8B-9C0D4E5F7A8B}.Release|x64.Build.0 = Release|Any CPU
+		{5E6F7A8B-9C0D-4E5F-7A8B-9C0D4E5F7A8B}.Release|x86.ActiveCfg = Release|Any CPU
+		{5E6F7A8B-9C0D-4E5F-7A8B-9C0D4E5F7A8B}.Release|x86.Build.0 = Release|Any CPU
+		{6F8A9B0C-1D2E-4F6A-8B9C-0D1E2F3A4B5C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F8A9B0C-1D2E-4F6A-8B9C-0D1E2F3A4B5C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F8A9B0C-1D2E-4F6A-8B9C-0D1E2F3A4B5C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6F8A9B0C-1D2E-4F6A-8B9C-0D1E2F3A4B5C}.Debug|x64.Build.0 = Debug|Any CPU
+		{6F8A9B0C-1D2E-4F6A-8B9C-0D1E2F3A4B5C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6F8A9B0C-1D2E-4F6A-8B9C-0D1E2F3A4B5C}.Debug|x86.Build.0 = Debug|Any CPU
+		{6F8A9B0C-1D2E-4F6A-8B9C-0D1E2F3A4B5C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F8A9B0C-1D2E-4F6A-8B9C-0D1E2F3A4B5C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F8A9B0C-1D2E-4F6A-8B9C-0D1E2F3A4B5C}.Release|x64.ActiveCfg = Release|Any CPU
+		{6F8A9B0C-1D2E-4F6A-8B9C-0D1E2F3A4B5C}.Release|x64.Build.0 = Release|Any CPU
+		{6F8A9B0C-1D2E-4F6A-8B9C-0D1E2F3A4B5C}.Release|x86.ActiveCfg = Release|Any CPU
+		{6F8A9B0C-1D2E-4F6A-8B9C-0D1E2F3A4B5C}.Release|x86.Build.0 = Release|Any CPU
+		{8539BD81-2D63-4D7C-8DC3-AF1E92EF5254}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8539BD81-2D63-4D7C-8DC3-AF1E92EF5254}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8539BD81-2D63-4D7C-8DC3-AF1E92EF5254}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8539BD81-2D63-4D7C-8DC3-AF1E92EF5254}.Debug|x64.Build.0 = Debug|Any CPU
+		{8539BD81-2D63-4D7C-8DC3-AF1E92EF5254}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{8539BD81-2D63-4D7C-8DC3-AF1E92EF5254}.Debug|x86.Build.0 = Debug|Any CPU
+		{8539BD81-2D63-4D7C-8DC3-AF1E92EF5254}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8539BD81-2D63-4D7C-8DC3-AF1E92EF5254}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8539BD81-2D63-4D7C-8DC3-AF1E92EF5254}.Release|x64.ActiveCfg = Release|Any CPU
+		{8539BD81-2D63-4D7C-8DC3-AF1E92EF5254}.Release|x64.Build.0 = Release|Any CPU
+		{8539BD81-2D63-4D7C-8DC3-AF1E92EF5254}.Release|x86.ActiveCfg = Release|Any CPU
+		{8539BD81-2D63-4D7C-8DC3-AF1E92EF5254}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -96,7 +180,14 @@ Global
 		{2E3FF6CD-5FCF-4114-9C18-E9FF42542A11} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{2C24A6F8-2FC7-4FF5-8F79-E95625219311} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{BCEA5B0F-B3E7-4ED5-8A6B-9249BABBC416} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
-		{A5A9F5A8-9B6E-4F78-8A6B-5FD9F9E2E5C1} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{3D8F7A2B-1C4E-4F6D-9A8B-2E5C6D7F8A9B} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{A5A9F5A8-9B6E-4F78-8A6B-5FD9F9E2E5C1} = {8B0C1D2E-3F4A-4B8C-0D1E-2F3A4B5C6D7E}
+		{5E6F7A8B-9C0D-4E5F-7A8B-9C0D4E5F7A8B} = {4B5C6D7E-8F9A-4B5C-6D7E-8F9A4B5C6D7E}
+		{6F8A9B0C-1D2E-4F6A-8B9C-0D1E2F3A4B5C} = {4B5C6D7E-8F9A-4B5C-6D7E-8F9A4B5C6D7E}
+		{953D38AD-C12D-E66E-FFB6-F5CDBD881778} = {4B5C6D7E-8F9A-4B5C-6D7E-8F9A4B5C6D7E}
+		{B0505558-FA9E-8E9B-6CA7-BDB51AEB6218} = {953D38AD-C12D-E66E-FFB6-F5CDBD881778}
+		{8539BD81-2D63-4D7C-8DC3-AF1E92EF5254} = {B0505558-FA9E-8E9B-6CA7-BDB51AEB6218}
+		{0E654088-7AE5-402D-B4A2-C7A795AD7104} = {953D38AD-C12D-E66E-FFB6-F5CDBD881778}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {4AC88EA3-7EA6-4034-B6B0-FD227DD16EF6}
