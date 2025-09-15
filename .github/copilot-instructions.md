@@ -714,6 +714,18 @@ Before committing any test changes:
 
 **Violation of these rules will result in immediate rejection and rework.**
 
+### Enforcement Strategy
+
+**Enforcement: Code Review Checklist**
+
+Until the analyzer is implemented, use this manual checklist:
+
+- [ ] All `new Meter("...")` calls use `SharedUtilities.GetUniqueMeterName()`
+- [ ] No string interpolation in Meter constructors without SharedUtilities
+- [ ] No string concatenation in Meter constructors without SharedUtilities
+- [ ] All test files scanned for hard-coded meter names
+- [ ] Cross-test contamination risks assessed
+
 ---
 
 ## Test Reliability and Avoiding Flaky Tests (CRITICAL)
