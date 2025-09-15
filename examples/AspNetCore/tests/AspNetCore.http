@@ -137,9 +137,8 @@ GET {{HostAddress}}/api/products/search
 Accept: {{Accept}}
 
 ### Search Products - Whitespace query (400 test)
-GET {{HostAddress}}/api/products/search?query=   
+GET {{HostAddress}}/api/products/search?query=%20%20%20
 Accept: {{Accept}}
-
 ###
 
 # ===========================================
