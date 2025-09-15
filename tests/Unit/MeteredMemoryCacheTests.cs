@@ -1091,7 +1091,7 @@ public class MeteredMemoryCacheTests
     {
         // This test validates comprehensive null safety checks for factory results
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.null.factory.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.null.factory"));
 
         var cache = new MeteredMemoryCache(inner, meter, "null-factory-test");
 
@@ -1122,7 +1122,7 @@ public class MeteredMemoryCacheTests
     {
         // Test that factory exceptions are properly propagated without being caught
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.factory.exception.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.factory.exception"));
 
         var cache = new MeteredMemoryCache(inner, meter, "exception-test");
 
@@ -1140,7 +1140,7 @@ public class MeteredMemoryCacheTests
     {
         // This test validates cache name normalization to prevent tag cardinality issues
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.name.normalization.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.name.normalization"));
 
         // Test 1: Whitespace-only cache name should result in no cache.name tag
         var cache1 = new MeteredMemoryCache(inner, meter, "   ");

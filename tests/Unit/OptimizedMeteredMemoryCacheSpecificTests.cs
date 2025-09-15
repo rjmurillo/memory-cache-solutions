@@ -15,7 +15,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void Constructor_WithAllParameters_InitializesCorrectly()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.optimized.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.optimized"));
 
         var cache = new OptimizedMeteredMemoryCache(
             inner,
@@ -39,7 +39,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void Constructor_ArgumentValidation_ThrowsOnNullArguments()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.validation.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.validation"));
 
         Assert.Throws<ArgumentNullException>(() =>
             new OptimizedMeteredMemoryCache(null!, meter));
@@ -52,7 +52,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void GetCurrentStatistics_ZeroState_ReturnsZeroValues()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.zero.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.zero"));
         using var cache = new OptimizedMeteredMemoryCache(inner, meter, "zero-test");
 
         var stats = cache.GetCurrentStatistics();
@@ -69,7 +69,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void GetCurrentStatistics_AfterOperations_ReturnsCorrectCounts()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.counts.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.counts"));
         using var cache = new OptimizedMeteredMemoryCache(inner, meter, "count-test");
 
         // Perform various operations
@@ -93,7 +93,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void HitRatio_EdgeCases_HandlesCorrectly()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.ratio.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.ratio"));
         using var cache = new OptimizedMeteredMemoryCache(inner, meter);
 
         // Test: No operations - should be 0%
@@ -123,7 +123,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void PublishMetrics_WithMetricsDisabled_DoesNothing()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.disabled.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.disabled"));
         using var cache = new OptimizedMeteredMemoryCache(inner, meter, enableMetrics: false);
 
         // Perform operations
@@ -144,7 +144,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void PublishMetrics_WithNoActivity_DoesNotEmitMetrics()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.noactivity.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.noactivity"));
         using var cache = new OptimizedMeteredMemoryCache(inner, meter, "no-activity-test");
 
         var emittedMetrics = new List<string>();
@@ -174,7 +174,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void PublishMetrics_ResetsInternalCounters()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.reset.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.reset"));
         using var cache = new OptimizedMeteredMemoryCache(inner, meter, "reset-test");
 
         // Perform operations
@@ -200,7 +200,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void TryGetValue_ObjectDisposed_ThrowsObjectDisposedException()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.disposed.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.disposed"));
         var cache = new OptimizedMeteredMemoryCache(inner, meter);
 
         cache.Dispose();
@@ -212,7 +212,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void CreateEntry_ObjectDisposed_ThrowsObjectDisposedException()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.disposed.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.disposed"));
         var cache = new OptimizedMeteredMemoryCache(inner, meter);
 
         cache.Dispose();
@@ -224,7 +224,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void Remove_ObjectDisposed_ThrowsObjectDisposedException()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.disposed.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.disposed"));
         var cache = new OptimizedMeteredMemoryCache(inner, meter);
 
         cache.Dispose();
@@ -236,7 +236,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void TryGetValue_NullKey_ThrowsArgumentNullException()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.nullkey.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.nullkey"));
         using var cache = new OptimizedMeteredMemoryCache(inner, meter);
 
         Assert.Throws<ArgumentNullException>(() => cache.TryGetValue(null!, out _));
@@ -246,7 +246,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void CreateEntry_NullKey_ThrowsArgumentNullException()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.nullkey.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.nullkey"));
         using var cache = new OptimizedMeteredMemoryCache(inner, meter);
 
         Assert.Throws<ArgumentNullException>(() => cache.CreateEntry(null!));
@@ -256,7 +256,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void Remove_NullKey_ThrowsArgumentNullException()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.nullkey.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.nullkey"));
         using var cache = new OptimizedMeteredMemoryCache(inner, meter);
 
         Assert.Throws<ArgumentNullException>(() => cache.Remove(null!));
@@ -316,7 +316,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     {
         // This test verifies that the eviction callback uses a static lambda to avoid allocations
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.static.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.static"));
         using var cache = new OptimizedMeteredMemoryCache(inner, meter);
 
         // Create entry - the callback should be static
@@ -334,7 +334,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void NormalizeCacheName_HandlesAllCases()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.normalize.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.normalize"));
 
         // Test null
         using var cache1 = new OptimizedMeteredMemoryCache(inner, meter, cacheName: null);
@@ -361,7 +361,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void Dispose_WithDisposeInnerFalse_DoesNotDisposeInner()
     {
         var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.nodispose.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.nodispose"));
 
         var cache = new OptimizedMeteredMemoryCache(inner, meter, disposeInner: false);
         cache.Dispose();
@@ -378,7 +378,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void Dispose_WithDisposeInnerTrue_DisposesInner()
     {
         var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.dispose.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.dispose"));
 
         var cache = new OptimizedMeteredMemoryCache(inner, meter, disposeInner: true);
         cache.Dispose();
@@ -391,7 +391,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void Dispose_MultipleCalls_SafelyHandled()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.multipledispose.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.multipledispose"));
         var cache = new OptimizedMeteredMemoryCache(inner, meter);
 
         // Multiple dispose calls should not throw
@@ -406,7 +406,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public async Task EvictionCallback_AfterDispose_DoesNotEmitMetrics()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.evictionafterdispose.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.evictionafterdispose"));
         var cache = new OptimizedMeteredMemoryCache(inner, meter, "dispose-eviction-test");
 
         var emittedMetrics = new List<string>();
@@ -451,7 +451,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     public void TagList_EmptyName_UsesDefaultTagList()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.emptytags.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.emptytags"));
         using var cache = new OptimizedMeteredMemoryCache(inner, meter, cacheName: null);
 
         var emittedTags = new List<KeyValuePair<string, object?>[]>();

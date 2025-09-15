@@ -66,7 +66,7 @@ public sealed class MeteredCacheTestSubject : IMeteredCacheTestSubject
         _innerCache = innerCache ?? new MemoryCache(new MemoryCacheOptions());
         _disposeInner = disposeInner;
         _disposeMeter = meter == null; // Only dispose meter if we created it
-        Meter = meter ?? new Meter($"test.metered.{Guid.NewGuid()}");
+        Meter = meter ?? new Meter(SharedUtilities.GetUniqueMeterName("test.metered"));
         _cache = new MeteredMemoryCache(_innerCache, Meter, cacheName, disposeInner);
     }
 
@@ -86,7 +86,7 @@ public sealed class MeteredCacheTestSubject : IMeteredCacheTestSubject
         _innerCache = innerCache ?? new MemoryCache(new MemoryCacheOptions());
         _disposeInner = disposeInner;
         _disposeMeter = meter == null; // Only dispose meter if we created it
-        Meter = meter ?? new Meter($"test.metered.{Guid.NewGuid()}");
+        Meter = meter ?? new Meter(SharedUtilities.GetUniqueMeterName("test.metered"));
         _cache = new MeteredMemoryCache(_innerCache, Meter, options);
     }
 
