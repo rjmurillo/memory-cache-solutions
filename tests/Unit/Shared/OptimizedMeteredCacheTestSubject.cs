@@ -49,7 +49,7 @@ public sealed class OptimizedMeteredCacheTestSubject : IMeteredCacheTestSubject
     /// Gets the implementation type name for test identification.
     /// </summary>
     /// <value>Always returns "OptimizedMeteredMemoryCache".</value>
-    public string ImplementationType => "OptimizedMeteredMemoryCache";
+    public string ImplementationType => nameof(OptimizedMeteredMemoryCache);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OptimizedMeteredCacheTestSubject"/> class.
@@ -69,7 +69,7 @@ public sealed class OptimizedMeteredCacheTestSubject : IMeteredCacheTestSubject
         _innerCache = innerCache ?? new MemoryCache(new MemoryCacheOptions());
         _disposeInner = disposeInner;
         _disposeMeter = meter == null; // Only dispose meter if we created it
-        Meter = meter ?? new Meter($"test.optimized.{Guid.NewGuid()}");
+        Meter = meter ?? new Meter(SharedUtilities.GetUniqueMeterName("test.optimized"));
         MetricsEnabled = enableMetrics;
         _cache = new OptimizedMeteredMemoryCache(_innerCache, Meter, cacheName, disposeInner, enableMetrics);
     }
