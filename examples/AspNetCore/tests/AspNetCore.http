@@ -291,7 +291,7 @@ Accept: {{Accept}}
 GET {{HostAddress}}/api/products/category/invalid
 Accept: {{Accept}}
 
-### Missing Content-Type - POST without proper headers
+### Missing Content-Type - PUT without proper headers
 PUT {{HostAddress}}/api/users/{{userId}}
 Accept: {{Accept}}
 
