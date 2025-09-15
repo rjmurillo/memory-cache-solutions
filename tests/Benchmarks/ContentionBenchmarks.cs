@@ -38,10 +38,10 @@ public class ContentionBenchmarks
         _valueCounter = 0;
         _raw = new MemoryCache(new MemoryCacheOptions());
         _meter = new Meter("ContentionBenchmarkMeter");
-        
+
         var meteredInner = new MemoryCache(new MemoryCacheOptions());
         _metered = new MeteredMemoryCache(meteredInner, _meter, "contention-cache", disposeInner: true);
-        
+
         var optimizedInner = new MemoryCache(new MemoryCacheOptions());
         _optimized = new OptimizedMeteredMemoryCache(optimizedInner, _meter, "contention-cache", disposeInner: true);
 

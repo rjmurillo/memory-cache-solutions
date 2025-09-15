@@ -189,8 +189,8 @@ public class MultiCacheScenarioTests
         // Set up items in caches without triggering size-based evictions
         // For small cache (limit 1), we'll add one item and use cancellation to evict it
         var smallEviction1 = new TaskCompletionSource<bool>();
-        smallCache.Set("item1", "data1", new MemoryCacheEntryOptions 
-        { 
+        smallCache.Set("item1", "data1", new MemoryCacheEntryOptions
+        {
             Size = 1,
             ExpirationTokens = { new CancellationChangeToken(cts1.Token) },
             PostEvictionCallbacks =
@@ -204,15 +204,15 @@ public class MultiCacheScenarioTests
                 }
             }
         });
-        
+
         // Cancel to evict item1
         cts1.Cancel();
         await smallEviction1.Task.WaitAsync(TestTimeouts.Short);
-        
+
         // Now add another item and evict it
         var smallEviction2 = new TaskCompletionSource<bool>();
-        smallCache.Set("item2", "data2", new MemoryCacheEntryOptions 
-        { 
+        smallCache.Set("item2", "data2", new MemoryCacheEntryOptions
+        {
             Size = 1,
             ExpirationTokens = { new CancellationChangeToken(cts2.Token) },
             PostEvictionCallbacks =
@@ -226,21 +226,21 @@ public class MultiCacheScenarioTests
                 }
             }
         });
-        
+
         // Cancel to evict item2
         cts2.Cancel();
         await smallEviction2.Task.WaitAsync(TestTimeouts.Short);
 
         // For medium cache (limit 2), we can have 2 items without eviction
-        mediumCache.Set("med1", "data1", new MemoryCacheEntryOptions 
-        { 
+        mediumCache.Set("med1", "data1", new MemoryCacheEntryOptions
+        {
             Size = 1,
             ExpirationTokens = { new CancellationChangeToken(cts4.Token) }
         });
-        
+
         var mediumEviction1 = new TaskCompletionSource<bool>();
-        mediumCache.Set("med2", "data2", new MemoryCacheEntryOptions 
-        { 
+        mediumCache.Set("med2", "data2", new MemoryCacheEntryOptions
+        {
             Size = 1,
             ExpirationTokens = { new CancellationChangeToken(cts5.Token) },
             PostEvictionCallbacks =
@@ -254,7 +254,7 @@ public class MultiCacheScenarioTests
                 }
             }
         });
-        
+
         // Cancel to evict med2
         cts5.Cancel();
         await mediumEviction1.Task.WaitAsync(TestTimeouts.Short);
