@@ -744,7 +744,7 @@ public class MeteredMemoryCacheTests
         // is incremented even when the factory doesn't actually run due to concurrent cache population
 
         using var inner = new MemoryCache(new MemoryCacheOptions());
-        using var meter = new Meter($"test.miss.race.{Guid.NewGuid()}");
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.miss.race"));
         using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
 
         var cache = new MeteredMemoryCache(inner, meter, "miss-race-test");
