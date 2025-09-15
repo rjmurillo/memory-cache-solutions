@@ -11,7 +11,7 @@ namespace CacheImplementations;
 /// Instruments:
 ///  - cache_hits_total (<see cref="Counter{T}"/> where T is <see langword="long"/>)
 ///  - cache_misses_total (<see cref="Counter{T}"/> where T is <see langword="long"/>)
-///  - cache_evictions_total (<see cref="Counter{T}"/> where T is <see langword="long"/>) with tag "reason" = PostEvictionReason string
+///  - cache_evictions_total (<see cref="Counter{T}"/> where T is <see langword="long"/>) with tag "reason" = <see cref="PostEvictionReason"/> (as string)
 /// </summary>
 [DebuggerDisplay("{Name ?? \"(unnamed)\"}")]
 public sealed class MeteredMemoryCache : IMemoryCache
