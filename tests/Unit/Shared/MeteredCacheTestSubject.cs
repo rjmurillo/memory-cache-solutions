@@ -130,7 +130,7 @@ public sealed class MeteredCacheTestSubject : IMeteredCacheTestSubject
     public void Dispose()
     {
         _cache.Dispose();
-        if (!_disposeInner && _innerCache != _cache)
+        if (_disposeInner && _innerCache != _cache)
         {
             _innerCache.Dispose();
         }
