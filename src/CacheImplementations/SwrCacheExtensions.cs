@@ -19,6 +19,15 @@ public static class SwrCacheExtensions
         }
     }
 
+    private sealed class SwrBoxWithRefresh<T>
+    {
+        public readonly SwrBox<T> Box;
+        public SwrBoxWithRefresh(SwrBox<T> box)
+        {
+            Box = box;
+        }
+    }
+
     // Global tracking of ongoing refreshes to prevent duplicate background refreshes
     private static readonly ConcurrentDictionary<string, Task> _ongoingRefreshes = new(StringComparer.Ordinal);
 
@@ -47,49 +56,58 @@ public static class SwrCacheExtensions
 
         var now = DateTimeOffset.UtcNow;
 
-        if (cache.TryGetValue<SwrBox<T>>(key, out var box) && box is not null)
+        if (cache.TryGetValue<SwrBoxWithRefresh<T>>(key, out var boxWithRefresh) && boxWithRefresh is not null)
         {
+            var box = boxWithRefresh.Box;
             if (now <= box.FreshUntil)
             {
                 return box.Value; // fresh
             }
-            TryStartBackgroundRefresh(cache, key, opt, factory);
+            
+            // Value is stale, try to start background refresh
+            _ = TryStartBackgroundRefresh(cache, key, opt, factory);
             return box.Value; // serve stale
         }
 
         var value = await factory(ct).ConfigureAwait(false);
         var freshUntil = now + opt.Ttl;
         var newBox = new SwrBox<T>(value, freshUntil);
-        cache.Set(key, newBox, new MemoryCacheEntryOptions
+        var newBoxWithRefresh = new SwrBoxWithRefresh<T>(newBox);
+        cache.Set(key, newBoxWithRefresh, new MemoryCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = opt.Ttl + opt.Stale,
         });
         return value;
     }
 
-    private static void TryStartBackgroundRefresh<T>(
+    private static Task<T>? TryStartBackgroundRefresh<T>(
         IMemoryCache cache,
         string key,
         SwrOptions opt,
         Func<CancellationToken, Task<T>> factory)
     {
         // Use global tracking to prevent duplicate background refreshes
-        _ = _ongoingRefreshes.GetOrAdd(key, k => Task.Run(async () =>
+        var refreshTask = _ongoingRefreshes.GetOrAdd(key, k => Task.Run(async () =>
         {
             try
             {
                 var newValue = await factory(CancellationToken.None).ConfigureAwait(false);
                 var now = DateTimeOffset.UtcNow;
                 var newBox = new SwrBox<T>(newValue, now + opt.Ttl);
+                var newBoxWithRefresh = new SwrBoxWithRefresh<T>(newBox);
 
-                cache.Set(k, newBox, new MemoryCacheEntryOptions
+                // Update the cache entry atomically
+                cache.Set(k, newBoxWithRefresh, new MemoryCacheEntryOptions
                 {
                     AbsoluteExpirationRelativeToNow = opt.Ttl + opt.Stale,
                 });
+                
+                return newValue;
             }
             catch
             {
                 // swallow errors; stale value will remain until eviction
+                return default(T)!;
             }
             finally
             {
@@ -98,7 +116,7 @@ public static class SwrCacheExtensions
             }
         }));
 
-        // If we just added a new task, it will start running
-        // If there was already a task, we just return without starting another
+        // Return the task if we just created it, null if it was already running
+        return (Task<T>?)refreshTask;
     }
 }

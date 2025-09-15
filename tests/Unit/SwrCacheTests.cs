@@ -63,24 +63,34 @@ public class SwrCacheTests
         // We need to replace the entry with one that has an expired FreshUntil time
         if (cache.TryGetValue("k", out object? boxObj) && boxObj != null)
         {
-            var boxType = boxObj.GetType();
-            var valueField = boxType.GetField("Value");
-            var freshUntilField = boxType.GetField("FreshUntil");
-
-            if (valueField != null && freshUntilField != null)
+            var boxWithRefreshType = boxObj.GetType();
+            var boxField = boxWithRefreshType.GetField("Box");
+            
+            if (boxField != null)
             {
-                var currentValue = valueField.GetValue(boxObj);
-                // Set FreshUntil to the past to make it stale
-                var staleFreshUntil = DateTimeOffset.UtcNow.AddMilliseconds(-10);
+                var innerBox = boxField.GetValue(boxObj);
+                var boxType = innerBox!.GetType();
+                var valueField = boxType.GetField("Value");
+                var freshUntilField = boxType.GetField("FreshUntil");
 
-                // Create a new box with stale FreshUntil
-                var newBox = Activator.CreateInstance(boxType, currentValue, staleFreshUntil);
-
-                // Replace the cache entry
-                cache.Set("k", newBox, new MemoryCacheEntryOptions
+                if (valueField != null && freshUntilField != null)
                 {
-                    AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(5) // Still valid in cache
-                });
+                    var currentValue = valueField.GetValue(innerBox);
+                    // Set FreshUntil to the past to make it stale
+                    var staleFreshUntil = DateTimeOffset.UtcNow.AddMilliseconds(-10);
+
+                    // Create a new box with stale FreshUntil
+                    var newBox = Activator.CreateInstance(boxType, currentValue, staleFreshUntil);
+                    
+                    // Create a new SwrBoxWithRefresh wrapper
+                    var newBoxWithRefresh = Activator.CreateInstance(boxWithRefreshType, newBox);
+
+                    // Replace the cache entry
+                    cache.Set("k", newBoxWithRefresh, new MemoryCacheEntryOptions
+                    {
+                        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(5) // Still valid in cache
+                    });
+                }
             }
         }
 
