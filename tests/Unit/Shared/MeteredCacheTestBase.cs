@@ -420,11 +420,10 @@ public abstract class MeteredCacheTestBase<TTestSubject>
     [Fact]
     public void MultipleNamedCaches_EmitSeparateMetrics()
     {
-        using var sharedMeter = new Meter($"test.shared.{Guid.NewGuid()}");
+        using var sharedMeter = new Meter(SharedUtilities.GetUniqueMeterName("test.shared"));
         using var subject1 = CreateTestSubject(meter: sharedMeter, cacheName: "cache-one");
         using var subject2 = CreateTestSubject(meter: sharedMeter, cacheName: "cache-two");
         using var harness = new MetricCollectionHarness(sharedMeter.Name, "cache_hits_total", "cache_misses_total");
-
         // Generate metrics for both caches
         subject1.Cache.TryGetValue("key", out _); // miss for cache-one
         subject2.Cache.TryGetValue("key", out _); // miss for cache-two
