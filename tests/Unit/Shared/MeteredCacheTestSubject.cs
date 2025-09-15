@@ -49,8 +49,7 @@ public sealed class MeteredCacheTestSubject : IMeteredCacheTestSubject
     /// Gets the implementation type name for test identification.
     /// </summary>
     /// <value>Always returns "MeteredMemoryCache".</value>
-    public string ImplementationType => "MeteredMemoryCache";
-
+    public string ImplementationType => nameof(MeteredMemoryCache);
     /// <summary>
     /// Initializes a new instance of the <see cref="MeteredCacheTestSubject"/> class with basic parameters.
     /// </summary>
