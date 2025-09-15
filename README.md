@@ -17,12 +17,10 @@ High‑quality experimental patterns & decorators built on top of `IMemoryCache`
 
 ## Components Overview
 
-| Component                             | Purpose                                                                                      | Concurrency Control                                                           | Async Support              | Extra Features                                                                       |
-| ------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------ |
-| `CoalescingMemoryCache`               | Drop‑in `IMemoryCache` decorator that coalesces concurrent cache misses (single‑flight)      | `Lazy<Task<T>>` per key in a concurrent dictionary (removed after completion) | Yes (`GetOrCreateAsync`)   | Works with any existing `IMemoryCache` usage; minimal allocation on hits             |
-| `MeteredMemoryCache`                  | Emits OpenTelemetry / .NET `System.Diagnostics.Metrics` counters for hits, misses, evictions | Thread-safe counter operations with dimensional tags                          | N/A (sync like base cache) | Named caches, custom tags, service collection extensions, options pattern validation |
-| `OptimizedMeteredMemoryCache`         | High-performance metrics decorator using atomic operations for minimal overhead              | `Interlocked` atomic operations for counters                                  | N/A (sync like base cache) | Periodic metric publishing, `GetCurrentStatistics()`, &lt;5% performance overhead    |
-| `GetOrCreateSwrAsync` (SWR extension) | Stale‑While‑Revalidate pattern (serve stale while one background refresh updates)            | Interlocked flag in boxed state                                               | Yes                        | Background refresh isolated from caller cancellation; resilience to refresh failures |
+| Component                     | Purpose                                                                                      | Concurrency Control                                                           | Async Support              | Extra Features                                                                       |
+| ----------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------ |
+| `MeteredMemoryCache`          | Emits OpenTelemetry / .NET `System.Diagnostics.Metrics` counters for hits, misses, evictions | Thread-safe counter operations with dimensional tags                          | N/A (sync like base cache) | Named caches, custom tags, service collection extensions, options pattern validation |
+| `OptimizedMeteredMemoryCache` | High-performance metrics decorator using atomic operations for minimal overhead              | `Interlocked` atomic operations for counters                                  | N/A (sync like base cache) | Periodic metric publishing, `GetCurrentStatistics()`, &lt;5% performance overhead    |
 
 > These implementations favor clarity & demonstrable patterns over feature breadth. They are intentionally small and suitable as a starting point for production adaptation.
 
@@ -30,11 +28,11 @@ High‑quality experimental patterns & decorators built on top of `IMemoryCache`
 
 ## Quick Start
 
-Add the project (or copy the desired file) into your solution and reference it from your application. Example using the coalescing decorator with DI:
+Add the project (or copy the desired file) into your solution and reference it from your application. Example using the metered cache with DI:
 
 ```csharp
 builder.Services.AddMemoryCache();
-builder.Services.Decorate<IMemoryCache>(inner => new CoalescingMemoryCache(inner, disposeInner: false));
+builder.Services.AddNamedMeteredMemoryCache("user-cache");
 ```
 
 ## Recommended Alternatives for Single-Flight (Cache Stampede Protection)
@@ -94,18 +92,6 @@ public class SomeService(FusionCache cache)
 - **Greenfield or .NET 9+**: Use **HybridCache** - first-party, GA, built-in stampede protection
 - **Need richer features or .NET < 9**: Use **FusionCache** - comprehensive feature set, excellent documentation
 
-Applying Stale‑While‑Revalidate (SWR) to serve stale data while refreshing in the background:
-
-```csharp
-var opts = new SwrOptions(
-    Ttl:   TimeSpan.FromSeconds(30),   // fresh window
-    Stale: TimeSpan.FromSeconds(120)); // additional stale window
-
-var result = await cache.GetOrCreateSwrAsync(
-    key: "user:profile:42",
-    opt: opts,
-    factory: ct => FetchProfileAsync(ct));
-```
 
 Recording metrics with `MeteredMemoryCache`:
 
@@ -239,22 +225,6 @@ For detailed performance analysis, see [Performance Optimization Recommendations
 
 ## Implementation Details & Semantics
 
-### CoalescingMemoryCache
-
-- Decorator implementing `IMemoryCache` so it can transparently replace the default cache.
-- On a miss, installs a `Lazy<Task<T>>` for the key inside an internal `ConcurrentDictionary` so only the _first_ caller runs the factory.
-- After completion (success or failure) the in‑flight entry is removed; a failure permits a subsequent retry.
-- Hit path is identical cost to the underlying cache.
-
-Usage (async factory with full `ICacheEntry` access):
-
-```csharp
-var value = await coalescing.GetOrCreateAsync("k", async entry => {
-    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1);
-    return await LoadAsync();
-});
-```
-
 ### MeteredMemoryCache Implementation
 
 - Adds minimal instrumentation overhead (~1 counter add per op) while preserving `IMemoryCache` API.
@@ -270,18 +240,6 @@ var value = await coalescing.GetOrCreateAsync("k", async entry => {
 - Can disable metrics entirely (`enableMetrics: false`) for maximum performance scenarios.
 - Use when performance is critical and you can batch metric emission or need real-time statistics.
 
-### Stale‑While‑Revalidate Extensions (`GetOrCreateSwrAsync` + `SwrOptions`)
-
-- Pattern: serve _fresh_ until TTL; while _stale_ (TTL elapsed but within `Ttl + Stale`) keep serving old value and trigger a _single_ background refresh (non-blocking); after `Ttl + Stale` the entry is evicted and callers block for a new value.
-- Background refresh failures are swallowed, leaving stale data until next attempt or ultimate expiration.
-- Minimal state: boxed struct containing value, freshness timestamp, and an `int` flag for refresh state.
-- Ideal for latency-sensitive endpoints (e.g., profile cards, feature flags) where slight staleness is preferable to request fan‑out.
-
-Example timing diagram (`Ttl = 30s`, `Stale = 2m`):
-
-```text
-0s ─ fresh window ─ 30s ─ stale window (serving old + 1 refresh) ─ 150s eviction
-```
 
 ---
 
@@ -289,14 +247,10 @@ Example timing diagram (`Ttl = 30s`, `Stale = 2m`):
 
 | Scenario                                                                                   | Recommended                                                                               |
 | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| Prevent stampede for expensive async load integrated through existing `IMemoryCache` usage | `CoalescingMemoryCache`                                                                   |
-| Need metrics (hit ratio, eviction reasons) with minimal overhead                           | `MeteredMemoryCache` (can stack with coalescing via multiple decorators)                  |
+| Need metrics (hit ratio, eviction reasons) with minimal overhead                           | `MeteredMemoryCache`                                                                      |
 | Need metrics with ultra-low overhead (&lt;5% impact) or real-time statistics               | `OptimizedMeteredMemoryCache` (atomic operations, periodic publishing)                    |
-| Reduce tail latency by serving slightly stale data & refreshing in background              | SWR extensions                                                                            |
 | Need single-flight (cache stampede protection) for .NET 9+                                 | **[Microsoft HybridCache](https://devblogs.microsoft.com/dotnet/hybrid-cache-is-now-ga)** |
 | Need single-flight with richer features or .NET < 9                                        | **[FusionCache](https://github.com/ZiggyCreatures/FusionCache)**                          |
-
-You can combine patterns: e.g., wrap the inner cache with metrics, then wrap that with coalescing for async factories.
 
 ---
 
@@ -304,8 +258,6 @@ You can combine patterns: e.g., wrap the inner cache with metrics, then wrap tha
 
 | Component                   | Cancellation Behavior                                                                                                             | Failure Behavior                                                                                                              |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| CoalescingMemoryCache       | Cancellation of the awaited task cancels only that caller; other awaiters continue. Factory exception propagates to all awaiters. | All awaiting callers observe the same exception; entry not cached; subsequent call retries.                                   |
-| SWR                         | Foreground miss uses caller token; background refresh ignores caller tokens.                                                      | Background exceptions swallowed (stale value served).                                                                         |
 | MeteredMemoryCache          | N/A (no async).                                                                                                                   | Eviction reasons recorded regardless.                                                                                         |
 | OptimizedMeteredMemoryCache | N/A (no async).                                                                                                                   | Eviction reasons recorded regardless; atomic counters remain consistent.                                                      |
 | HybridCache                 | See [HybridCache documentation](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/hybrid?view=aspnetcore-9.0)     | See [HybridCache documentation](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/hybrid?view=aspnetcore-9.0) |
@@ -323,9 +275,6 @@ dotnet run -c Release -p tests/Benchmarks/Benchmarks.csproj
 
 Interpretation guidance:
 
-- Hit paths for coalescing variants should be close to raw cache once warm.
-- Coalescing variants add overhead only during contested cold starts.
-- SWR introduces minimal overhead on hits; background refresh cost is off critical path.
 - `OptimizedMeteredMemoryCache` shows &lt;5% overhead vs raw `MemoryCache` (25-63ns per operation).
 - `MeteredMemoryCache` shows higher overhead due to `Counter<T>` operations.
 
@@ -340,7 +289,7 @@ The repository includes a lightweight regression gate comparing the latest Bench
 Quick local workflow:
 
 ```powershell
-dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *Coalescing*
+dotnet run -c Release --project tests/Benchmarks/Benchmarks.csproj --filter *CacheBenchmarks*
 Copy-Item BenchmarkDotNet.Artifacts/results/Benchmarks.CacheBenchmarks-report-full.json BenchmarkDotNet.Artifacts/results/current.json
 dotnet run -c Release --project tools/BenchGate/BenchGate.csproj -- benchmarks/baseline/CacheBenchmarks.json BenchmarkDotNet.Artifacts/results/current.json
 ```
@@ -392,7 +341,6 @@ Evidence & Process requirements are described in `.github/copilot-instructions.m
 
 ## Extensibility Ideas
 
-- Add jitter to SWR refresh scheduling to avoid synchronized refresh bursts across processes.
 - Enrich metrics (e.g., object size, latency histogram for factory execution).
 - Add negative caching (cache specific failures briefly) if upstream calls are very costly.
 - Provide a multi-layer (L1 in-memory + L2 distributed) single-flight composition.
@@ -426,7 +374,7 @@ Comprehensive guides and references are available in the `docs/` directory:
 
 ## Testing
 
-Unit tests cover: single-flight coalescing correctness under concurrency, TTL expiry, background refresh semantics, metrics emission, and cancellation behavior. See the `tests/Unit` directory for usage patterns.
+Unit tests cover: metrics emission, cache operations, and thread safety. See the `tests/Unit` directory for usage patterns.
 
 ---
 

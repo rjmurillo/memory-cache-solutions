@@ -300,7 +300,6 @@ Failure to include required contention metrics or to update this table when intr
 ### Caching Patterns
 
 - SingleFlight\*: suppress duplicate concurrent factory executions.
-- CoalescingMemoryCache: hot-hit cost should approach raw MemoryCache.
 - Avoid extra indirection layers unless they demonstrably improve contention.
 
 ### Async Factories
