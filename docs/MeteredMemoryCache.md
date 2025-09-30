@@ -238,7 +238,7 @@ public MeteredMemoryCache(
 
 ### Using Extension Methods
 
-`MeteredMemoryCache` implements the `IMemoryCache` interface and works with all standard extension methods from `Microsoft.Extensions.Caching.Memory.CacheExtensions`. All operations automatically emit metrics.
+`MeteredMemoryCache` implements the [`IMemoryCache`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.caching.memory.imemorycache?view=net-9.0-pp) interface and works with all standard extension methods from `Microsoft.Extensions.Caching.Memory.CacheExtensions`. All operations automatically emit metrics.
 
 **Common Extension Methods:**
 

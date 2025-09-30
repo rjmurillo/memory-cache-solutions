@@ -516,6 +516,7 @@ public class MetricEmissionAccuracyTests
         Assert.Equal(42, intValue);
 
         // Test type mismatch (returns false but underlying TryGetValue counts it as a hit since key exists)
+        // See: https://github.com/dotnet/runtime/issues/120273
         var typeMismatch = cache.TryGetValue<int>("string-key", out var mismatchValue);
         Assert.False(typeMismatch);
         Assert.Equal(0, mismatchValue); // default int
@@ -526,9 +527,8 @@ public class MetricEmissionAccuracyTests
         Assert.Null(missingValue);
 
         // Validate metrics: 3 hits (including type mismatch since key exists), 1 miss
-        // Note: The built-in TryGetValue<T> extension calls TryGetValue(object, out object) which counts
-        // a hit whenever the key exists, even if the type doesn't match. This is less accurate than the
-        // old TryGet<T> implementation but is the behavior of the standard extension method.
+        // The built-in TryGetValue<T> extension calls TryGetValue(object, out object) which counts
+        // a hit whenever the key exists, even if the type doesn't match.
         harness.AssertAggregatedCount("cache_hits_total", 3);
         harness.AssertAggregatedCount("cache_misses_total", 1);
 
