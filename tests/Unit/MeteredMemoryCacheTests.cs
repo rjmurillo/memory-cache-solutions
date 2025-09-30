@@ -965,13 +965,13 @@ public class MeteredMemoryCacheTests
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "tryget-cache");
 
         // Test miss
-        var missResult = cache.TryGet<string>("missing-key", out var missValue);
+        var missResult = cache.TryGetValue<string>("missing-key", out var missValue);
         Assert.False(missResult);
         Assert.Null(missValue);
 
         // Test hit
         cache.Set("present-key", "test-value");
-        var hitResult = cache.TryGet<string>("present-key", out var hitValue);
+        var hitResult = cache.TryGetValue<string>("present-key", out var hitValue);
         Assert.True(hitResult);
         Assert.Equal("test-value", hitValue);
 
@@ -1087,28 +1087,24 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
-    public void GetOrCreate_NullFactoryResult_ThrowsInvalidOperationException()
+    public void GetOrCreate_NullFactoryResult_AllowsNullForNullableTypes()
     {
-        // This test validates comprehensive null safety checks for factory results
+        // The built-in GetOrCreate extension method allows null return values
+        // This test validates that behavior works correctly with our metered wrapper
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.null.factory"));
 
         var cache = new MeteredMemoryCache(inner, meter, "null-factory-test");
 
-        // Test 1: Factory returning null for reference type should throw
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            cache.GetOrCreate<string>("null-key", entry => null!));
+        // Test 1: Factory returning null for nullable reference type is allowed
+        var nullableResult = cache.GetOrCreate<string?>("nullable-key", entry => null);
+        Assert.Null(nullableResult);
 
-        Assert.Contains("Factory returned null for a reference type", ex.Message);
-        Assert.Contains("enable nullable annotations", ex.Message);
+        // Test 2: Factory returning null for reference type with ! operator (our responsibility to handle)
+        var nullResult = cache.GetOrCreate<string>("null-key", entry => null!);
+        Assert.Null(nullResult);
 
-        // Test 2: Factory returning null for nullable reference type also throws (current behavior)
-        // because nullable reference types are still reference types at runtime
-        var nullableEx = Assert.Throws<InvalidOperationException>(() =>
-            cache.GetOrCreate<string?>("nullable-key", entry => null));
-        Assert.Contains("Factory returned null for a reference type", nullableEx.Message);
-
-        // Test 3: Factory returning null for value type should work (gets default value)
+        // Test 3: Factory returning default for value type works correctly
         var valueTypeResult = cache.GetOrCreate<int>("value-key", entry => 0);
         Assert.Equal(0, valueTypeResult);
 

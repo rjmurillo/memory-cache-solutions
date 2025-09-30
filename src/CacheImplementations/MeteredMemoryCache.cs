@@ -118,105 +118,6 @@ public sealed class MeteredMemoryCache : IMemoryCache
     }
 
     /// <summary>
-    /// Attempts to get a strongly typed value from the cache and records hit/miss metrics.
-    /// </summary>
-    /// <typeparam name="T">The type of the cached value.</typeparam>
-    /// <param name="key">The cache key to retrieve. Cannot be <see langword="null"/>.</param>
-    /// <param name="value">When this method returns, contains the cached value if found and of the correct type; otherwise, the default value for <typeparamref name="T"/>.</param>
-    /// <returns><see langword="true"/> if the key was found and the value is of type <typeparamref name="T"/>; otherwise, <see langword="false"/>.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ObjectDisposedException">Thrown when this <see cref="MeteredMemoryCache"/> instance has been disposed.</exception>
-    public bool TryGet<T>(object key, out T value)
-    {
-        ArgumentNullException.ThrowIfNull(key);
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_inner.TryGetValue(key, out var obj) && obj is T t)
-        {
-            _hits.Add(1, CreateBaseTags(_baseTags));
-            value = t;
-            return true;
-        }
-        _misses.Add(1, CreateBaseTags(_baseTags));
-        value = default!;
-        return false;
-    }
-
-    /// <summary>
-    /// Sets a cache entry with the specified key and value, automatically registering an eviction callback to emit eviction metrics.
-    /// </summary>
-    /// <typeparam name="T">The type of the value to cache.</typeparam>
-    /// <param name="key">The cache key. Cannot be <see langword="null"/>.</param>
-    /// <param name="value">The value to associate with the key.</param>
-    /// <param name="options">The <see cref="MemoryCacheEntryOptions"/> for the cache entry. If <see langword="null"/>, a new instance will be created.</param>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ObjectDisposedException">Thrown when this <see cref="MeteredMemoryCache"/> instance has been disposed.</exception>
-    public void Set<T>(object key, T value, MemoryCacheEntryOptions? options = null)
-    {
-        ArgumentNullException.ThrowIfNull(key);
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        options ??= new MemoryCacheEntryOptions();
-
-        // Register eviction tracking using the deduplicated helper method
-        RegisterEvictionCallback(options, this);
-        _inner.Set(key, value, options);
-    }
-
-    /// <summary>
-    /// Gets an existing cache entry or creates a new one using the provided factory, while emitting hit/miss metrics and registering eviction callbacks.
-    /// </summary>
-    /// <typeparam name="T">The type of the cached value.</typeparam>
-    /// <param name="key">The cache key. Cannot be <see langword="null"/>.</param>
-    /// <param name="factory">The factory function to create a new cache entry if the key is not found. Cannot be <see langword="null"/>.</param>
-    /// <returns>The cached value if found, or the newly created value from the factory.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> or <paramref name="factory"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ObjectDisposedException">Thrown when this <see cref="MeteredMemoryCache"/> instance has been disposed.</exception>
-    /// <exception cref="InvalidOperationException">Thrown when the factory returns <see langword="null"/> for a reference type.</exception>
-    public T GetOrCreate<T>(object key, Func<ICacheEntry, T> factory)
-    {
-        ArgumentNullException.ThrowIfNull(key);
-        ArgumentNullException.ThrowIfNull(factory);
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        // First attempt: check if key exists and value is correct type (cache hit scenario)
-        if (_inner.TryGetValue(key, out var existing) && existing is T hit)
-        {
-            _hits.Add(1, CreateBaseTags(_baseTags));
-            return hit;
-        }
-
-        // Cache miss: delegate to inner cache for creation and only count miss if factory actually runs
-        // This ensures accurate hit/miss ratios by avoiding race conditions where value is added between checks
-        var factoryWasInvoked = false;
-        var created = _inner.GetOrCreate(key, entry =>
-        {
-            // Factory is running - this is a confirmed cache miss
-            factoryWasInvoked = true;
-
-            // Register eviction tracking using the deduplicated helper method
-            RegisterEvictionCallback(entry, this);
-            return factory(entry);
-        });
-
-        // Only count as miss if factory actually ran (prevents race condition inaccuracy)
-        if (factoryWasInvoked)
-        {
-            _misses.Add(1, CreateBaseTags(_baseTags));
-        }
-        else
-        {
-            // Value was found in cache after all - count as hit
-            _hits.Add(1, CreateBaseTags(_baseTags));
-        }
-
-        // Null safety check for reference types - helps catch factory bugs early
-        if (created is null && !typeof(T).IsValueType)
-        {
-            throw new InvalidOperationException("Factory returned null for a reference type; enable nullable annotations if null values are expected.");
-        }
-        return created!; // safe due to check above or value type
-    }
-
-    /// <summary>
     /// Attempts to get a value associated with the specified key from the cache and records hit/miss metrics.
     /// </summary>
     /// <param name="key">The cache key to retrieve. Cannot be <see langword="null"/>.</param>
@@ -284,27 +185,6 @@ public sealed class MeteredMemoryCache : IMemoryCache
 
     /// <summary>
     /// Registers a post-eviction callback to track cache evictions with proper metric emission.
-    /// This helper method deduplicates the eviction callback registration logic across Set, GetOrCreate, and CreateEntry methods.
-    /// </summary>
-    /// <param name="options">The cache entry options to register the callback on.</param>
-    /// <param name="self">The MeteredMemoryCache instance for the callback.</param>
-    private static void RegisterEvictionCallback(MemoryCacheEntryOptions options, MeteredMemoryCache self)
-    {
-        options.RegisterPostEvictionCallback(static (_, _, reason, state) =>
-        {
-            var cache = (MeteredMemoryCache)state!;
-            if (!cache._disposed)
-            {
-                // Thread-safe tag creation for eviction reason dimensional metric
-                var tags = CreateEvictionTags(cache._baseTags, reason.ToString());
-                cache._evictions.Add(1, tags);
-            }
-        }, self);
-    }
-
-    /// <summary>
-    /// Registers a post-eviction callback to track cache evictions with proper metric emission.
-    /// Overload for ICacheEntry instances used in CreateEntry method.
     /// </summary>
     /// <param name="entry">The cache entry to register the callback on.</param>
     /// <param name="self">The MeteredMemoryCache instance for the callback.</param>

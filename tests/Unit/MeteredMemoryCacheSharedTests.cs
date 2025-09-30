@@ -62,13 +62,13 @@ public class MeteredMemoryCacheSharedTests : MeteredCacheTestBase<MeteredCacheTe
         var cache = (MeteredMemoryCache)subject.Cache;
 
         // Test miss
-        var missResult = cache.TryGet<string>("missing-key", out var missValue);
+        var missResult = cache.TryGetValue<string>("missing-key", out var missValue);
         Assert.False(missResult);
         Assert.Null(missValue);
 
         // Test hit
         cache.Set("present-key", "test-value");
-        var hitResult = cache.TryGet<string>("present-key", out var hitValue);
+        var hitResult = cache.TryGetValue<string>("present-key", out var hitValue);
         Assert.True(hitResult);
         Assert.Equal("test-value", hitValue);
 
