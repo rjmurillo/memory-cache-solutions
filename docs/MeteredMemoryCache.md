@@ -238,14 +238,14 @@ public MeteredMemoryCache(
 
 ### Using Extension Methods
 
-`MeteredMemoryCache` implements the [`IMemoryCache`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.caching.memory.imemorycache?view=net-9.0-pp) interface and works with all standard extension methods from `Microsoft.Extensions.Caching.Memory.CacheExtensions`. All operations automatically emit metrics.
+`MeteredMemoryCache` implements the [`IMemoryCache`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.caching.memory.imemorycache?view=net-9.0-pp) interface and works with all standard extension methods from [`Microsoft.Extensions.Caching.Memory.CacheExtensions`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.caching.memory.cacheextensions?view=net-9.0-pp). All operations automatically emit metrics.
 
 **Common Extension Methods:**
 
-- `TryGetValue<T>(object key, out T value)` - Type-safe retrieval with automatic hit/miss metrics
-- `Set<T>(object key, T value, MemoryCacheEntryOptions? options)` - Sets entry with automatic eviction tracking
-- `GetOrCreate<T>(object key, Func<ICacheEntry, T> factory)` - Gets existing or creates new with full metric coverage
-- `GetOrCreateAsync<T>(object key, Func<ICacheEntry, Task<T>> factory)` - Async version of GetOrCreate
+- [`TryGetValue<T>(object key, out T value)`](<https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.caching.memory.cacheextensions.trygetvalue?view=net-9.0-pp#microsoft-extensions-caching-memory-cacheextensions-trygetvalue-1(microsoft-extensions-caching-memory-imemorycache-system-object-0@)>) - Type-safe retrieval with automatic hit/miss metrics
+- [`Set<T>(object key, T value, MemoryCacheEntryOptions? options)`](<https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.caching.memory.cacheextensions.set?view=net-9.0-pp#microsoft-extensions-caching-memory-cacheextensions-set-1(microsoft-extensions-caching-memory-imemorycache-system-object-0-microsoft-extensions-caching-memory-memorycacheentryoptions)>) - Sets entry with automatic eviction tracking
+- [`GetOrCreate<T>(object key, Func<ICacheEntry, T> factory)`](<https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.caching.memory.cacheextensions.getorcreate?view=net-9.0-pp#microsoft-extensions-caching-memory-cacheextensions-getorcreate-1(microsoft-extensions-caching-memory-imemorycache-system-object-system-func((microsoft-extensions-caching-memory-icacheentry-0)))>) - Gets existing or creates new with full metric coverage
+- [`GetOrCreateAsync<T>(object key, Func<ICacheEntry, Task<T>> factory)`](<https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.caching.memory.cacheextensions.getorcreateasync?view=net-9.0-pp#microsoft-extensions-caching-memory-cacheextensions-getorcreateasync-1(microsoft-extensions-caching-memory-imemorycache-system-object-system-func((microsoft-extensions-caching-memory-icacheentry-system-threading-tasks-task((-0)))))>) - Async version of GetOrCreate
 
 **Example:**
 
