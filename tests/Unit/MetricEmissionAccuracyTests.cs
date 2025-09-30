@@ -527,8 +527,8 @@ public class MetricEmissionAccuracyTests
         Assert.Null(missingValue);
 
         // Validate metrics: 3 hits (including type mismatch since key exists), 1 miss
-        // The built-in TryGetValue<T> extension calls TryGetValue(object, out object) which counts
-        // a hit whenever the key exists, even if the type doesn't match.
+        // TryGetValue<T> extension method counts a hit whenever the key exists, even if the type doesn't match.
+        // See: https://github.com/dotnet/runtime/issues/120273
         harness.AssertAggregatedCount("cache_hits_total", 3);
         harness.AssertAggregatedCount("cache_misses_total", 1);
 
