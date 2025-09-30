@@ -104,123 +104,47 @@ var options = new MeteredMemoryCacheOptions
 var meteredCache = new MeteredMemoryCache(innerCache, meter, options);
 ```
 
-### Methods
+### Usage with Extension Methods
 
-#### TryGet<T>(object, out T)
+`MeteredMemoryCache` implements the `IMemoryCache` interface and works seamlessly with all extension methods from `Microsoft.Extensions.Caching.Memory.CacheExtensions`. Metrics are automatically tracked for all operations.
 
-```csharp
-public bool TryGet<T>(object key, out T value)
-```
-
-Attempts to get a strongly-typed value from the cache and records hit/miss metrics.
-
-**Type Parameters:**
-
-- `T` - The expected type of the cached value
-
-**Parameters:**
-
-- `key` - The cache key to look up
-- `value` - When this method returns, contains the cached value if found and of type T, or the default value for T
-
-**Returns:** `true` if the key was found and the value is of type T; otherwise, `false`
-
-**Exceptions:**
-
-- `ArgumentNullException` - Thrown when `key` is null
-- `ObjectDisposedException` - Thrown when the cache has been disposed
-
-**Metrics Emitted:**
-
-- `cache_hits_total` (if value found and type matches)
-- `cache_misses_total` (if value not found or type mismatch)
-
-**Example:**
+**Recommended Usage Pattern:**
 
 ```csharp
-if (cache.TryGet<string>("user:123", out var userName))
-{
-    Console.WriteLine($"Found user: {userName}");
-}
-```
+using Microsoft.Extensions.Caching.Memory;
 
-#### Set<T>(object, T, MemoryCacheEntryOptions?)
-
-```csharp
-public void Set<T>(object key, T value, MemoryCacheEntryOptions? options = null)
-```
-
-Sets a value in the cache and registers an eviction callback to record eviction metrics.
-
-**Type Parameters:**
-
-- `T` - The type of the value to cache
-
-**Parameters:**
-
-- `key` - The cache key
-- `value` - The value to cache
-- `options` - Optional cache entry options (expiration, priority, etc.)
-
-**Exceptions:**
-
-- `ArgumentNullException` - Thrown when `key` is null
-- `ObjectDisposedException` - Thrown when the cache has been disposed
-
-**Metrics Emitted:**
-
-- `cache_evictions_total` (when the cached item is later evicted)
-
-**Example:**
-
-```csharp
-var options = new MemoryCacheEntryOptions
+// Set values with type safety
+cache.Set("user:123", userData, new MemoryCacheEntryOptions
 {
     AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
-};
-cache.Set("user:123", userData, options);
-```
+});
 
-#### GetOrCreate<T>(object, Func<ICacheEntry, T>)
-
-```csharp
-public T GetOrCreate<T>(object key, Func<ICacheEntry, T> factory)
-```
-
-Gets a value from the cache or creates it using the provided factory function, recording appropriate metrics.
-
-**Type Parameters:**
-
-- `T` - The type of the value to get or create
-
-**Parameters:**
-
-- `key` - The cache key
-- `factory` - Function to create the value if not found in cache
-
-**Returns:** The cached or newly created value
-
-**Exceptions:**
-
-- `ArgumentNullException` - Thrown when `key` or `factory` is null
-- `ObjectDisposedException` - Thrown when the cache has been disposed
-- `InvalidOperationException` - Thrown when factory returns null for a reference type
-
-**Metrics Emitted:**
-
-- `cache_hits_total` (if value found in cache)
-- `cache_misses_total` (if value created by factory)
-- `cache_evictions_total` (when the cached item is later evicted)
-
-**Example:**
-
-```csharp
-var userData = cache.GetOrCreate($"user:{userId}", entry =>
+// Get values with type safety
+if (cache.TryGetValue<UserData>("user:123", out var user))
 {
-    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
-    return userService.GetUser(userId);
+    Console.WriteLine($"Found user: {user.Name}");
+}
+
+// Get or create pattern
+var result = cache.GetOrCreate($"product:{productId}", entry =>
+{
+    entry.SlidingExpiration = TimeSpan.FromMinutes(10);
+    return productService.GetProduct(productId);
+});
+
+// Async version
+var asyncResult = await cache.GetOrCreateAsync($"order:{orderId}", async entry =>
+{
+    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1);
+    return await orderService.GetOrderAsync(orderId);
 });
 ```
+
+**All metrics are automatically emitted** through the underlying `CreateEntry` and `TryGetValue` interface methods that the extension methods use internally.
+
+### Methods
+
+> **Note:** `MeteredMemoryCache` implements only the `IMemoryCache` interface methods. For strongly-typed operations like `Set<T>`, `TryGetValue<T>`, and `GetOrCreate<T>`, use the extension methods from `Microsoft.Extensions.Caching.Memory.CacheExtensions`. These extension methods work seamlessly with `MeteredMemoryCache` and metrics are automatically tracked.
 
 #### TryGetValue(object, out object?)
 
@@ -476,21 +400,21 @@ MeteredMemoryCache emits three types of metrics following OpenTelemetry conventi
 
 - **Type:** Counter<long>
 - **Description:** Total number of cache hits
-- **Emitted by:** `TryGetValue`, `TryGet<T>`, `GetOrCreate<T>`
+- **Emitted by:** `TryGetValue` (and extension methods that call it: `TryGetValue<T>`, `Get<T>`, `GetOrCreate<T>`, etc.)
 - **Tags:** `cache.name` (if specified), additional tags from options
 
 ### cache_misses_total
 
 - **Type:** Counter<long>
 - **Description:** Total number of cache misses
-- **Emitted by:** `TryGetValue`, `TryGet<T>`, `GetOrCreate<T>`
+- **Emitted by:** `TryGetValue` (and extension methods that call it: `TryGetValue<T>`, `Get<T>`, `GetOrCreate<T>`, etc.)
 - **Tags:** `cache.name` (if specified), additional tags from options
 
 ### cache_evictions_total
 
 - **Type:** Counter<long>
 - **Description:** Total number of cache evictions
-- **Emitted by:** Eviction callbacks registered by `Set<T>`, `GetOrCreate<T>`, `CreateEntry`
+- **Emitted by:** Eviction callbacks registered by `CreateEntry` (called by extension methods like `Set<T>`, `GetOrCreate<T>`, etc.)
 - **Tags:**
   - `cache.name` (if specified)
   - `reason` - The eviction reason (Removed, Replaced, Expired, TokenExpired, Capacity)
@@ -527,9 +451,10 @@ Thrown when attempting to use a disposed MeteredMemoryCache instance.
 
 Thrown in the following scenarios:
 
-- `GetOrCreate<T>` factory returns null for reference types
 - `DecorateMemoryCacheWithMetrics` called without existing IMemoryCache registration
 - Unable to resolve inner IMemoryCache instance during decoration
+
+> **Note:** The `GetOrCreate<T>` extension method from `CacheExtensions` allows null return values. If you need null validation, implement it in your factory function.
 
 ## Performance Considerations
 
