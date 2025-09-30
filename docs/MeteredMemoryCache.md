@@ -236,31 +236,39 @@ public MeteredMemoryCache(
     MeteredMemoryCacheOptions options)
 ```
 
-### Key Methods
+### Using Extension Methods
 
-#### TryGet<T>
+`MeteredMemoryCache` implements the `IMemoryCache` interface and works with all standard extension methods from `Microsoft.Extensions.Caching.Memory.CacheExtensions`. All operations automatically emit metrics.
 
-```csharp
-public bool TryGet<T>(object key, out T value)
-```
+**Common Extension Methods:**
 
-Strongly typed retrieval with automatic hit/miss metric emission.
+- `TryGetValue<T>(object key, out T value)` - Type-safe retrieval with automatic hit/miss metrics
+- `Set<T>(object key, T value, MemoryCacheEntryOptions? options)` - Sets entry with automatic eviction tracking
+- `GetOrCreate<T>(object key, Func<ICacheEntry, T> factory)` - Gets existing or creates new with full metric coverage
+- `GetOrCreateAsync<T>(object key, Func<ICacheEntry, Task<T>> factory)` - Async version of GetOrCreate
 
-#### Set<T>
-
-```csharp
-public void Set<T>(object key, T value, MemoryCacheEntryOptions? options = null)
-```
-
-Sets a cache entry with automatic eviction metric registration.
-
-#### GetOrCreate<T>
+**Example:**
 
 ```csharp
-public T GetOrCreate<T>(object key, Func<ICacheEntry, T> factory)
-```
+using Microsoft.Extensions.Caching.Memory;
 
-Gets existing entry or creates new one with full metric coverage.
+// Use extension methods directly
+if (cache.TryGetValue<UserData>("user:123", out var user))
+{
+    // Hit recorded automatically
+}
+
+cache.Set("user:123", userData, new MemoryCacheEntryOptions
+{
+    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
+});
+
+var result = cache.GetOrCreate($"product:{id}", entry =>
+{
+    entry.SlidingExpiration = TimeSpan.FromMinutes(10);
+    return GetProductFromDatabase(id);
+});
+```
 
 ### Properties
 
