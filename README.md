@@ -2,6 +2,8 @@
 
 High‑quality experimental patterns & decorators built on top of `IMemoryCache` ([Microsoft.Extensions.Caching.Memory](https://www.nuget.org/packages/Microsoft.Extensions.Caching.Memory)) to address common performance and correctness concerns.
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/rjmurillo/memory-cache-solutions)
+
 ## Table of Contents
 
 - [Components Overview](#components-overview)
