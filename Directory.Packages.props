@@ -25,15 +25,15 @@
     <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="9.0.9" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.9" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.9" />    
-    <PackageVersion Include="OpenTelemetry" Version="1.13.0" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.13.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.InMemory" Version="1.13.0" />
+    <PackageVersion Include="OpenTelemetry" Version="1.13.1" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.13.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.InMemory" Version="1.13.1" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.9" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.9" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="9.0.9" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.9.0" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.9" />
-    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.13.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.13.1" />
     <PackageVersion Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.10.0-beta.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.12.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.12.0" />
