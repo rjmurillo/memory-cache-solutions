@@ -10,7 +10,7 @@
     <PackageVersion Include="Meziantou.Analyzer" Version="2.0.276" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="4.14.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="4.14.0" />
-    <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="9.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="9.0.12" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
     <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
     <PackageVersion Include="Roslynator.CodeAnalysis.Analyzers" Version="4.15.0" />
@@ -18,21 +18,21 @@
     <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.18.0.131500" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
-    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="9.0.11" />
-    <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="9.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="9.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="9.0.12" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="BenchmarkDotNet.Diagnostics.Windows" Version="0.15.8" />
-    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="9.0.11" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.11" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.11" />    
+    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="9.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.12" />    
     <PackageVersion Include="OpenTelemetry" Version="1.13.1" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.13.1" />
     <PackageVersion Include="OpenTelemetry.Exporter.InMemory" Version="1.13.1" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.11" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.11" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="9.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="9.0.12" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.10.0" />
-    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.11" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.12" />
     <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.13.1" />
     <PackageVersion Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.10.0-beta.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.14.0" />
