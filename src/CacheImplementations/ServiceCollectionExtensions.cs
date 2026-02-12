@@ -220,6 +220,15 @@ public static class ServiceCollectionExtensions
 
     private static IMemoryCache CreateInnerCache(ServiceDescriptor existingDescriptor, IServiceProvider serviceProvider)
     {
+        // Keyed service descriptors throw when accessing ImplementationType/Factory/Instance.
+        // Check this first to provide a clear, actionable error message.
+        if (existingDescriptor.IsKeyedService)
+        {
+            throw new InvalidOperationException(
+                "Unable to resolve inner IMemoryCache instance. The service descriptor is a keyed service. " +
+                $"Use {nameof(DecorateMemoryCacheWithMetrics)} only with non-keyed IMemoryCache registrations.");
+        }
+
         if (existingDescriptor.ImplementationType != null)
         {
             return (IMemoryCache)ActivatorUtilities.CreateInstance(serviceProvider, existingDescriptor.ImplementationType);

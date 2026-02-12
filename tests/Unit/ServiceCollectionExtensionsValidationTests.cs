@@ -169,25 +169,27 @@ public class ServiceCollectionExtensionsValidationTests
     }
 
     /// <summary>
-    /// Tests that CreateInnerCache throws when the descriptor has an unresolvable configuration.
-    /// This covers the defensive guard for descriptors registered as keyed services
-    /// where ImplementationType, ImplementationFactory, and ImplementationInstance are all null.
+    /// Tests that CreateInnerCache throws when attempting to decorate a keyed IMemoryCache service.
+    /// Keyed service descriptors do not expose ImplementationType/Factory/Instance properties
+    /// (accessing them throws), so decoration must fail with a clear error message.
     /// </summary>
     [Fact]
     public void DecorateMemoryCacheWithMetrics_WithKeyedServiceDescriptor_ShouldThrowInvalidOperationException()
     {
         var services = new ServiceCollection();
 
-        // Register a keyed IMemoryCache service — the non-keyed properties will all be null
+        // Register a keyed IMemoryCache service — keyed descriptors cannot be decorated
         services.AddKeyedSingleton<IMemoryCache>("my-key", (sp, key) => new MemoryCache(new MemoryCacheOptions()));
 
-        // The keyed descriptor has ServiceType == IMemoryCache but ImplementationType/Factory/Instance are all null.
-        // Attempting to decorate it should hit the defensive throw.
+        // The keyed descriptor has ServiceType == IMemoryCache but cannot be resolved via decoration.
+        // Attempting to decorate it should throw with a clear error message.
         services.DecorateMemoryCacheWithMetrics(cacheName: "keyed-cache", meterName: "keyed-meter");
 
         var provider = services.BuildServiceProvider();
 
-        Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IMemoryCache>());
+        var exception = Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IMemoryCache>());
+        Assert.Contains("Unable to resolve inner IMemoryCache instance", exception.Message);
+        Assert.Contains("keyed service", exception.Message);
     }
 
     /// <summary>
