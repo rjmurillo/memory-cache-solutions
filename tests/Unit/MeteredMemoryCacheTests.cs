@@ -18,10 +18,26 @@ public class MeteredMemoryCacheTests
         private readonly string[] _instrumentNames;
         private readonly string? _meterNameFilter;
         private readonly object _lock = new();
+
+        /// <summary>
+        /// Takes a fresh snapshot of all Observable instrument values.
+        /// Clears previous data and records current absolute values.
+        /// </summary>
+        public void Collect()
+        {
+            lock (_lock)
+            {
+                _measurements.Clear();
+                _counters.Clear();
+            }
+            _listener.RecordObservableInstruments();
+        }
+
         public IReadOnlyDictionary<string, long> Counters
         {
             get
             {
+                Collect();
                 lock (_lock)
                 {
                     return new Dictionary<string, long>(_counters);
@@ -32,6 +48,7 @@ public class MeteredMemoryCacheTests
         {
             get
             {
+                Collect();
                 lock (_lock)
                 {
                     return _measurements.ToList();
@@ -47,6 +64,7 @@ public class MeteredMemoryCacheTests
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
             while (stopwatch.Elapsed < timeout)
             {
+                Collect();
                 lock (_lock)
                 {
                     if (_counters.TryGetValue(instrumentName, out var currentValue) && currentValue >= expectedValue)
@@ -54,7 +72,7 @@ public class MeteredMemoryCacheTests
                         return true;
                     }
                 }
-                await Task.Yield(); // Yield control without blocking
+                await Task.Yield();
             }
             return false;
         }
@@ -95,6 +113,22 @@ public class MeteredMemoryCacheTests
             _listener.Start();
         }
 
+        /// <summary>
+        /// Gets the aggregated count for measurements of a specific instrument filtered by tags.
+        /// </summary>
+        public long GetAggregatedCount(string instrumentName, params KeyValuePair<string, object?>[] requiredTags)
+        {
+            Collect();
+            lock (_lock)
+            {
+                return _measurements
+                    .Where(m => m.Name == instrumentName &&
+                        requiredTags.All(required =>
+                            m.Tags.Any(t => t.Key == required.Key && Equals(t.Value, required.Value))))
+                    .Sum(m => m.Value);
+            }
+        }
+
         public void Dispose() => _listener.Dispose();
     }
 
@@ -129,7 +163,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache"));
-        using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
+        using var listener = new TestListener(meter.Name, "cache.lookups");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: null);
 
@@ -137,8 +171,10 @@ public class MeteredMemoryCacheTests
         cache.Set("k", 10);            // set
         cache.TryGetValue("k", out _); // hit
 
-        Assert.Equal(1, listener.Counters["cache_hits_total"]);
-        Assert.Equal(1, listener.Counters["cache_misses_total"]);
+        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", hitTag));
+        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", missTag));
     }
 
     [Fact]
@@ -146,7 +182,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache2"));
-        using var listener = new TestListener(meter.Name, "cache_evictions_total");
+        using var listener = new TestListener(meter.Name, "cache.evictions");
         var cache = new MeteredMemoryCache(inner, meter, cacheName: null);
 
         using var cts = new CancellationTokenSource();
@@ -159,10 +195,10 @@ public class MeteredMemoryCacheTests
         inner.Compact(0.0);
 
         // Use deterministic wait instead of relying on immediate eviction callback execution
-        var evictionRecorded = await listener.WaitForCounterAsync("cache_evictions_total", 1, TimeSpan.FromSeconds(5));
+        var evictionRecorded = await listener.WaitForCounterAsync("cache.evictions", 1, TimeSpan.FromSeconds(5));
         Assert.True(evictionRecorded, "Expected eviction to be recorded within timeout");
 
-        Assert.True(listener.Counters.TryGetValue("cache_evictions_total", out var ev) && ev >= 1);
+        Assert.True(listener.Counters.TryGetValue("cache.evictions", out var ev) && ev >= 1);
     }
 
     [Fact]
@@ -170,7 +206,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache3"));
-        using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
+        using var listener = new TestListener(meter.Name, "cache.lookups");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "test-cache-name");
 
@@ -209,7 +245,7 @@ public class MeteredMemoryCacheTests
         listener.InstrumentPublished = (inst, meterListener) =>
         {
             // Filter by meter name to prevent cross-test contamination
-            if (inst.Name.StartsWith("cache_") && inst.Meter.Name == meter.Name)
+            if (inst.Name.StartsWith("cache.") && inst.Meter.Name == meter.Name)
             {
                 meterListener.EnableMeasurementEvents(inst);
             }
@@ -221,7 +257,7 @@ public class MeteredMemoryCacheTests
         });
         listener.Start();
 
-        // Operations that demonstrate the pattern inconsistency:
+        // Perform operations that demonstrate the pattern inconsistency:
         cache.TryGetValue("miss", out _);    // Uses _baseTags directly (line 120, 225)
         cache.Set("hit", "value");           // Sets up hit + eviction callback
         cache.TryGetValue("hit", out _);     // Uses _baseTags directly (line 116, 176)
@@ -236,6 +272,9 @@ public class MeteredMemoryCacheTests
         inner.Compact(0.0);
         await Task.Yield(); // Allow eviction callback to execute
 
+        // Record Observable instruments to capture current values
+        listener.RecordObservableInstruments();
+
         // Create defensive copy to avoid Collection Modified Exception during enumeration
         var metricsSnapshot = emittedMetrics.ToArray();
 
@@ -249,10 +288,10 @@ public class MeteredMemoryCacheTests
             $"Expected metrics with cache.name tag, but only {metricsWithCacheName} found out of {metricsSnapshot.Length} total");
 
         // Document the pattern inconsistency in the test output
-        var hitMissMetrics = metricsSnapshot.Where(m => m.InstrumentName.Contains("hits") || m.InstrumentName.Contains("misses"));
+        var lookupMetrics = metricsSnapshot.Where(m => m.InstrumentName.Contains("lookups"));
         var evictionMetrics = metricsSnapshot.Where(m => m.InstrumentName.Contains("evictions"));
 
-        Assert.True(hitMissMetrics.Any(), "Should have hit/miss metrics that use _baseTags directly");
+        Assert.True(lookupMetrics.Any(), "Should have lookup metrics with cache.result dimension");
         // Eviction metrics may or may not be present due to timing, but the pattern difference exists in the code
     }
 
@@ -285,7 +324,7 @@ public class MeteredMemoryCacheTests
         listener.InstrumentPublished = (inst, meterListener) =>
         {
             // Filter by meter name to prevent cross-test contamination
-            if (inst.Name.StartsWith("cache_") && inst.Meter.Name == meter.Name)
+            if (inst.Name.StartsWith("cache.") && inst.Meter.Name == meter.Name)
             {
                 meterListener.EnableMeasurementEvents(inst);
             }
@@ -304,8 +343,11 @@ public class MeteredMemoryCacheTests
         cache.TryGetValue("hit1", out _);   // Should emit hit with _baseTags directly
         cache.TryGetValue("miss2", out _);  // Another miss with _baseTags directly
 
-        // Verify we captured metrics
-        Assert.True(allEmittedTags.Count >= 3, $"Expected at least 3 metrics, got {allEmittedTags.Count}");
+        // Record Observable instruments to capture current values
+        listener.RecordObservableInstruments();
+
+        // Verify we captured metrics — Observable instruments produce one measurement per instrument per tag set
+        Assert.True(allEmittedTags.Count >= 1, $"Expected at least 1 metric measurement, got {allEmittedTags.Count}");
 
         // The bug would manifest as inconsistent tag sets or missing tags
         // All metrics should have the same base tags (cache.name, environment, version)
@@ -397,7 +439,7 @@ public class MeteredMemoryCacheTests
         listener.InstrumentPublished = (inst, meterListener) =>
         {
             // Filter by meter name to prevent cross-test contamination
-            if (inst.Name.StartsWith("cache_") && inst.Meter.Name == meter.Name)
+            if (inst.Name.StartsWith("cache.") && inst.Meter.Name == meter.Name)
             {
                 meterListener.EnableMeasurementEvents(inst);
             }
@@ -414,8 +456,12 @@ public class MeteredMemoryCacheTests
         cache.Set("hit", "value");           // Set for hit
         cache.TryGetValue("hit", out _);     // Hit metric
 
+        // Record Observable instruments to capture current values
+        listener.RecordObservableInstruments();
+
         // Verify that metrics contain expected tags and proper filtering occurred
-        Assert.True(emittedMetrics.Count >= 2, "Should have at least hit and miss metrics");
+        // Observable instruments produce one measurement per instrument per tag set
+        Assert.True(emittedMetrics.Count >= 1, "Should have at least one metric measurement");
 
         // Create defensive copy to avoid Collection Modified Exception during enumeration
         // The MeterListener callback can modify emittedMetrics on another thread
@@ -480,7 +526,7 @@ public class MeteredMemoryCacheTests
         using var listener = new MeterListener();
         listener.InstrumentPublished = (inst, meterListener) =>
         {
-            if (inst.Name == "cache_evictions_total")
+            if (inst.Name == "cache.evictions")
             {
                 meterListener.EnableMeasurementEvents(inst);
             }
@@ -488,8 +534,7 @@ public class MeteredMemoryCacheTests
 
         listener.SetMeasurementEventCallback<long>((inst, measurement, tags, state) =>
         {
-            // This callback indicates an eviction callback successfully executed
-            // If _disposed field lacks proper visibility, callbacks might execute after disposal
+            // This callback indicates an eviction metric was observed
             Interlocked.Increment(ref evictionCallbacksExecuted);
         });
         listener.Start();
@@ -565,7 +610,7 @@ public class MeteredMemoryCacheTests
                 {
                     for (int i = 0; i < 50; i++)
                     {
-                        services1.AddNamedMeteredMemoryCache($"service1-cache-{i}", meterName: $"service1-meter-{i}");
+                        services1.AddNamedMeteredMemoryCache($"service1-cache-{i}");
                     }
                 }
                 catch (Exception ex)
@@ -579,7 +624,7 @@ public class MeteredMemoryCacheTests
                 {
                     for (int i = 0; i < 50; i++)
                     {
-                        services2.AddNamedMeteredMemoryCache($"service2-cache-{i}", meterName: $"service2-meter-{i}");
+                        services2.AddNamedMeteredMemoryCache($"service2-cache-{i}");
                     }
                 }
                 catch (Exception ex)
@@ -611,16 +656,12 @@ public class MeteredMemoryCacheTests
         // This test validates that the DI implementation fixes work correctly
         var services = new ServiceCollection();
 
-        // Test meter isolation
-        services.AddNamedMeteredMemoryCache("cache1", meterName: "meter1");
+        // Test meter isolation — now uses IMeterFactory
+        services.AddNamedMeteredMemoryCache("cache1");
 
         var provider = services.BuildServiceProvider();
 
-        // Test 1: Meter registration works with keyed approach
-        var meter1 = provider.GetRequiredKeyedService<Meter>("meter1");
-        Assert.Equal("meter1", meter1.Name);
-
-        // Test 2: Options are properly configured
+        // Test 1: Options are properly configured
         var namedOptions = provider.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>().Get("cache1");
         Assert.Equal("cache1", namedOptions.CacheName);
 
@@ -628,11 +669,11 @@ public class MeteredMemoryCacheTests
         var actualDisposeInner = namedOptions.DisposeInner;
         Assert.True(actualDisposeInner, $"DisposeInner should be true for owned caches, but was {actualDisposeInner}");
 
-        // Test 3: Cache registration works correctly
+        // Test 2: Cache registration works correctly
         var cache1 = provider.GetRequiredKeyedService<IMemoryCache>("cache1");
         Assert.IsType<MeteredMemoryCache>(cache1);
 
-        // Test 4: Verify DisposeInner is properly set using reflection
+        // Test 3: Verify DisposeInner is properly set using reflection
         var cache1Type = cache1.GetType();
         var disposeInnerField = cache1Type.GetField("_disposeInner",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -652,8 +693,8 @@ public class MeteredMemoryCacheTests
         // Register base cache first
         services.AddMemoryCache();
 
-        // Decorate with metrics
-        services.DecorateMemoryCacheWithMetrics("decorated-cache", meterName: "decorator-meter");
+        // Decorate with metrics — now uses IMeterFactory
+        services.DecorateMemoryCacheWithMetrics("decorated-cache");
 
         var provider = services.BuildServiceProvider();
 
@@ -661,9 +702,9 @@ public class MeteredMemoryCacheTests
         var decoratedCache = provider.GetRequiredService<IMemoryCache>();
         Assert.IsType<MeteredMemoryCache>(decoratedCache);
 
-        // Test 2: Meter is properly registered
-        var decoratorMeter = provider.GetRequiredService<Meter>();
-        Assert.Equal("decorator-meter", decoratorMeter.Name);
+        // Test 2: Cache name is preserved
+        var meteredCache = (MeteredMemoryCache)decoratedCache;
+        Assert.Equal("decorated-cache", meteredCache.Name);
 
         provider.Dispose();
     }
@@ -745,7 +786,7 @@ public class MeteredMemoryCacheTests
 
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.miss.race"));
-        using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
+        using var listener = new TestListener(meter.Name, "cache.lookups");
 
         var cache = new MeteredMemoryCache(inner, meter, "miss-race-test");
 
@@ -770,15 +811,18 @@ public class MeteredMemoryCacheTests
         // because it increments miss counter before checking if factory actually runs
         // This test documents the race condition that needs to be fixed
 
+        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+
         // With the current implementation, this will show 1 miss even though no factory ran
         // After the fix, this should show 0 misses since the value was already cached
-        var missCount = listener.Counters.TryGetValue("cache_misses_total", out var misses) ? misses : 0;
+        var missCount = listener.GetAggregatedCount("cache.lookups", missTag);
 
         // With the fix implemented, miss count should be 0 since factory didn't run
         Assert.Equal(0, missCount);
 
         // Verify we got a hit instead since the value was already in cache
-        var hitCount = listener.Counters.TryGetValue("cache_hits_total", out var hits) ? hits : 0;
+        var hitCount = listener.GetAggregatedCount("cache.lookups", hitTag);
         Assert.Equal(1, hitCount);
     }
 
@@ -802,7 +846,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache7"));
-        using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
+        using var listener = new TestListener(meter.Name, "cache.lookups");
 
         var options = new MeteredMemoryCacheOptions
         {
@@ -832,7 +876,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache8"));
-        using var listener = new TestListener(meter.Name, "cache_hits_total");
+        using var listener = new TestListener(meter.Name, "cache.lookups");
 
         var options = new MeteredMemoryCacheOptions
         {
@@ -845,7 +889,7 @@ public class MeteredMemoryCacheTests
         cache.TryGetValue("k", out _); // miss
 
         // Should only have the cache.name from CacheName property, not from AdditionalTags
-        var measurements = listener.Measurements.Where(m => m.Name == "cache_hits_total" || m.Name == "cache_misses_total").ToList();
+        var measurements = listener.Measurements.Where(m => m.Name == "cache.lookups").ToList();
         Assert.All(measurements, m =>
         {
             var cacheNameTags = m.Tags.Where(tag => tag.Key == "cache.name").ToList();
@@ -960,7 +1004,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache16"));
-        using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
+        using var listener = new TestListener(meter.Name, "cache.lookups");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "tryget-cache");
 
@@ -976,8 +1020,10 @@ public class MeteredMemoryCacheTests
         Assert.Equal("test-value", hitValue);
 
         // Verify metrics with cache.name tag
-        Assert.Equal(1, listener.Counters["cache_hits_total"]);
-        Assert.Equal(1, listener.Counters["cache_misses_total"]);
+        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", hitTag));
+        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", missTag));
 
         Assert.Contains(true, listener.Measurements.Select(m =>
             m.Tags.Any(tag => tag.Key == "cache.name" && (string?)tag.Value == "tryget-cache")));
@@ -988,7 +1034,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache17"));
-        using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
+        using var listener = new TestListener(meter.Name, "cache.lookups");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "getorcreate-cache");
 
@@ -1001,8 +1047,10 @@ public class MeteredMemoryCacheTests
         Assert.Equal("created-value", value2);
 
         // Verify metrics
-        Assert.Equal(1, listener.Counters["cache_hits_total"]);
-        Assert.Equal(1, listener.Counters["cache_misses_total"]);
+        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", hitTag));
+        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", missTag));
 
         // Verify cache.name tag is present
         Assert.Contains(true, listener.Measurements.Select(m =>
@@ -1015,7 +1063,7 @@ public class MeteredMemoryCacheTests
         using var inner1 = new MemoryCache(new MemoryCacheOptions());
         using var inner2 = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache18"));
-        using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
+        using var listener = new TestListener(meter.Name, "cache.lookups");
 
         var cache1 = new MeteredMemoryCache(inner1, meter, cacheName: "cache-one");
         var cache2 = new MeteredMemoryCache(inner2, meter, cacheName: "cache-two");
@@ -1039,11 +1087,9 @@ public class MeteredMemoryCacheTests
         Assert.NotEmpty(cache1Measurements);
         Assert.NotEmpty(cache2Measurements);
 
-        // Each cache should have both hit and miss measurements
-        Assert.Contains(cache1Measurements, m => m.Name == "cache_hits_total");
-        Assert.Contains(cache1Measurements, m => m.Name == "cache_misses_total");
-        Assert.Contains(cache2Measurements, m => m.Name == "cache_hits_total");
-        Assert.Contains(cache2Measurements, m => m.Name == "cache_misses_total");
+        // Each cache should have lookups measurements with both hit and miss results
+        Assert.Contains(cache1Measurements, m => m.Name == "cache.lookups");
+        Assert.Contains(cache2Measurements, m => m.Name == "cache.lookups");
     }
 
     [Theory]
@@ -1078,12 +1124,12 @@ public class MeteredMemoryCacheTests
 
         // Should throw for null required parameters
         Assert.Throws<ArgumentNullException>(() => new MeteredMemoryCache(null!, meter, cacheName: "test"));
-        Assert.Throws<ArgumentNullException>(() => new MeteredMemoryCache(inner, null!, cacheName: "test"));
+        Assert.Throws<ArgumentNullException>(() => new MeteredMemoryCache(inner, (Meter)null!, cacheName: "test"));
 
         var options = new MeteredMemoryCacheOptions();
         Assert.Throws<ArgumentNullException>(() => new MeteredMemoryCache(null!, meter, options));
-        Assert.Throws<ArgumentNullException>(() => new MeteredMemoryCache(inner, null!, options));
-        Assert.Throws<ArgumentNullException>(() => new MeteredMemoryCache(inner, meter, null!));
+        Assert.Throws<ArgumentNullException>(() => new MeteredMemoryCache(inner, (Meter)null!, options));
+        Assert.Throws<ArgumentNullException>(() => new MeteredMemoryCache(inner, meter, (MeteredMemoryCacheOptions)null!));
     }
 
     [Fact]

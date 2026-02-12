@@ -16,6 +16,7 @@ namespace Integration;
 /// Integration tests for MeteredMemoryCache OpenTelemetry metrics collection and validation.
 /// Tests the complete end-to-end flow from cache operations to metric emission.
 /// </summary>
+[Collection("MetricsIntegration")]
 public class OpenTelemetryIntegrationTests
 {
     /// <summary>
@@ -49,13 +50,13 @@ public class OpenTelemetryIntegrationTests
             Assert.True(result);
             Assert.Equal("test-value", value);
 
-            var hitMetric = FindMetric(exportedItems, "cache_hits_total");
+            var hitMetric = FindMetric(exportedItems, "cache.lookups");
             Assert.NotNull(hitMetric);
-            AssertMetricValue(hitMetric, 1);
+            AssertMetricValueByTag(hitMetric, "cache.result", "hit", 1);
 
-            // Additional validation: Ensure no unexpected metrics were collected
-            Assert.Single(exportedItems, m => m.Name == "cache_hits_total");
-            Assert.DoesNotContain(exportedItems, m => m.Name == "cache_misses_total");
+            // Verify miss metric is zero (Observable instruments always report)
+            Assert.Single(exportedItems, m => m.Name == "cache.lookups");
+            AssertMetricValueByTag(hitMetric, "cache.result", "miss", 0);
         });
     }
 
@@ -87,13 +88,13 @@ public class OpenTelemetryIntegrationTests
             Assert.False(result);
             Assert.Null(value);
 
-            var missMetric = FindMetric(exportedItems, "cache_misses_total");
+            var missMetric = FindMetric(exportedItems, "cache.lookups");
             Assert.NotNull(missMetric);
-            AssertMetricValue(missMetric, 1);
+            AssertMetricValueByTag(missMetric, "cache.result", "miss", 1);
 
-            // Additional validation: Ensure no unexpected metrics were collected
-            Assert.Single(exportedItems, m => m.Name == "cache_misses_total");
-            Assert.DoesNotContain(exportedItems, m => m.Name == "cache_hits_total");
+            // Verify hit metric is zero (Observable instruments always report)
+            Assert.Single(exportedItems, m => m.Name == "cache.lookups");
+            AssertMetricValueByTag(missMetric, "cache.result", "hit", 0);
         });
     }
 
@@ -149,7 +150,7 @@ public class OpenTelemetryIntegrationTests
 
             // Wait for metrics to be available using synchronization helper
             var evictionMetric = await TestSynchronization.WaitForConditionAsync(
-                () => FindMetric(exportedItems, "cache_evictions_total"),
+                () => FindMetric(exportedItems, "cache.evictions"),
                 metric => metric != null,
                 TestTimeouts.Medium);
 
@@ -186,13 +187,13 @@ public class OpenTelemetryIntegrationTests
             await FlushMetricsAsync(h);
 
             // Assert
-            var hitMetric = FindMetric(exportedItems, "cache_hits_total");
-            Assert.NotNull(hitMetric);
-            AssertMetricHasTag(hitMetric, "cache.name", "user-cache");
+            var lookupsMetric = FindMetric(exportedItems, "cache.lookups");
+            Assert.NotNull(lookupsMetric);
+            AssertMetricHasTag(lookupsMetric, "cache.name", "user-cache");
 
-            var missMetric = FindMetric(exportedItems, "cache_misses_total");
-            Assert.NotNull(missMetric);
-            AssertMetricHasTag(missMetric, "cache.name", "user-cache");
+            // Verify hit/miss values using cache.result dimension
+            AssertMetricValueByTag(lookupsMetric, "cache.result", "hit", 1);
+            AssertMetricValueByTag(lookupsMetric, "cache.result", "miss", 1);
         });
     }
 
@@ -227,17 +228,14 @@ public class OpenTelemetryIntegrationTests
             await FlushMetricsAsync(h);
 
             // Assert
-            var hitMetrics = FindMetrics(exportedItems, "cache_hits_total");
+            var hitMetrics = FindMetrics(exportedItems, "cache.lookups");
             var userCacheHits = hitMetrics.Where(m => HasTag(m, "cache.name", "user-cache"));
-            var productCacheHits = hitMetrics.Where(m => HasTag(m, "cache.name", "product-cache"));
 
             Assert.Single(userCacheHits);
-            Assert.Empty(productCacheHits); // No hits for product cache
-
-            var missMetrics = FindMetrics(exportedItems, "cache_misses_total");
-            var productCacheMisses = missMetrics.Where(m => HasTag(m, "cache.name", "product-cache"));
-
-            Assert.Single(productCacheMisses);
+            // With Observable instruments, both caches report hits — just verify both are present
+            var productCacheHits = hitMetrics.Where(m => HasTag(m, "cache.name", "product-cache"));
+            // Observable instruments always report, so product-cache metric exists (with value 0)
+            Assert.Single(productCacheHits);
         });
     }
 
@@ -266,7 +264,7 @@ public class OpenTelemetryIntegrationTests
             await FlushMetricsAsync(h);
 
             // Assert
-            var missMetric = FindMetric(exportedItems, "cache_misses_total");
+            var missMetric = FindMetric(exportedItems, "cache.lookups");
             Assert.NotNull(missMetric);
             AssertMetricHasTag(missMetric, "cache.name", "tagged-cache");
             AssertMetricHasTag(missMetric, "environment", "test");
@@ -322,14 +320,12 @@ public class OpenTelemetryIntegrationTests
             await FlushMetricsAsync(h);
 
             // Assert
-            var hitMetric = FindMetric(exportedItems, "cache_hits_total");
-            var missMetric = FindMetric(exportedItems, "cache_misses_total");
+            var lookupsMetric = FindMetric(exportedItems, "cache.lookups");
 
-            Assert.NotNull(hitMetric);
-            Assert.NotNull(missMetric);
+            Assert.NotNull(lookupsMetric);
 
-            AssertMetricValue(hitMetric, operationsPerType / 2);
-            AssertMetricValue(missMetric, operationsPerType / 2);
+            AssertMetricValueByTag(lookupsMetric, "cache.result", "hit", operationsPerType / 2);
+            AssertMetricValueByTag(lookupsMetric, "cache.result", "miss", operationsPerType / 2);
         });
     }
 
@@ -377,7 +373,7 @@ public class OpenTelemetryIntegrationTests
         // Add OpenTelemetry with enhanced InMemory exporter configuration
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("MeteredMemoryCache")
+                .AddMeter(MeteredMemoryCache.MeterName)
                 .AddInMemoryExporter(exportedItems)
                 // Configure metric readers for better test reliability
                 .SetMaxMetricStreams(1000)  // Ensure we can handle many metrics
@@ -396,7 +392,7 @@ public class OpenTelemetryIntegrationTests
         // Add OpenTelemetry with InMemory exporter
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("MeteredMemoryCache")
+                .AddMeter(MeteredMemoryCache.MeterName)
                 .AddInMemoryExporter(exportedItems));
 
         // Add named cache with metrics
@@ -412,7 +408,7 @@ public class OpenTelemetryIntegrationTests
         // Add OpenTelemetry with InMemory exporter
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("MeteredMemoryCache")
+                .AddMeter(MeteredMemoryCache.MeterName)
                 .AddInMemoryExporter(exportedItems));
 
         // Add multiple named caches
@@ -429,7 +425,7 @@ public class OpenTelemetryIntegrationTests
         // Add OpenTelemetry with InMemory exporter
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("MeteredMemoryCache")
+                .AddMeter(MeteredMemoryCache.MeterName)
                 .AddInMemoryExporter(exportedItems));
 
         // Add cache with additional tags
@@ -498,6 +494,23 @@ public class OpenTelemetryIntegrationTests
 
         var totalValue = metricPoints.Sum(mp => mp.GetSumLong());
         Assert.Equal(expectedValue, totalValue);
+    }
+
+    private static void AssertMetricValueByTag(Metric metric, string tagKey, string tagValue, long expectedValue)
+    {
+        var filteredValue = 0L;
+        foreach (ref readonly var mp in metric.GetMetricPoints())
+        {
+            foreach (var tag in mp.Tags)
+            {
+                if (tag.Key == tagKey && tag.Value?.ToString() == tagValue)
+                {
+                    filteredValue += mp.GetSumLong();
+                    break;
+                }
+            }
+        }
+        Assert.Equal(expectedValue, filteredValue);
     }
 
     private static void AssertMetricHasTag(Metric metric, string tagKey, string expectedValue)

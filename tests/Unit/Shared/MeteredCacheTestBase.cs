@@ -58,13 +58,14 @@ public abstract class MeteredCacheTestBase<TTestSubject>
         private readonly object _lock = new object();
 
         /// <summary>
-        /// Gets all captured metric measurements.
+        /// Gets all captured metric measurements after taking a fresh snapshot.
         /// </summary>
         /// <value>A read-only list of all metric measurements captured by this harness.</value>
         public IReadOnlyList<MetricMeasurement> AllMeasurements
         {
             get
             {
+                Collect();
                 lock (_lock)
                 {
                     return _measurements.ToArray();
@@ -73,13 +74,14 @@ public abstract class MeteredCacheTestBase<TTestSubject>
         }
 
         /// <summary>
-        /// Gets aggregated counter values by instrument name.
+        /// Gets aggregated counter values by instrument name after taking a fresh snapshot.
         /// </summary>
         /// <value>A read-only dictionary mapping instrument names to their aggregated counter values.</value>
         public IReadOnlyDictionary<string, long> AggregatedCounters
         {
             get
             {
+                Collect();
                 lock (_lock)
                 {
                     return new Dictionary<string, long>(_aggregatedCounters);
@@ -134,12 +136,34 @@ public abstract class MeteredCacheTestBase<TTestSubject>
         }
 
         /// <summary>
-        /// Gets all measurements for a specific instrument name.
+        /// Takes a fresh snapshot of all Observable instrument values.
+        /// Clears previous measurements and records current absolute values.
+        /// </summary>
+        /// <remarks>
+        /// Observable instruments (ObservableCounter, ObservableUpDownCounter, ObservableGauge) report
+        /// absolute accumulated values, not deltas. This method clears accumulated data first, then
+        /// records fresh values so that aggregation (ADD) produces correct totals.
+        /// Safe to call multiple times — each call produces an idempotent snapshot.
+        /// </remarks>
+        public void Collect()
+        {
+            lock (_lock)
+            {
+                _measurements.Clear();
+                _measurementsByInstrument.Clear();
+                _aggregatedCounters.Clear();
+            }
+            _listener.RecordObservableInstruments();
+        }
+
+        /// <summary>
+        /// Gets all measurements for a specific instrument name after taking a fresh snapshot.
         /// </summary>
         /// <param name="instrumentName">The name of the instrument to get measurements for.</param>
         /// <returns>A read-only list of measurements for the specified instrument.</returns>
         public IReadOnlyList<MetricMeasurement> GetMeasurements(string instrumentName)
         {
+            Collect();
             lock (_lock)
             {
                 return _measurementsByInstrument.GetValueOrDefault(instrumentName, new List<MetricMeasurement>()).ToArray();
@@ -154,6 +178,7 @@ public abstract class MeteredCacheTestBase<TTestSubject>
         /// <returns>A read-only list of measurements that match the tag criteria.</returns>
         public IReadOnlyList<MetricMeasurement> GetMeasurementsWithTags(string instrumentName, params KeyValuePair<string, object?>[] requiredTags)
         {
+            // GetMeasurements already calls Collect()
             return GetMeasurements(instrumentName)
                 .Where(m => requiredTags.All(required =>
                     m.Tags.ContainsKey(required.Key) &&
@@ -169,35 +194,49 @@ public abstract class MeteredCacheTestBase<TTestSubject>
         /// <returns>The sum of all measurement values that match the tag criteria.</returns>
         public long GetAggregatedCount(string instrumentName, params KeyValuePair<string, object?>[] requiredTags)
         {
+            // GetMeasurementsWithTags already calls Collect() via GetMeasurements
             return GetMeasurementsWithTags(instrumentName, requiredTags).Sum(m => m.Value);
         }
 
         /// <summary>
-        /// Asserts that the number of measurements for an instrument matches the expected count.
+        /// Asserts that the aggregated value for an instrument matches the expected total.
         /// </summary>
         /// <param name="instrumentName">The name of the instrument to check.</param>
-        /// <param name="expectedCount">The expected number of measurements.</param>
-        /// <exception cref="Xunit.Sdk.EqualException">Thrown when the actual count doesn't match the expected count.</exception>
+        /// <param name="expectedCount">The expected aggregated value.</param>
+        /// <remarks>
+        /// With Observable instruments, each instrument reports one measurement per tag set
+        /// per collection. This asserts the total value, not the number of callback invocations.
+        /// </remarks>
         public void AssertMeasurementCount(string instrumentName, int expectedCount)
         {
-            var measurements = GetMeasurements(instrumentName);
-            Assert.Equal(expectedCount, measurements.Count);
+            // With Observable instruments, measurement count = number of unique tag sets,
+            // not number of operations. Assert on the aggregated value instead.
+            Collect();
+            lock (_lock)
+            {
+                Assert.Equal(expectedCount, _aggregatedCounters.GetValueOrDefault(instrumentName, 0));
+            }
         }
 
         /// <summary>
-        /// Waits asynchronously for a metric to reach the expected count within the specified timeout.
+        /// Waits asynchronously for a metric to reach the expected value within the specified timeout.
         /// </summary>
         /// <param name="instrumentName">The name of the instrument to wait for.</param>
-        /// <param name="expectedCount">The expected number of measurements.</param>
+        /// <param name="expectedCount">The expected aggregated value.</param>
         /// <param name="timeout">The maximum time to wait for the metric.</param>
-        /// <returns><see langword="true"/> if the metric reached the expected count; otherwise, <see langword="false"/>.</returns>
+        /// <returns><see langword="true"/> if the metric reached the expected value; otherwise, <see langword="false"/>.</returns>
         public async Task<bool> WaitForMetricAsync(string instrumentName, int expectedCount, TimeSpan timeout)
         {
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
             while (stopwatch.Elapsed < timeout)
             {
-                var currentCount = GetMeasurements(instrumentName).Count;
-                if (currentCount >= expectedCount)
+                Collect();
+                long currentValue;
+                lock (_lock)
+                {
+                    currentValue = _aggregatedCounters.GetValueOrDefault(instrumentName, 0);
+                }
+                if (currentValue >= expectedCount)
                 {
                     return true;
                 }
@@ -214,7 +253,11 @@ public abstract class MeteredCacheTestBase<TTestSubject>
         /// <exception cref="Xunit.Sdk.EqualException">Thrown when the actual total doesn't match the expected total.</exception>
         public void AssertAggregatedCount(string instrumentName, long expectedTotal)
         {
-            Assert.Equal(expectedTotal, _aggregatedCounters.GetValueOrDefault(instrumentName, 0));
+            Collect();
+            lock (_lock)
+            {
+                Assert.Equal(expectedTotal, _aggregatedCounters.GetValueOrDefault(instrumentName, 0));
+            }
         }
 
         /// <summary>
@@ -226,6 +269,7 @@ public abstract class MeteredCacheTestBase<TTestSubject>
         /// <exception cref="Xunit.Sdk.EqualException">Thrown when a tag value doesn't match the expected value.</exception>
         public void AssertAllMeasurementsHaveTags(string instrumentName, params KeyValuePair<string, object?>[] requiredTags)
         {
+            // GetMeasurements already calls Collect()
             var measurements = GetMeasurements(instrumentName);
             Assert.All(measurements, m =>
             {
@@ -311,7 +355,7 @@ public abstract class MeteredCacheTestBase<TTestSubject>
     public void HitAndMissOperations_RecordsCorrectMetrics()
     {
         using var subject = CreateTestSubject(cacheName: "test-cache");
-        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache_hits_total", "cache_misses_total");
+        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.lookups");
 
         // Execute operations
         subject.Cache.TryGetValue("k", out _); // miss
@@ -321,15 +365,18 @@ public abstract class MeteredCacheTestBase<TTestSubject>
         // Publish metrics if supported
         subject.PublishMetrics();
 
+        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+
         if (subject.MetricsEnabled)
         {
-            Assert.Equal(1, harness.AggregatedCounters["cache_hits_total"]);
-            Assert.Equal(1, harness.AggregatedCounters["cache_misses_total"]);
+            Assert.Equal(1, harness.GetAggregatedCount("cache.lookups", hitTag));
+            Assert.Equal(1, harness.GetAggregatedCount("cache.lookups", missTag));
         }
         else
         {
-            Assert.Equal(0, harness.AggregatedCounters.GetValueOrDefault("cache_hits_total", 0));
-            Assert.Equal(0, harness.AggregatedCounters.GetValueOrDefault("cache_misses_total", 0));
+            Assert.Equal(0, harness.GetAggregatedCount("cache.lookups", hitTag));
+            Assert.Equal(0, harness.GetAggregatedCount("cache.lookups", missTag));
         }
     }
 
@@ -340,7 +387,7 @@ public abstract class MeteredCacheTestBase<TTestSubject>
     public async Task EvictionScenario_RecordsEvictionMetrics()
     {
         using var subject = CreateTestSubject(cacheName: "eviction-test");
-        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache_evictions_total");
+        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.evictions");
 
         using var cts = new CancellationTokenSource();
         var options = new MemoryCacheEntryOptions();
@@ -367,11 +414,11 @@ public abstract class MeteredCacheTestBase<TTestSubject>
             if (subject.GetCurrentStatistics() is CacheStatistics stats)
             {
                 // If eviction was tracked in statistics, it should be publishable
-                if (stats.EvictionCount > 0)
+                if (stats.TotalEvictions > 0)
                 {
-                    var evictionRecorded = await harness.WaitForMetricAsync("cache_evictions_total", 1, TimeSpan.FromSeconds(5));
+                    var evictionRecorded = await harness.WaitForMetricAsync("cache.evictions", 1, TimeSpan.FromSeconds(5));
                     Assert.True(evictionRecorded, "Expected eviction to be recorded within timeout");
-                    Assert.True(harness.AggregatedCounters.TryGetValue("cache_evictions_total", out var ev) && ev >= 1);
+                    Assert.True(harness.AggregatedCounters.TryGetValue("cache.evictions", out var ev) && ev >= 1);
                 }
                 else
                 {
@@ -383,9 +430,9 @@ public abstract class MeteredCacheTestBase<TTestSubject>
             else
             {
                 // Fallback for MeteredMemoryCache that doesn't support GetCurrentStatistics
-                var evictionRecorded = await harness.WaitForMetricAsync("cache_evictions_total", 1, TimeSpan.FromSeconds(5));
+                var evictionRecorded = await harness.WaitForMetricAsync("cache.evictions", 1, TimeSpan.FromSeconds(5));
                 Assert.True(evictionRecorded, "Expected eviction to be recorded within timeout");
-                Assert.True(harness.AggregatedCounters.TryGetValue("cache_evictions_total", out var ev) && ev >= 1);
+                Assert.True(harness.AggregatedCounters.TryGetValue("cache.evictions", out var ev) && ev >= 1);
             }
         }
     }
@@ -397,7 +444,7 @@ public abstract class MeteredCacheTestBase<TTestSubject>
     public void WithCacheName_EmitsCacheNameTag()
     {
         using var subject = CreateTestSubject(cacheName: "test-cache-name");
-        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache_hits_total", "cache_misses_total");
+        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.lookups");
 
         subject.Cache.TryGetValue("k", out _); // miss
         subject.Cache.Set("k", 42);
@@ -423,7 +470,7 @@ public abstract class MeteredCacheTestBase<TTestSubject>
         using var sharedMeter = new Meter(SharedUtilities.GetUniqueMeterName("test.shared"));
         using var subject1 = CreateTestSubject(meter: sharedMeter, cacheName: "cache-one");
         using var subject2 = CreateTestSubject(meter: sharedMeter, cacheName: "cache-two");
-        using var harness = new MetricCollectionHarness(sharedMeter.Name, "cache_hits_total", "cache_misses_total");
+        using var harness = new MetricCollectionHarness(sharedMeter.Name, "cache.lookups");
         // Generate metrics for both caches
         subject1.Cache.TryGetValue("key", out _); // miss for cache-one
         subject2.Cache.TryGetValue("key", out _); // miss for cache-two
@@ -458,7 +505,7 @@ public abstract class MeteredCacheTestBase<TTestSubject>
     public void HighVolumeOperations_AccurateAggregation()
     {
         using var subject = CreateTestSubject(cacheName: "volume-test");
-        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache_hits_total", "cache_misses_total");
+        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.lookups");
 
         const int operationCount = 1000;
 
@@ -490,11 +537,14 @@ public abstract class MeteredCacheTestBase<TTestSubject>
         // Publish metrics if supported
         subject.PublishMetrics();
 
+        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+
         if (subject.MetricsEnabled)
         {
             // Validate exact counts: 100 misses + 800 hits = 900 total operations
-            harness.AssertAggregatedCount("cache_misses_total", 100);
-            harness.AssertAggregatedCount("cache_hits_total", 800);
+            Assert.Equal(100, harness.GetAggregatedCount("cache.lookups", missTag));
+            Assert.Equal(800, harness.GetAggregatedCount("cache.lookups", hitTag));
         }
     }
 

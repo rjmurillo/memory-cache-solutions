@@ -17,6 +17,7 @@ namespace Integration;
 /// <summary>
 /// Tests for thread-safety validation of MeteredMemoryCache tag operations and concurrent metric emission.
 /// </summary>
+[Collection("MetricsIntegration")]
 public class ConcurrencyTests : IDisposable
 {
     private readonly List<IDisposable> _disposables = [];
@@ -82,17 +83,14 @@ public class ConcurrencyTests : IDisposable
         await FlushMetricsAsync(metricsProvider);
 
         // Assert: Verify metrics were recorded correctly despite concurrent access
-        var hitsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache_hits_total");
-        var missesMetric = exportedItems.FirstOrDefault(m => m.Name == "cache_misses_total");
+        var lookupsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache.lookups");
 
-        Assert.NotNull(hitsMetric);
-        Assert.NotNull(missesMetric);
+        Assert.NotNull(lookupsMetric);
 
-        AssertMetricHasTag(hitsMetric, "cache.name", "concurrent-cache");
-        AssertMetricHasTag(missesMetric, "cache.name", "concurrent-cache");
+        AssertMetricHasTag(lookupsMetric, "cache.name", "concurrent-cache");
 
-        var totalHits = GetMetricValue(hitsMetric);
-        var totalMisses = GetMetricValue(missesMetric);
+        var totalHits = GetMetricValueByTag(lookupsMetric, "cache.result", "hit");
+        var totalMisses = GetMetricValueByTag(lookupsMetric, "cache.result", "miss");
 
         // Verify total operations match expected count
         Assert.Equal(operationCount, totalHits + totalMisses);
@@ -173,7 +171,7 @@ public class ConcurrencyTests : IDisposable
         await FlushMetricsAsync(metricsProvider);
 
         // Assert: Verify eviction metrics are properly attributed to each cache
-        var evictionsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache_evictions_total");
+        var evictionsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache.evictions");
 
         Assert.NotNull(evictionsMetric);
 
@@ -255,21 +253,18 @@ public class ConcurrencyTests : IDisposable
         // Assert: Verify metric accuracy under high concurrency
         var exportedMetrics = exportedItems;
 
-        var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_hits_total");
-        var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_misses_total");
+        var lookupsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.lookups");
 
-        Assert.NotNull(hitsMetric);
-        Assert.NotNull(missesMetric);
+        Assert.NotNull(lookupsMetric);
 
-        var totalHits = GetMetricValue(hitsMetric);
-        var totalMisses = GetMetricValue(missesMetric);
+        var totalHits = GetMetricValueByTag(lookupsMetric, "cache.result", "hit");
+        var totalMisses = GetMetricValueByTag(lookupsMetric, "cache.result", "miss");
 
         // Verify total operations
         Assert.Equal(totalOperations, totalHits + totalMisses);
 
         // Verify cache name tag is present and correct
-        AssertMetricHasTag(hitsMetric, "cache.name", "stress-cache");
-        AssertMetricHasTag(missesMetric, "cache.name", "stress-cache");
+        AssertMetricHasTag(lookupsMetric, "cache.name", "stress-cache");
 
         // Verify individual thread counters sum correctly
         var expectedHits = operationCounters.Where(kv => kv.Key.Contains("-hits")).Sum(kv => kv.Value);
@@ -342,25 +337,20 @@ public class ConcurrencyTests : IDisposable
         // Assert: Verify all tags are preserved under concurrency
         var exportedMetrics = exportedItems;
 
-        var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_hits_total");
-        var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_misses_total");
+        var lookupsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.lookups");
 
-        Assert.NotNull(hitsMetric);
-        Assert.NotNull(missesMetric);
+        Assert.NotNull(lookupsMetric);
 
         // Verify cache name tag
-        AssertMetricHasTag(hitsMetric, "cache.name", "tagged-cache");
-        AssertMetricHasTag(missesMetric, "cache.name", "tagged-cache");
+        AssertMetricHasTag(lookupsMetric, "cache.name", "tagged-cache");
 
         // Verify additional tags
-        AssertMetricHasTag(hitsMetric, "environment", "test");
-        AssertMetricHasTag(hitsMetric, "component", "integration-test");
-        AssertMetricHasTag(missesMetric, "environment", "test");
-        AssertMetricHasTag(missesMetric, "component", "integration-test");
+        AssertMetricHasTag(lookupsMetric, "environment", "test");
+        AssertMetricHasTag(lookupsMetric, "component", "integration-test");
 
         // Verify operation counts
         var totalOperations = threadCount * operationsPerThread;
-        var hitsAndMisses = GetMetricValue(hitsMetric) + GetMetricValue(missesMetric);
+        var hitsAndMisses = GetMetricValue(lookupsMetric);
 
         // Should be roughly half since we do 2 get operations for every 2 set/remove operations
         Assert.True(hitsAndMisses >= totalOperations / 4, $"Expected at least {totalOperations / 4} hits+misses, got {hitsAndMisses}");
@@ -432,16 +422,13 @@ public class ConcurrencyTests : IDisposable
         // Assert: Verify metrics consistency despite race conditions
         var exportedMetrics = exportedItems;
 
-        var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_hits_total");
-        var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_misses_total");
-        var evictionsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_evictions_total");
+        var lookupsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.lookups");
+        var evictionsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.evictions");
 
-        Assert.NotNull(hitsMetric);
-        Assert.NotNull(missesMetric);
+        Assert.NotNull(lookupsMetric);
 
         // Verify metrics have correct tags
-        AssertMetricHasTag(hitsMetric, "cache.name", "race-cache");
-        AssertMetricHasTag(missesMetric, "cache.name", "race-cache");
+        AssertMetricHasTag(lookupsMetric, "cache.name", "race-cache");
 
         if (evictionsMetric != null)
         {
@@ -449,8 +436,8 @@ public class ConcurrencyTests : IDisposable
         }
 
         // Verify metric values are reasonable (no negative values, etc.)
-        var hits = GetMetricValue(hitsMetric);
-        var misses = GetMetricValue(missesMetric);
+        var hits = GetMetricValueByTag(lookupsMetric, "cache.result", "hit");
+        var misses = GetMetricValueByTag(lookupsMetric, "cache.result", "miss");
         var evictions = evictionsMetric != null ? GetMetricValue(evictionsMetric) : 0;
 
         Assert.True(hits >= 0, $"Hits should be non-negative, got {hits}");
@@ -480,7 +467,7 @@ public class ConcurrencyTests : IDisposable
         var builder = new HostApplicationBuilder();
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter(meterName)
+                .AddMeter(MeteredMemoryCache.MeterName)
                 .AddInMemoryExporter(exportedItems));
 
         var host = builder.Build();
@@ -489,8 +476,8 @@ public class ConcurrencyTests : IDisposable
         // Start the host to activate the meter provider
         await host.StartAsync();
 
-        // Create meter instance after host is started to ensure proper registration
-        var meter = new Meter(meterName);
+        // Create meter instance via IMeterFactory for proper DI-scoped isolation
+        var meterFactory = host.Services.GetRequiredService<IMeterFactory>();
         var meterProvider = host.Services.GetRequiredService<MeterProvider>();
 
         var tasks = new List<Task>();
@@ -505,7 +492,7 @@ public class ConcurrencyTests : IDisposable
                 // Create cache with unique name
                 var innerCache = new MemoryCache(new MemoryCacheOptions());
                 var cacheName = $"concurrent-cache-{cacheIndex}";
-                var meteredCache = new MeteredMemoryCache(innerCache, meter, cacheName);
+                var meteredCache = new MeteredMemoryCache(innerCache, meterFactory, cacheName);
 
                 caches.Add(meteredCache);
 
@@ -543,20 +530,18 @@ public class ConcurrencyTests : IDisposable
         var allMetricNames = exportedItems.Select(m => m.Name).ToList();
         Assert.True(exportedItems.Count > 0, $"No metrics were exported. Expected at least some metrics, but got {exportedItems.Count} metrics. Available metric names: [{string.Join(", ", allMetricNames)}]");
 
-        var hitsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache_hits_total");
-        var missesMetric = exportedItems.FirstOrDefault(m => m.Name == "cache_misses_total");
+        var lookupsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache.lookups");
 
-        Assert.NotNull(hitsMetric);
-        Assert.NotNull(missesMetric);
+        Assert.NotNull(lookupsMetric);
 
         // Verify metrics from all caches are captured
         var totalExpectedOperations = cacheCount * operationsPerCache;
-        var totalMetricOperations = GetMetricValue(hitsMetric) + GetMetricValue(missesMetric);
+        var totalMetricOperations = GetMetricValue(lookupsMetric);
 
         Assert.Equal(totalExpectedOperations, totalMetricOperations);
 
         // Verify each cache has its own metrics with correct cache name
-        foreach (var metricPoint in GetMetricPoints(hitsMetric))
+        foreach (var metricPoint in GetMetricPoints(lookupsMetric))
         {
             var cacheNameTag = default(KeyValuePair<string, object?>);
             foreach (var tag in metricPoint.Tags)
@@ -587,17 +572,14 @@ public class ConcurrencyTests : IDisposable
         var exportedItems = new List<Metric>();
         // Note: List<Metric> doesn't implement IDisposable, we'll dispose the host which cleans up resources
 
-        // Generate unique meter name for test isolation
-        var meterName = SharedUtilities.GetUniqueMeterName("test.single.cache");
-
         var builder = new HostApplicationBuilder();
 
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter(meterName)
+                .AddMeter(MeteredMemoryCache.MeterName)
                 .AddInMemoryExporter(exportedItems));
 
-        builder.Services.AddNamedMeteredMemoryCache(cacheName, meterName: meterName);
+        builder.Services.AddNamedMeteredMemoryCache(cacheName);
 
         var host = builder.Build();
         _disposables.Add(host);
@@ -608,20 +590,17 @@ public class ConcurrencyTests : IDisposable
     {
         var exportedItems = new List<Metric>();
 
-        // Generate unique meter name for test isolation
-        var meterName = SharedUtilities.GetUniqueMeterName("test.multiple.caches");
-
         var builder = new HostApplicationBuilder();
 
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter(meterName)
+                .AddMeter(MeteredMemoryCache.MeterName)
                 .AddInMemoryExporter(exportedItems));
 
-        // Create multiple named caches with unique meter name
-        builder.Services.AddNamedMeteredMemoryCache("cache-1", meterName: meterName);
-        builder.Services.AddNamedMeteredMemoryCache("cache-2", meterName: meterName);
-        builder.Services.AddNamedMeteredMemoryCache("cache-3", meterName: meterName);
+        // Create multiple named caches
+        builder.Services.AddNamedMeteredMemoryCache("cache-1");
+        builder.Services.AddNamedMeteredMemoryCache("cache-2");
+        builder.Services.AddNamedMeteredMemoryCache("cache-3");
 
         var host = builder.Build();
         _disposables.Add(host);
@@ -632,17 +611,14 @@ public class ConcurrencyTests : IDisposable
     {
         var exportedItems = new List<Metric>();
 
-        // Generate unique meter name for test isolation
-        var meterName = SharedUtilities.GetUniqueMeterName("test.options.cache");
-
         var builder = new HostApplicationBuilder();
 
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter(meterName)
+                .AddMeter(MeteredMemoryCache.MeterName)
                 .AddInMemoryExporter(exportedItems));
 
-        builder.Services.AddNamedMeteredMemoryCache(options.CacheName!, meterName: meterName, configureOptions: opt =>
+        builder.Services.AddNamedMeteredMemoryCache(options.CacheName!, configureOptions: opt =>
         {
             opt.AdditionalTags = options.AdditionalTags;
         });

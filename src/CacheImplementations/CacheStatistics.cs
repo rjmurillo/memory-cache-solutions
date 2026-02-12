@@ -1,11 +1,12 @@
 namespace CacheImplementations;
 
 /// <summary>
-/// Represents cache statistics at a point in time.
+/// Represents cache statistics at a point in time, aligned with <see cref="Microsoft.Extensions.Caching.Memory.MemoryCacheStatistics"/>.
 /// </summary>
 /// <remarks>
 /// This class provides a snapshot of cache performance metrics including hit counts,
-/// miss counts, eviction counts, and the calculated hit ratio.
+/// miss counts, eviction counts, and the calculated hit ratio. Property names align
+/// with the BCL <see cref="Microsoft.Extensions.Caching.Memory.MemoryCacheStatistics"/> type per dotnet/runtime#124140.
 /// </remarks>
 public sealed class CacheStatistics
 {
@@ -13,19 +14,19 @@ public sealed class CacheStatistics
     /// Gets the total number of cache hits.
     /// </summary>
     /// <value>The number of times a requested item was found in the cache.</value>
-    public long HitCount { get; init; }
+    public long TotalHits { get; init; }
 
     /// <summary>
     /// Gets the total number of cache misses.
     /// </summary>
     /// <value>The number of times a requested item was not found in the cache.</value>
-    public long MissCount { get; init; }
+    public long TotalMisses { get; init; }
 
     /// <summary>
-    /// Gets the total number of evictions.
+    /// Gets the total number of automatic evictions (excludes explicit user removals).
     /// </summary>
-    /// <value>The number of items that have been removed from the cache due to expiration, size limits, or manual removal.</value>
-    public long EvictionCount { get; init; }
+    /// <value>The number of items removed from the cache due to expiration, size limits, or memory pressure.</value>
+    public long TotalEvictions { get; init; }
 
     /// <summary>
     /// Gets the current number of entries in the cache.
@@ -34,10 +35,10 @@ public sealed class CacheStatistics
     public long CurrentEntryCount { get; init; }
 
     /// <summary>
-    /// Gets the cache name.
+    /// Gets the estimated size of all entries in the cache, if size tracking is enabled.
     /// </summary>
-    /// <value>The logical name of the cache instance, or <see langword="null"/> if no name was provided.</value>
-    public string? CacheName { get; init; }
+    /// <value>The estimated total size, or <see langword="null"/> if size tracking is not enabled.</value>
+    public long? EstimatedSize { get; init; }
 
     /// <summary>
     /// Gets the hit ratio as a percentage.
@@ -47,14 +48,15 @@ public sealed class CacheStatistics
     /// Returns 0 when no requests have been made.
     /// </value>
     /// <remarks>
-    /// The hit ratio is calculated as: <c>(HitCount / (HitCount + MissCount)) * 100</c>.
+    /// The hit ratio is calculated as: <c>(TotalHits / (TotalHits + TotalMisses)) * 100</c>.
+    /// This is an extension beyond the BCL <c>MemoryCacheStatistics</c> type for convenience.
     /// </remarks>
     public double HitRatio
     {
         get
         {
-            var total = HitCount + MissCount;
-            return total > 0 ? (double)HitCount / total * 100 : 0;
+            var total = TotalHits + TotalMisses;
+            return total > 0 ? (double)TotalHits / total * 100 : 0;
         }
     }
 }

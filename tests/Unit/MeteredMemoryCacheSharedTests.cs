@@ -57,7 +57,7 @@ public class MeteredMemoryCacheSharedTests : MeteredCacheTestBase<MeteredCacheTe
     public void TryGet_WithNamedCache_RecordsMetricsWithCacheName()
     {
         using var subject = CreateTestSubject(cacheName: "tryget-cache");
-        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache_hits_total", "cache_misses_total");
+        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.lookups");
 
         var cache = (MeteredMemoryCache)subject.Cache;
 
@@ -73,8 +73,10 @@ public class MeteredMemoryCacheSharedTests : MeteredCacheTestBase<MeteredCacheTe
         Assert.Equal("test-value", hitValue);
 
         // Verify metrics with cache.name tag
-        Assert.Equal(1, harness.AggregatedCounters["cache_hits_total"]);
-        Assert.Equal(1, harness.AggregatedCounters["cache_misses_total"]);
+        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+        Assert.Equal(1, harness.GetAggregatedCount("cache.lookups", hitTag));
+        Assert.Equal(1, harness.GetAggregatedCount("cache.lookups", missTag));
 
         Assert.Contains(true, harness.AllMeasurements.Select(m =>
             m.Tags.Any(tag => tag.Key == "cache.name" && (string?)tag.Value == "tryget-cache")));
@@ -87,7 +89,7 @@ public class MeteredMemoryCacheSharedTests : MeteredCacheTestBase<MeteredCacheTe
     public void GetOrCreate_WithNamedCache_RecordsMetricsWithCacheName()
     {
         using var subject = CreateTestSubject(cacheName: "getorcreate-cache");
-        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache_hits_total", "cache_misses_total");
+        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.lookups");
 
         var cache = (MeteredMemoryCache)subject.Cache;
 
@@ -100,8 +102,10 @@ public class MeteredMemoryCacheSharedTests : MeteredCacheTestBase<MeteredCacheTe
         Assert.Equal("created-value", value2);
 
         // Verify metrics
-        Assert.Equal(1, harness.AggregatedCounters["cache_hits_total"]);
-        Assert.Equal(1, harness.AggregatedCounters["cache_misses_total"]);
+        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+        Assert.Equal(1, harness.GetAggregatedCount("cache.lookups", hitTag));
+        Assert.Equal(1, harness.GetAggregatedCount("cache.lookups", missTag));
 
         // Verify cache.name tag is present
         Assert.Contains(true, harness.AllMeasurements.Select(m =>
@@ -121,7 +125,7 @@ public class MeteredMemoryCacheSharedTests : MeteredCacheTestBase<MeteredCacheTe
         };
 
         using var subject = CreateTestSubjectWithOptions(null, null, options);
-        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache_hits_total", "cache_misses_total");
+        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.lookups");
 
         subject.Cache.TryGetValue("k", out _); // miss
         subject.Cache.Set("k", 100);

@@ -44,7 +44,7 @@ public class Program
         // Configure OpenTelemetry
         services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("AspNetCore.Cache") // Our application meter
+                .AddMeter(MeteredMemoryCache.MeterName) // Use the standard meter name for cache metrics
                 .AddAspNetCoreInstrumentation() // ASP.NET Core metrics
                 .AddRuntimeInstrumentation() // .NET runtime metrics
                 .AddHttpClientInstrumentation() // HTTP client metrics
@@ -74,7 +74,6 @@ public class Program
     {
         // User profile cache - frequently accessed, medium size
         services.AddNamedMeteredMemoryCache("user-profiles",
-            meterName: "AspNetCore.Cache",
             configureOptions: options =>
             {
                 options.AdditionalTags["cache_type"] = "user_profiles";
@@ -83,7 +82,6 @@ public class Program
 
         // Product catalog cache - less frequent updates, larger size
         services.AddNamedMeteredMemoryCache("product-catalog",
-            meterName: "AspNetCore.Cache",
             configureOptions: options =>
             {
                 options.AdditionalTags["cache_type"] = "product_catalog";
@@ -92,7 +90,6 @@ public class Program
 
         // Session data cache - small, frequent evictions
         services.AddNamedMeteredMemoryCache("session-data",
-            meterName: "AspNetCore.Cache",
             configureOptions: options =>
             {
                 options.AdditionalTags["cache_type"] = "session_data";
@@ -101,7 +98,6 @@ public class Program
 
         // API response cache - for external API responses
         services.AddNamedMeteredMemoryCache("api-responses",
-            meterName: "AspNetCore.Cache",
             configureOptions: options =>
             {
                 options.AdditionalTags["cache_type"] = "api_responses";

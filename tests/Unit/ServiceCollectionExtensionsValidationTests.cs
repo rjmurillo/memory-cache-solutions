@@ -22,7 +22,7 @@ public class ServiceCollectionExtensionsValidationTests
         services.AddMemoryCache();
 
         // Configure with invalid options (empty cache name)
-        services.DecorateMemoryCacheWithMetrics(cacheName: "", meterName: "test-meter", opts =>
+        services.DecorateMemoryCacheWithMetrics(cacheName: "", configureOptions: opts =>
         {
             opts.CacheName = ""; // Invalid: empty cache name
         });
@@ -50,7 +50,7 @@ public class ServiceCollectionExtensionsValidationTests
         // Should throw when trying to decorate non-existent IMemoryCache
         var exception = Assert.Throws<InvalidOperationException>(() =>
         {
-            services.DecorateMemoryCacheWithMetrics(cacheName: "test-cache", meterName: "test-meter");
+            services.DecorateMemoryCacheWithMetrics(cacheName: "test-cache");
         });
 
         Assert.Contains("No IMemoryCache registration found", exception.Message);
@@ -66,7 +66,7 @@ public class ServiceCollectionExtensionsValidationTests
         var services = new ServiceCollection();
         services.AddMemoryCache();
 
-        services.DecorateMemoryCacheWithMetrics(cacheName: "test-cache", meterName: "test-meter", opts =>
+        services.DecorateMemoryCacheWithMetrics(cacheName: "test-cache", configureOptions: opts =>
         {
             opts.CacheName = "test-cache";
             opts.AdditionalTags.Add("environment", "test");
@@ -91,8 +91,8 @@ public class ServiceCollectionExtensionsValidationTests
         services.AddMemoryCache();
 
         // Multiple decoration calls should not conflict
-        services.DecorateMemoryCacheWithMetrics(cacheName: "cache1", meterName: "meter1");
-        services.DecorateMemoryCacheWithMetrics(cacheName: "cache2", meterName: "meter2");
+        services.DecorateMemoryCacheWithMetrics(cacheName: "cache1");
+        services.DecorateMemoryCacheWithMetrics(cacheName: "cache2");
 
         var provider = services.BuildServiceProvider();
 
@@ -113,7 +113,7 @@ public class ServiceCollectionExtensionsValidationTests
         services.AddNamedMeteredMemoryCache("test-cache", opts =>
         {
             opts.CacheName = ""; // Invalid: empty cache name
-        }, "test-meter");
+        });
 
         var provider = services.BuildServiceProvider();
 
@@ -134,7 +134,6 @@ public class ServiceCollectionExtensionsValidationTests
     {
         var services = new ServiceCollection();
         var cacheName = SharedUtilities.GetUniqueCacheName("multi-reg");
-        var meterName = SharedUtilities.GetUniqueMeterName("multi-reg");
 
         // Use factories to avoid creating undisposed MemoryCache instances
         services.AddSingleton<IMemoryCache>(_ => new MemoryCache(new MemoryCacheOptions()));
@@ -142,7 +141,7 @@ public class ServiceCollectionExtensionsValidationTests
 
         var exception = Assert.Throws<InvalidOperationException>(() =>
         {
-            services.DecorateMemoryCacheWithMetrics(cacheName: cacheName, meterName: meterName);
+            services.DecorateMemoryCacheWithMetrics(cacheName: cacheName);
         });
 
         Assert.Contains("Multiple IMemoryCache registrations found", exception.Message);
@@ -156,13 +155,12 @@ public class ServiceCollectionExtensionsValidationTests
     {
         var services = new ServiceCollection();
         var cacheName = SharedUtilities.GetUniqueCacheName("instance");
-        var meterName = SharedUtilities.GetUniqueMeterName("instance");
         using var innerCache = new MemoryCache(new MemoryCacheOptions());
 
         // Register with an implementation instance
         services.AddSingleton<IMemoryCache>(innerCache);
 
-        services.DecorateMemoryCacheWithMetrics(cacheName: cacheName, meterName: meterName);
+        services.DecorateMemoryCacheWithMetrics(cacheName: cacheName);
 
         using var provider = services.BuildServiceProvider();
         var cache = provider.GetRequiredService<IMemoryCache>();
@@ -184,14 +182,13 @@ public class ServiceCollectionExtensionsValidationTests
     {
         var services = new ServiceCollection();
         var cacheName = SharedUtilities.GetUniqueCacheName("keyed");
-        var meterName = SharedUtilities.GetUniqueMeterName("keyed");
 
         // Register a keyed IMemoryCache service — keyed descriptors cannot be decorated
         services.AddKeyedSingleton<IMemoryCache>("my-key", (sp, key) => new MemoryCache(new MemoryCacheOptions()));
 
         // The keyed descriptor has ServiceType == IMemoryCache but is a keyed service,
         // so CreateInnerCache detects this and throws with a clear error message.
-        services.DecorateMemoryCacheWithMetrics(cacheName: cacheName, meterName: meterName);
+        services.DecorateMemoryCacheWithMetrics(cacheName: cacheName);
 
         using var provider = services.BuildServiceProvider();
 
@@ -212,7 +209,7 @@ public class ServiceCollectionExtensionsValidationTests
         {
             opts.CacheName = "test-cache";
             opts.AdditionalTags.Add("environment", "test");
-        }, "test-meter");
+        });
 
         var provider = services.BuildServiceProvider();
         var cache = provider.GetRequiredService<IMemoryCache>();

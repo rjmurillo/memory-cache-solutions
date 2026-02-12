@@ -25,7 +25,6 @@ public static class ServiceCollectionExtensions
     /// <param name="services">The <see cref="IServiceCollection"/> to add services to. Cannot be <see langword="null"/>.</param>
     /// <param name="cacheName">The logical name for the cache instance, used for keyed service resolution and as the "cache.name" metric tag. Cannot be <see langword="null"/> or whitespace.</param>
     /// <param name="configureOptions">Optional delegate to configure <see cref="MeteredMemoryCacheOptions"/>. If <see langword="null"/>, default options will be used.</param>
-    /// <param name="meterName">Optional name for the <see cref="System.Diagnostics.Metrics.Meter"/> instance. If <see langword="null"/>, defaults to "MeteredMemoryCache".</param>
     /// <returns>The <paramref name="services"/> collection for method chaining.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="services"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="cacheName"/> is <see langword="null"/>, empty, or contains only whitespace.</exception>
@@ -68,15 +67,12 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddNamedMeteredMemoryCache(
         this IServiceCollection services,
         string cacheName,
-        Action<MeteredMemoryCacheOptions>? configureOptions = null,
-        string? meterName = null)
+        Action<MeteredMemoryCacheOptions>? configureOptions = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
         if (string.IsNullOrWhiteSpace(cacheName))
             throw new ArgumentException("Cache name must be non-empty.", nameof(cacheName));
-
-        var effectiveMeterName = string.IsNullOrEmpty(meterName) ? nameof(MeteredMemoryCache) : meterName;
 
         // Register options with validation
         services.AddOptions<MeteredMemoryCacheOptions>(cacheName)
@@ -93,20 +89,14 @@ public static class ServiceCollectionExtensions
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<MeteredMemoryCacheOptions>, MeteredMemoryCacheOptionsValidator>());
 
-        // Register the meter with keyed registration to prevent conflicts between different meter names
-        services.AddKeyedSingleton<Meter>(effectiveMeterName, (sp, key) => new Meter((string)key!));
-
-        // Also register as singleton for backward compatibility (uses the named meter)
-        services.TryAddSingleton<Meter>(sp => sp.GetRequiredKeyedService<Meter>(effectiveMeterName));
-
-        // Register the keyed cache service
+        // Register the keyed cache service — uses IMeterFactory from DI when available
         services.AddKeyedSingleton<IMemoryCache>(cacheName, (sp, key) =>
         {
             var keyString = (string)key!;
             var innerCache = new MemoryCache(new MemoryCacheOptions());
-            var meter = sp.GetRequiredKeyedService<Meter>(effectiveMeterName);
+            var meterFactory = sp.GetService<IMeterFactory>();
             var options = sp.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>().Get(keyString);
-            return new MeteredMemoryCache(innerCache, meter, options);
+            return new MeteredMemoryCache(innerCache, meterFactory, options);
         });
 
         // Try to register as singleton for cases where there's only one named cache
@@ -121,7 +111,6 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection"/> containing the existing cache registration. Cannot be <see langword="null"/>.</param>
     /// <param name="cacheName">Optional logical name for the cache instance, used as the "cache.name" metric tag. If <see langword="null"/>, no cache name tag will be added.</param>
-    /// <param name="meterName">Optional name for the <see cref="System.Diagnostics.Metrics.Meter"/> instance. If <see langword="null"/>, defaults to "MeteredMemoryCache".</param>
     /// <param name="configureOptions">Optional delegate to configure <see cref="MeteredMemoryCacheOptions"/>. If <see langword="null"/>, default options will be used.</param>
     /// <returns>The <paramref name="services"/> collection for method chaining.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="services"/> is <see langword="null"/>.</exception>
@@ -164,18 +153,9 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection DecorateMemoryCacheWithMetrics(
         this IServiceCollection services,
         string? cacheName = null,
-        string? meterName = null,
         Action<MeteredMemoryCacheOptions>? configureOptions = null)
     {
         ArgumentNullException.ThrowIfNull(services);
-
-        var effectiveMeterName = string.IsNullOrEmpty(meterName) ? nameof(MeteredMemoryCache) : meterName;
-
-        // Register the meter with keyed registration to prevent conflicts
-        services.AddKeyedSingleton<Meter>(effectiveMeterName, (sp, key) => new Meter((string)key!));
-
-        // Also register as singleton for backward compatibility (uses the named meter)
-        services.TryAddSingleton<Meter>(sp => sp.GetRequiredKeyedService<Meter>(effectiveMeterName));
 
         // Use named options configuration to prevent global contamination
         // Use timestamp + random to reduce collision probability
@@ -200,15 +180,15 @@ public static class ServiceCollectionExtensions
         // Remove the existing registration
         services.Remove(existingDescriptor);
 
-        // Create new descriptor that decorates the original
+        // Create new descriptor that decorates the original — uses IMeterFactory from DI when available
         var decoratedDescriptor = new ServiceDescriptor(
             typeof(IMemoryCache),
             sp =>
             {
                 var innerCache = CreateInnerCache(existingDescriptor, sp);
-                var meter = sp.GetRequiredKeyedService<Meter>(effectiveMeterName);
+                var meterFactory = sp.GetService<IMeterFactory>();
                 var options = sp.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>().Get(optionsName);
-                return new MeteredMemoryCache(innerCache, meter, options);
+                return new MeteredMemoryCache(innerCache, meterFactory, options);
             },
             existingDescriptor.Lifetime);
 
