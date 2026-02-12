@@ -133,13 +133,16 @@ public class ServiceCollectionExtensionsValidationTests
     public void DecorateMemoryCacheWithMetrics_WithMultipleRegistrations_ShouldThrowInvalidOperationException()
     {
         var services = new ServiceCollection();
-        // Add two IMemoryCache registrations
-        services.AddSingleton<IMemoryCache>(new MemoryCache(new MemoryCacheOptions()));
-        services.AddSingleton<IMemoryCache>(new MemoryCache(new MemoryCacheOptions()));
+        var cacheName = SharedUtilities.GetUniqueCacheName("multi-reg");
+        var meterName = SharedUtilities.GetUniqueMeterName("multi-reg");
+
+        // Use factories to avoid creating undisposed MemoryCache instances
+        services.AddSingleton<IMemoryCache>(_ => new MemoryCache(new MemoryCacheOptions()));
+        services.AddSingleton<IMemoryCache>(_ => new MemoryCache(new MemoryCacheOptions()));
 
         var exception = Assert.Throws<InvalidOperationException>(() =>
         {
-            services.DecorateMemoryCacheWithMetrics(cacheName: "test-cache", meterName: "test-meter");
+            services.DecorateMemoryCacheWithMetrics(cacheName: cacheName, meterName: meterName);
         });
 
         Assert.Contains("Multiple IMemoryCache registrations found", exception.Message);
@@ -152,13 +155,16 @@ public class ServiceCollectionExtensionsValidationTests
     public void DecorateMemoryCacheWithMetrics_WithImplementationInstance_ShouldResolveCorrectly()
     {
         var services = new ServiceCollection();
-        var innerCache = new MemoryCache(new MemoryCacheOptions());
+        var cacheName = SharedUtilities.GetUniqueCacheName("instance");
+        var meterName = SharedUtilities.GetUniqueMeterName("instance");
+        using var innerCache = new MemoryCache(new MemoryCacheOptions());
+
         // Register with an implementation instance
         services.AddSingleton<IMemoryCache>(innerCache);
 
-        services.DecorateMemoryCacheWithMetrics(cacheName: "instance-cache", meterName: "instance-meter");
+        services.DecorateMemoryCacheWithMetrics(cacheName: cacheName, meterName: meterName);
 
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
         var cache = provider.GetRequiredService<IMemoryCache>();
 
         // Should be a MeteredMemoryCache wrapping the instance
@@ -170,22 +176,24 @@ public class ServiceCollectionExtensionsValidationTests
 
     /// <summary>
     /// Tests that CreateInnerCache throws when attempting to decorate a keyed IMemoryCache service.
-    /// Keyed service descriptors do not expose ImplementationType/Factory/Instance properties
-    /// (accessing them throws), so decoration must fail with a clear error message.
+    /// Keyed service descriptors do not expose ImplementationType/Factory/Instance properties,
+    /// so CreateInnerCache checks IsKeyedService first and throws with a clear error message.
     /// </summary>
     [Fact]
     public void DecorateMemoryCacheWithMetrics_WithKeyedServiceDescriptor_ShouldThrowInvalidOperationException()
     {
         var services = new ServiceCollection();
+        var cacheName = SharedUtilities.GetUniqueCacheName("keyed");
+        var meterName = SharedUtilities.GetUniqueMeterName("keyed");
 
         // Register a keyed IMemoryCache service — keyed descriptors cannot be decorated
         services.AddKeyedSingleton<IMemoryCache>("my-key", (sp, key) => new MemoryCache(new MemoryCacheOptions()));
 
-        // The keyed descriptor has ServiceType == IMemoryCache but cannot be resolved via decoration.
-        // Attempting to decorate it should throw with a clear error message.
-        services.DecorateMemoryCacheWithMetrics(cacheName: "keyed-cache", meterName: "keyed-meter");
+        // The keyed descriptor has ServiceType == IMemoryCache but is a keyed service,
+        // so CreateInnerCache detects this and throws with a clear error message.
+        services.DecorateMemoryCacheWithMetrics(cacheName: cacheName, meterName: meterName);
 
-        var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
         var exception = Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IMemoryCache>());
         Assert.Contains("Unable to resolve inner IMemoryCache instance", exception.Message);
