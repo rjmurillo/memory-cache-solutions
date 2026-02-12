@@ -34,7 +34,7 @@ public class NegativeConfigurationTests
 
         // Act & Assert
         var exception = Assert.Throws<ArgumentNullException>(() =>
-            new MeteredMemoryCache(cache, null!));
+            new MeteredMemoryCache(cache, (Meter)null!));
         Assert.Equal("meter", exception.ParamName);
     }
 
@@ -73,7 +73,7 @@ public class NegativeConfigurationTests
 
         // Act & Assert
         var exception = Assert.Throws<ArgumentNullException>(() =>
-            new MeteredMemoryCache(cache, null!, options));
+            new MeteredMemoryCache(cache, (Meter)null!, options));
         Assert.Equal("meter", exception.ParamName);
     }
 

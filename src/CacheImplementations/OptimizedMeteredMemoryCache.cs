@@ -8,6 +8,7 @@ namespace CacheImplementations;
 /// <summary>
 /// High-performance <see cref="IMemoryCache"/> decorator that uses atomic operations
 /// for minimal-overhead metrics tracking, similar to HybridCache and <see cref="MemoryCache"/>.
+/// Uses Observable instruments per dotnet/runtime#124140 to avoid hot-path overhead.
 /// </summary>
 [DebuggerDisplay("{Name ?? \"(unnamed)\"}")]
 public sealed class OptimizedMeteredMemoryCache : IMemoryCache
@@ -15,7 +16,6 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     private readonly IMemoryCache _inner;
     private readonly bool _disposeInner;
     private readonly string? _cacheName;
-    private readonly bool _enableMetrics;
 
     // Atomic counters for high-performance metrics
     private long _hitCount;
@@ -23,12 +23,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     private long _evictionCount;
     private long _entryCount;
 
-    // Optional OpenTelemetry counters for periodic publishing
-    private readonly Counter<long>? _hitsCounter;
-    private readonly Counter<long>? _missesCounter;
-    private readonly Counter<long>? _evictionsCounter;
-
-    private volatile bool _disposed;
+    private int _disposed;
 
     /// <summary>
     /// Gets the logical name of this cache instance, if provided.
@@ -56,16 +51,31 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
 
         _inner = innerCache;
         _disposeInner = disposeInner;
-        _enableMetrics = enableMetrics;
         _cacheName = NormalizeCacheName(cacheName);
 
-        if (_enableMetrics)
+        if (enableMetrics)
         {
-            // Create OpenTelemetry counters for periodic publishing
-            _hitsCounter = meter.CreateCounter<long>("cache_hits_total");
-            _missesCounter = meter.CreateCounter<long>("cache_misses_total");
-            _evictionsCounter = meter.CreateCounter<long>("cache_evictions_total");
+            RegisterObservableInstruments(meter);
         }
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="OptimizedMeteredMemoryCache"/> using an <see cref="IMeterFactory"/> for proper meter lifecycle management.
+    /// </summary>
+    /// <param name="innerCache">The underlying <see cref="IMemoryCache"/> instance to decorate.</param>
+    /// <param name="meterFactory">The <see cref="IMeterFactory"/> used to create the <see cref="Meter"/> instance. If <see langword="null"/>, a global fallback meter is created.</param>
+    /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in metrics.</param>
+    /// <param name="disposeInner">Whether to dispose the <paramref name="innerCache"/> when this instance is disposed.</param>
+    /// <param name="enableMetrics">Whether to enable metric collection. When <see langword="false"/>, no metrics are collected.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="innerCache"/> is <see langword="null"/>.</exception>
+    public OptimizedMeteredMemoryCache(
+        IMemoryCache innerCache,
+        IMeterFactory? meterFactory,
+        string? cacheName = null,
+        bool disposeInner = false,
+        bool enableMetrics = true)
+        : this(innerCache, CreateMeter(meterFactory), cacheName, disposeInner, enableMetrics)
+    {
     }
 
     /// <summary>
@@ -76,44 +86,20 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     {
         return new CacheStatistics
         {
-            HitCount = Interlocked.Read(ref _hitCount),
-            MissCount = Interlocked.Read(ref _missCount),
-            EvictionCount = Interlocked.Read(ref _evictionCount),
+            TotalHits = Interlocked.Read(ref _hitCount),
+            TotalMisses = Interlocked.Read(ref _missCount),
+            TotalEvictions = Interlocked.Read(ref _evictionCount),
             CurrentEntryCount = Interlocked.Read(ref _entryCount),
-            CacheName = _cacheName
         };
     }
 
     /// <summary>
-    /// Publishes accumulated metrics to OpenTelemetry counters.
-    /// This can be called periodically by a background service to reduce per-operation overhead.
+    /// Retained for backward compatibility. With Observable instruments, metrics are reported
+    /// automatically by the metrics system — calling this method is no longer necessary.
     /// </summary>
-    /// <remarks>
-    /// After publishing, the internal counters are reset to zero. This method does nothing if
-    /// <c>enableMetrics</c> was <see langword="false"/> during construction or if the instance has been disposed.
-    /// </remarks>
     public void PublishMetrics()
     {
-        if (!_enableMetrics || _disposed)
-            return;
-
-        var stats = GetCurrentStatistics();
-
-        if (stats.HitCount > 0 || stats.MissCount > 0 || stats.EvictionCount > 0)
-        {
-            var tags = string.IsNullOrEmpty(_cacheName)
-                ? default(TagList)
-                : new TagList { { "cache.name", _cacheName! } };
-
-            _hitsCounter?.Add(stats.HitCount, tags);
-            _missesCounter?.Add(stats.MissCount, tags);
-            _evictionsCounter?.Add(stats.EvictionCount, tags);
-
-            // Reset counters after publishing
-            Interlocked.Exchange(ref _hitCount, 0);
-            Interlocked.Exchange(ref _missCount, 0);
-            Interlocked.Exchange(ref _evictionCount, 0);
-        }
+        // No-op: Observable instruments read atomic counters directly
     }
 
     /// <inheritdoc/>
@@ -122,7 +108,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     public bool TryGetValue(object key, out object? value)
     {
         ArgumentNullException.ThrowIfNull(key);
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
         var hit = _inner.TryGetValue(key, out value);
 
@@ -141,7 +127,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     public ICacheEntry CreateEntry(object key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
         var entry = _inner.CreateEntry(key);
 
@@ -152,7 +138,13 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
         entry.RegisterPostEvictionCallback(static (key, value, reason, state) =>
         {
             var cache = (OptimizedMeteredMemoryCache)state!;
-            Interlocked.Increment(ref cache._evictionCount);
+
+            // Per dotnet/runtime#124140: evictions exclude explicit user removals and replacements.
+            if (reason != EvictionReason.Removed && reason != EvictionReason.Replaced)
+            {
+                Interlocked.Increment(ref cache._evictionCount);
+            }
+
             Interlocked.Decrement(ref cache._entryCount);
         }, this);
 
@@ -165,35 +157,71 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     public void Remove(object key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
         _inner.Remove(key);
     }
 
     /// <inheritdoc/>
-    /// <remarks>
-    /// Publishes any remaining metrics before disposal. If <c>disposeInner</c> was <see langword="true"/>
-    /// during construction, the underlying cache is also disposed.
-    /// </remarks>
     public void Dispose()
     {
-        if (_disposed)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
             return;
-
-        // Publish any remaining metrics before setting disposed flag
-        PublishMetrics();
-
-        _disposed = true;
 
         if (_disposeInner)
             _inner.Dispose();
     }
 
     /// <summary>
+    /// The meter name used per dotnet/runtime#124140.
+    /// </summary>
+    internal const string MeterName = "Microsoft.Extensions.Caching.Memory";
+
+    /// <summary>
+    /// Creates a <see cref="Meter"/> from an <see cref="IMeterFactory"/> or falls back to a global meter.
+    /// </summary>
+    private static Meter CreateMeter(IMeterFactory? meterFactory)
+    {
+        return meterFactory?.Create(MeterName) ?? new Meter(MeterName);
+    }
+
+    /// <summary>
+    /// Registers Observable instruments that poll atomic counters on demand.
+    /// </summary>
+    private void RegisterObservableInstruments(Meter meter)
+    {
+        var tags = string.IsNullOrEmpty(_cacheName)
+            ? Array.Empty<KeyValuePair<string, object?>>()
+            : new[] { new KeyValuePair<string, object?>("cache.name", _cacheName!) };
+
+        meter.CreateObservableCounter("cache.hits",
+            () => new Measurement<long>(Interlocked.Read(ref _hitCount), tags),
+            description: "Total number of cache hits.");
+
+        meter.CreateObservableCounter("cache.misses",
+            () => new Measurement<long>(Interlocked.Read(ref _missCount), tags),
+            description: "Total number of cache misses.");
+
+        meter.CreateObservableCounter("cache.evictions",
+            () => new Measurement<long>(Interlocked.Read(ref _evictionCount), tags),
+            description: "Total number of automatic cache evictions.");
+
+        meter.CreateObservableUpDownCounter("cache.entries",
+            () => new Measurement<long>(Interlocked.Read(ref _entryCount), tags),
+            description: "Current number of entries in the cache.");
+
+        // cache.estimated_size is only available when the inner cache is MemoryCache with TrackStatistics enabled
+        if (_inner is MemoryCache memoryCache)
+        {
+            meter.CreateObservableGauge("cache.estimated_size",
+                () => new Measurement<long>(memoryCache.GetCurrentStatistics()?.CurrentEstimatedSize ?? 0, tags),
+                description: "Estimated size of the cache in bytes.");
+        }
+    }
+
+    /// <summary>
     /// Normalizes a cache name by trimming whitespace.
     /// </summary>
-    /// <param name="name">The cache name to normalize.</param>
-    /// <returns>The trimmed cache name, or <see langword="null"/> if the input is <see langword="null"/>, empty, or whitespace.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string? NormalizeCacheName(string? name)
     {

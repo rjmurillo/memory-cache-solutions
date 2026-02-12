@@ -77,11 +77,6 @@ public class ServiceCollectionExtensionsTests
         keyedCache.Set("test-key", "test-value");
         Assert.True(keyedCache.TryGetValue("test-key", out var retrievedValue));
         Assert.Equal("test-value", retrievedValue);
-
-        // Assert meter is registered and accessible
-        var meter = provider.GetRequiredService<Meter>();
-        Assert.NotNull(meter);
-        Assert.Equal("MeteredMemoryCache", meter.Name);
     }
 
     [Fact]
@@ -188,10 +183,9 @@ public class ServiceCollectionExtensionsTests
         Assert.IsType<MeteredMemoryCache>(cache1);
         Assert.IsType<MeteredMemoryCache>(cache2);
 
-        // Verify meter with empty name defaults to "MeteredMemoryCache"
-        var meter = provider.GetRequiredService<Meter>();
-        Assert.NotNull(meter);
-        Assert.Equal("MeteredMemoryCache", meter.Name);
+        // Verify caches are functional with IMeterFactory fallback
+        cache1.Set("test-key", "value1");
+        Assert.True(cache1.TryGetValue("test-key", out _));
     }
 
     [Fact]
@@ -273,11 +267,8 @@ public class ServiceCollectionExtensionsTests
 
         // Assert
         var cache = provider.GetRequiredService<IMemoryCache>();
-        var meter = provider.GetRequiredService<Meter>();
 
         Assert.NotNull(cache);
-        Assert.NotNull(meter);
-        Assert.Equal(decoratedMeterName, meter.Name);
         Assert.IsType<MeteredMemoryCache>(cache);
 
         // Assert cache name preservation in decorator
@@ -298,12 +289,9 @@ public class ServiceCollectionExtensionsTests
 
         // Assert
         var cache = provider.GetRequiredService<IMemoryCache>();
-        var meter = provider.GetRequiredService<Meter>();
-        var options = provider.GetRequiredService<IOptions<MeteredMemoryCacheOptions>>();
 
         Assert.IsType<MeteredMemoryCache>(cache);
-        Assert.Equal("MeteredMemoryCache", meter.Name); // Default meter name
-        Assert.Null(options.Value.CacheName); // No cache name specified
+        Assert.Null(((MeteredMemoryCache)cache).Name); // No cache name specified
     }
 
     [Fact]
@@ -333,9 +321,6 @@ public class ServiceCollectionExtensionsTests
         // Verify cache name is preserved in the decorated cache
         var meteredCache = (MeteredMemoryCache)decoratedCache;
         Assert.Equal("decorated-cache", meteredCache.Name);
-
-        var meter = provider.GetRequiredService<Meter>();
-        Assert.Equal(customMeterName, meter.Name);
     }
 
     [Fact]

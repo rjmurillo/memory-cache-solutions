@@ -60,10 +60,9 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
 
         var stats = subject.GetCurrentStatistics() as CacheStatistics;
         Assert.NotNull(stats);
-        Assert.Equal(3, stats.HitCount);
-        Assert.Equal(2, stats.MissCount);
+        Assert.Equal(3, stats.TotalHits);
+        Assert.Equal(2, stats.TotalMisses);
         Assert.Equal(2, stats.CurrentEntryCount);
-        Assert.Equal("stats-test", stats.CacheName);
         Assert.Equal(60.0, stats.HitRatio); // 3/(3+2) * 100 = 60%
     }
 
@@ -74,29 +73,29 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
     public void PublishMetrics_PublishesAccumulatedMetrics()
     {
         using var subject = CreateTestSubject(cacheName: "publish-test");
-        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache_hits_total", "cache_misses_total");
+        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.hits", "cache.misses");
 
-        // Perform operations (metrics accumulated but not yet published)
+        // Perform operations
         subject.Cache.TryGetValue("miss", out _); // miss
         subject.Cache.Set("hit", "value");
         subject.Cache.TryGetValue("hit", out _); // hit
 
-        // Initially no metrics should be published (they're accumulated)
-        Assert.Equal(0, harness.AggregatedCounters.GetValueOrDefault("cache_hits_total", 0));
-        Assert.Equal(0, harness.AggregatedCounters.GetValueOrDefault("cache_misses_total", 0));
+        // With Observable instruments, metrics are always available via RecordObservableInstruments
+        Assert.Equal(1, harness.AggregatedCounters["cache.hits"]);
+        Assert.Equal(1, harness.AggregatedCounters["cache.misses"]);
 
-        // Publish accumulated metrics
+        // PublishMetrics is now a no-op — counters are not reset
         subject.PublishMetrics();
 
-        // Now metrics should be published
-        Assert.Equal(1, harness.AggregatedCounters["cache_hits_total"]);
-        Assert.Equal(1, harness.AggregatedCounters["cache_misses_total"]);
+        // Metrics should still show accumulated values
+        Assert.Equal(1, harness.AggregatedCounters["cache.hits"]);
+        Assert.Equal(1, harness.AggregatedCounters["cache.misses"]);
 
-        // After publishing, internal counters should be reset
+        // Statistics reflect accumulated totals (no reset with Observable instruments)
         var stats = subject.GetCurrentStatistics() as CacheStatistics;
         Assert.NotNull(stats);
-        Assert.Equal(0, stats.HitCount);
-        Assert.Equal(0, stats.MissCount);
+        Assert.Equal(1, stats.TotalHits);
+        Assert.Equal(1, stats.TotalMisses);
     }
 
     /// <summary>
@@ -106,7 +105,7 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
     public void WithMetricsDisabled_NoMetricsEmitted()
     {
         using var subject = CreateTestSubjectWithMetricsDisabled(cacheName: "disabled-test");
-        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache_hits_total", "cache_misses_total");
+        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.hits", "cache.misses");
 
         Assert.False(subject.MetricsEnabled);
 
@@ -119,15 +118,14 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
         subject.PublishMetrics();
 
         // No metrics should be emitted
-        Assert.Equal(0, harness.AggregatedCounters.GetValueOrDefault("cache_hits_total", 0));
-        Assert.Equal(0, harness.AggregatedCounters.GetValueOrDefault("cache_misses_total", 0));
+        Assert.Equal(0, harness.AggregatedCounters.GetValueOrDefault("cache.hits", 0));
+        Assert.Equal(0, harness.AggregatedCounters.GetValueOrDefault("cache.misses", 0));
 
         // Statistics should still be available (they use atomic operations regardless)
         var stats = subject.GetCurrentStatistics() as CacheStatistics;
         Assert.NotNull(stats);
-        Assert.Equal(1, stats.HitCount);
-        Assert.Equal(1, stats.MissCount);
-        Assert.Equal("disabled-test", stats.CacheName);
+        Assert.Equal(1, stats.TotalHits);
+        Assert.Equal(1, stats.TotalMisses);
     }
 
     /// <summary>
@@ -155,7 +153,7 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
         var statsBeforeEviction = subject.GetCurrentStatistics() as CacheStatistics;
         Assert.NotNull(statsBeforeEviction);
         Assert.Equal(1, statsBeforeEviction.CurrentEntryCount);
-        Assert.Equal(0, statsBeforeEviction.EvictionCount);
+        Assert.Equal(0, statsBeforeEviction.TotalEvictions);
 
         // Trigger eviction
         cts.Cancel();
@@ -172,11 +170,11 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
 
         var statsAfterEviction = await TestSynchronization.WaitForConditionAsync(
             () => subject.GetCurrentStatistics() as CacheStatistics,
-            stats => stats != null && stats.EvictionCount >= 1,
+            stats => stats != null && stats.TotalEvictions >= 1,
             TestTimeouts.Short);
 
         Assert.NotNull(statsAfterEviction);
-        Assert.True(statsAfterEviction.EvictionCount >= 1, $"Expected at least 1 eviction, got {statsAfterEviction.EvictionCount}");
+        Assert.True(statsAfterEviction.TotalEvictions >= 1, $"Expected at least 1 eviction, got {statsAfterEviction.TotalEvictions}");
         Assert.True(statsAfterEviction.CurrentEntryCount <= 0, $"Expected 0 entries after eviction, got {statsAfterEviction.CurrentEntryCount}");
     }
 
@@ -187,17 +185,16 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
     public void MultiplePublishMetrics_WorksCorrectly()
     {
         using var subject = CreateTestSubject(cacheName: "multiple-publish-test");
-        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache_hits_total", "cache_misses_total");
+        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.hits", "cache.misses");
 
         // First batch of operations
         subject.Cache.TryGetValue("miss1", out _);
         subject.Cache.Set("hit1", "value1");
         subject.Cache.TryGetValue("hit1", out _);
 
-        // First publish
-        subject.PublishMetrics();
-        Assert.Equal(1, harness.AggregatedCounters["cache_hits_total"]);
-        Assert.Equal(1, harness.AggregatedCounters["cache_misses_total"]);
+        // Observable instruments report accumulated totals
+        Assert.Equal(1, harness.AggregatedCounters["cache.hits"]);
+        Assert.Equal(1, harness.AggregatedCounters["cache.misses"]);
 
         // Second batch of operations
         subject.Cache.TryGetValue("miss2", out _);
@@ -205,16 +202,15 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
         subject.Cache.Set("hit2", "value2");
         subject.Cache.TryGetValue("hit2", out _);
 
-        // Second publish (should add to previous totals)
-        subject.PublishMetrics();
-        Assert.Equal(2, harness.AggregatedCounters["cache_hits_total"]); // 1 + 1
-        Assert.Equal(3, harness.AggregatedCounters["cache_misses_total"]); // 1 + 2
+        // Counters accumulate monotonically
+        Assert.Equal(2, harness.AggregatedCounters["cache.hits"]); // 1 + 1
+        Assert.Equal(3, harness.AggregatedCounters["cache.misses"]); // 1 + 2
 
-        // Statistics should be reset after each publish
+        // Statistics reflect accumulated totals (no reset with Observable instruments)
         var stats = subject.GetCurrentStatistics() as CacheStatistics;
         Assert.NotNull(stats);
-        Assert.Equal(0, stats.HitCount);
-        Assert.Equal(0, stats.MissCount);
+        Assert.Equal(2, stats.TotalHits);
+        Assert.Equal(3, stats.TotalMisses);
     }
 
     /// <summary>
@@ -234,7 +230,6 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
 
         var stats = subject.GetCurrentStatistics() as CacheStatistics;
         Assert.NotNull(stats);
-        Assert.Equal(expectedName, stats.CacheName);
     }
 
     /// <summary>
@@ -249,20 +244,23 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
         try
         {
             subject = CreateTestSubject(cacheName: "dispose-test");
-            harness = new MetricCollectionHarness(subject.Meter.Name, "cache_hits_total", "cache_misses_total");
+            harness = new MetricCollectionHarness(subject.Meter.Name, "cache.hits", "cache.misses");
 
             // Perform operations
             subject.Cache.TryGetValue("miss", out _);
             subject.Cache.Set("hit", "value");
             subject.Cache.TryGetValue("hit", out _);
 
-            // Dispose should publish remaining metrics automatically
-            subject.Dispose();
-            subject = null; // Prevent double disposal
+            // Observable instruments report accumulated values before disposal
+            Assert.Equal(1, harness.AggregatedCounters.GetValueOrDefault("cache.hits", 0));
+            Assert.Equal(1, harness.AggregatedCounters.GetValueOrDefault("cache.misses", 0));
 
-            // Metrics should be published during disposal
-            Assert.Equal(1, harness.AggregatedCounters.GetValueOrDefault("cache_hits_total", 0));
-            Assert.Equal(1, harness.AggregatedCounters.GetValueOrDefault("cache_misses_total", 0));
+            // Dispose the cache
+            subject.Dispose();
+            subject = null;
+
+            // After disposal, the Observable instrument callbacks may not fire
+            // (meter is disposed), but metrics were available before disposal
         }
         finally
         {

@@ -8,21 +8,28 @@ namespace CacheImplementations;
 /// <summary>
 /// <see cref="IMemoryCache"/> decorator that emits OpenTelemetry / .NET metrics for cache hits, misses and evictions.
 /// Provides comprehensive observability for any <see cref="IMemoryCache"/> implementation.
-/// Instruments:
-///  - cache_hits_total (<see cref="Counter{T}"/> where T is <see langword="long"/>)
-///  - cache_misses_total (<see cref="Counter{T}"/> where T is <see langword="long"/>)
-///  - cache_evictions_total (<see cref="Counter{T}"/> where T is <see langword="long"/>) with tag "reason" = <see cref="PostEvictionReason"/> (as string)
+/// Uses Observable instruments per dotnet/runtime#124140 to avoid hot-path overhead:
+///  - cache.hits (<see cref="ObservableCounter{T}"/>)
+///  - cache.misses (<see cref="ObservableCounter{T}"/>)
+///  - cache.evictions (<see cref="ObservableCounter{T}"/>)
+///  - cache.entries (<see cref="ObservableUpDownCounter{T}"/>)
 /// </summary>
 [DebuggerDisplay("{Name ?? \"(unnamed)\"}")]
 public sealed class MeteredMemoryCache : IMemoryCache
 {
     private readonly IMemoryCache _inner;
     private readonly bool _disposeInner;
-    private readonly Counter<long> _hits;
-    private readonly Counter<long> _misses;
-    private readonly Counter<long> _evictions;
-    private readonly TagList _baseTags;
-    private volatile bool _disposed;
+
+    // Pre-allocated tags for Observable instrument callbacks (zero per-operation allocation)
+    private readonly KeyValuePair<string, object?>[] _tags;
+
+    // Atomic counters for high-performance metrics (no per-operation allocation)
+    private long _hitCount;
+    private long _missCount;
+    private long _evictionCount;
+    private long _entryCount;
+
+    private int _disposed;
 
     /// <summary>
     /// Gets the logical name of this cache instance, if provided.
@@ -44,25 +51,27 @@ public sealed class MeteredMemoryCache : IMemoryCache
         _inner = innerCache;
         _disposeInner = disposeInner;
 
-        // Create OpenTelemetry counters using standardized metric names that align with observability conventions
-        // These counters will emit to any registered metric exporters (OTLP, Prometheus, console, etc.)
-        _hits = meter.CreateCounter<long>("cache_hits_total");
-        _misses = meter.CreateCounter<long>("cache_misses_total");
-        _evictions = meter.CreateCounter<long>("cache_evictions_total");
-
-        // Initialize TagList for dimensional metrics - this will be used as immutable base for thread-safe copies
-        // TagList is used for high-performance metric tagging with minimal allocations
-        _baseTags = new TagList();
-
-        // Normalize cache name to handle whitespace and prevent tag cardinality issues
         var normalizedCacheName = NormalizeCacheName(cacheName);
-        if (!string.IsNullOrEmpty(normalizedCacheName))
-        {
-            // Add cache.name as a dimensional tag to distinguish metrics from multiple cache instances
-            // This enables filtering and aggregation by cache name in monitoring dashboards
-            _baseTags.Add("cache.name", normalizedCacheName);
-            Name = normalizedCacheName;
-        }
+        Name = normalizedCacheName;
+
+        // Pre-allocate tags array for Observable instrument callbacks
+        _tags = BuildTags(normalizedCacheName, null);
+
+        // Create Observable instruments per dotnet/runtime#124140 — zero hot-path overhead
+        RegisterObservableInstruments(meter);
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="MeteredMemoryCache"/> using an <see cref="IMeterFactory"/> for proper meter lifecycle management.
+    /// </summary>
+    /// <param name="innerCache">The <see cref="IMemoryCache"/> implementation to decorate with metrics.</param>
+    /// <param name="meterFactory">The <see cref="IMeterFactory"/> used to create the <see cref="Meter"/> instance. If <see langword="null"/>, a global fallback meter is created.</param>
+    /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in dimensional metrics.</param>
+    /// <param name="disposeInner">Whether to dispose the <paramref name="innerCache"/> when this instance is disposed. Defaults to <see langword="false"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="innerCache"/> is <see langword="null"/>.</exception>
+    public MeteredMemoryCache(IMemoryCache innerCache, IMeterFactory? meterFactory, string? cacheName = null, bool disposeInner = false)
+        : this(innerCache, CreateMeter(meterFactory), cacheName, disposeInner)
+    {
     }
 
     /// <summary>
@@ -80,41 +89,26 @@ public sealed class MeteredMemoryCache : IMemoryCache
         _inner = innerCache;
         _disposeInner = options.DisposeInner;
 
-        // Create standardized metric counters - names follow OpenTelemetry semantic conventions
-        _hits = meter.CreateCounter<long>("cache_hits_total");
-        _misses = meter.CreateCounter<long>("cache_misses_total");
-        _evictions = meter.CreateCounter<long>("cache_evictions_total");
-
-        // Build dimensional tag list for all metric emissions
-        _baseTags = new TagList();
-
-        // Normalize cache name to handle whitespace and prevent tag cardinality issues
         var normalizedCacheName = NormalizeCacheName(options.CacheName);
-        if (!string.IsNullOrEmpty(normalizedCacheName))
-        {
-            _baseTags.Add("cache.name", normalizedCacheName);
-            Name = normalizedCacheName;
-        }
+        Name = normalizedCacheName;
 
-        // Add user-defined custom tags while preventing cache.name override and aliasing issues
-        // Create defensive copy with consistent comparer to prevent aliasing and comparer drift
-        // This filtering ensures cache.name remains consistent if set via CacheName property
-        // Note: Using explicit foreach instead of LINQ Where() to avoid allocation overhead
-#pragma warning disable S3267 // Intentionally avoiding LINQ Where() allocation for performance
-        foreach (var kvp in options.AdditionalTags)
-        {
-            // Skip cache.name to prevent override of the value set from CacheName property
-            if (!string.Equals(kvp.Key, "cache.name", System.StringComparison.Ordinal))
-            {
-                // Normalize tag keys to prevent cardinality issues
-                var normalizedKey = kvp.Key?.Trim();
-                if (!string.IsNullOrEmpty(normalizedKey))
-                {
-                    _baseTags.Add(normalizedKey, kvp.Value);
-                }
-            }
-        }
-#pragma warning restore S3267
+        // Pre-allocate tags array with cache name and additional tags
+        _tags = BuildTags(normalizedCacheName, options.AdditionalTags);
+
+        // Create Observable instruments per dotnet/runtime#124140 — zero hot-path overhead
+        RegisterObservableInstruments(meter);
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="MeteredMemoryCache"/> using an <see cref="IMeterFactory"/> and the options pattern.
+    /// </summary>
+    /// <param name="innerCache">The <see cref="IMemoryCache"/> implementation to decorate with metrics.</param>
+    /// <param name="meterFactory">The <see cref="IMeterFactory"/> used to create the <see cref="Meter"/> instance. If <see langword="null"/>, a global fallback meter is created.</param>
+    /// <param name="options">The <see cref="MeteredMemoryCacheOptions"/> containing cache name, disposal behavior, and additional tags.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="innerCache"/> or <paramref name="options"/> is <see langword="null"/>.</exception>
+    public MeteredMemoryCache(IMemoryCache innerCache, IMeterFactory? meterFactory, MeteredMemoryCacheOptions options)
+        : this(innerCache, CreateMeter(meterFactory), options)
+    {
     }
 
     /// <summary>
@@ -128,12 +122,16 @@ public sealed class MeteredMemoryCache : IMemoryCache
     public bool TryGetValue(object key, out object? value)
     {
         ArgumentNullException.ThrowIfNull(key);
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
-        // Delegate to inner cache and emit appropriate metric based on result
-        // This pattern ensures consistent hit/miss tracking across all access methods
         var hit = _inner.TryGetValue(key, out value);
-        if (hit) _hits.Add(1, CreateBaseTags(_baseTags)); else _misses.Add(1, CreateBaseTags(_baseTags));
+
+        // Atomic increment only — Observable instruments poll these values on demand
+        if (hit)
+            Interlocked.Increment(ref _hitCount);
+        else
+            Interlocked.Increment(ref _missCount);
+
         return hit;
     }
 
@@ -147,16 +145,16 @@ public sealed class MeteredMemoryCache : IMemoryCache
     public ICacheEntry CreateEntry(object key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
         var entry = _inner.CreateEntry(key);
 
-        // Pre-register eviction callback using the deduplicated helper method
+        Interlocked.Increment(ref _entryCount);
         RegisterEvictionCallback(entry, this);
         return entry;
     }
 
     /// <summary>
-    /// Removes the cache entry associated with the specified key. If the entry exists, its eviction callback will automatically emit eviction metrics.
+    /// Removes the cache entry associated with the specified key.
     /// </summary>
     /// <param name="key">The cache key to remove. Cannot be <see langword="null"/>.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <see langword="null"/>.</exception>
@@ -164,16 +162,26 @@ public sealed class MeteredMemoryCache : IMemoryCache
     public void Remove(object key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        _inner.Remove(key); // eviction callback (if any) will record eviction metric
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        _inner.Remove(key);
+    }
+
+    /// <summary>
+    /// The meter name used per dotnet/runtime#124140.
+    /// </summary>
+    public const string MeterName = "Microsoft.Extensions.Caching.Memory";
+
+    /// <summary>
+    /// Creates a <see cref="Meter"/> from an <see cref="IMeterFactory"/> or falls back to a global meter.
+    /// </summary>
+    private static Meter CreateMeter(IMeterFactory? meterFactory)
+    {
+        return meterFactory?.Create(MeterName) ?? new Meter(MeterName);
     }
 
     /// <summary>
     /// Normalizes cache names to handle whitespace and prevent tag cardinality issues.
-    /// Trims whitespace and ensures consistent naming for observability backends.
     /// </summary>
-    /// <param name="cacheName">The cache name to normalize.</param>
-    /// <returns>The normalized cache name, or null if the input was null or whitespace-only.</returns>
     private static string? NormalizeCacheName(string? cacheName)
     {
         if (string.IsNullOrEmpty(cacheName))
@@ -184,84 +192,102 @@ public sealed class MeteredMemoryCache : IMemoryCache
     }
 
     /// <summary>
-    /// Registers a post-eviction callback to track cache evictions with proper metric emission.
+    /// Builds a pre-allocated tag array for Observable instrument callbacks.
     /// </summary>
-    /// <param name="entry">The cache entry to register the callback on.</param>
-    /// <param name="self">The MeteredMemoryCache instance for the callback.</param>
+    private static KeyValuePair<string, object?>[] BuildTags(
+        string? cacheName,
+        IDictionary<string, object?>? additionalTags)
+    {
+        var tagList = new List<KeyValuePair<string, object?>>();
+
+        if (!string.IsNullOrEmpty(cacheName))
+        {
+            tagList.Add(new KeyValuePair<string, object?>("cache.name", cacheName));
+        }
+
+        if (additionalTags != null)
+        {
+#pragma warning disable S3267 // Intentionally avoiding LINQ Where() allocation for performance
+            foreach (var kvp in additionalTags)
+            {
+                if (!string.Equals(kvp.Key, "cache.name", StringComparison.Ordinal))
+                {
+                    var normalizedKey = kvp.Key?.Trim();
+                    if (!string.IsNullOrEmpty(normalizedKey))
+                    {
+                        tagList.Add(new KeyValuePair<string, object?>(normalizedKey, kvp.Value));
+                    }
+                }
+            }
+#pragma warning restore S3267
+        }
+
+        return tagList.ToArray();
+    }
+
+    /// <summary>
+    /// Registers Observable instruments that poll atomic counters on demand.
+    /// Per dotnet/runtime#124140, all instruments are Observable to avoid hot-path overhead.
+    /// </summary>
+    private void RegisterObservableInstruments(Meter meter)
+    {
+        var tags = _tags;
+
+        meter.CreateObservableCounter("cache.hits",
+            () => new Measurement<long>(Interlocked.Read(ref _hitCount), tags),
+            description: "Total number of cache hits.");
+
+        meter.CreateObservableCounter("cache.misses",
+            () => new Measurement<long>(Interlocked.Read(ref _missCount), tags),
+            description: "Total number of cache misses.");
+
+        meter.CreateObservableCounter("cache.evictions",
+            () => new Measurement<long>(Interlocked.Read(ref _evictionCount), tags),
+            description: "Total number of automatic cache evictions.");
+
+        meter.CreateObservableUpDownCounter("cache.entries",
+            () => new Measurement<long>(Interlocked.Read(ref _entryCount), tags),
+            description: "Current number of entries in the cache.");
+
+        // cache.estimated_size is only available when the inner cache is MemoryCache with TrackStatistics enabled
+        if (_inner is MemoryCache memoryCache)
+        {
+            meter.CreateObservableGauge("cache.estimated_size",
+                () => new Measurement<long>(memoryCache.GetCurrentStatistics()?.CurrentEstimatedSize ?? 0, tags),
+                description: "Estimated size of the cache in bytes.");
+        }
+    }
+
+    /// <summary>
+    /// Registers a post-eviction callback to track cache evictions atomically.
+    /// </summary>
     private static void RegisterEvictionCallback(ICacheEntry entry, MeteredMemoryCache self)
     {
         entry.RegisterPostEvictionCallback(static (_, _, reason, state) =>
         {
             var cache = (MeteredMemoryCache)state!;
-            if (!cache._disposed)
+
+            // Per dotnet/runtime#124140: evictions exclude explicit user removals and replacements.
+            if (reason != EvictionReason.Removed && reason != EvictionReason.Replaced)
             {
-                // Thread-safe tag creation for eviction reason dimensional metric
-                var tags = CreateEvictionTags(cache._baseTags, reason.ToString());
-                cache._evictions.Add(1, tags);
+                Interlocked.Increment(ref cache._evictionCount);
             }
+
+            Interlocked.Decrement(ref cache._entryCount);
         }, self);
     }
 
     /// <summary>
-    /// Thread-safe helper to create base tags copy for hit/miss metric emissions.
-    /// This method creates a new TagList instance to prevent defensive copy issues
-    /// that could occur when the readonly _baseTags field is passed directly to Counter operations.
-    /// </summary>
-    private static TagList CreateBaseTags(TagList baseTags)
-    {
-        var tags = new TagList();
-
-        // Copy base tags in a thread-safe manner by creating a new TagList
-        // This approach prevents defensive copy mutation issues when readonly fields
-        // are passed directly to Counter<T>.Add() operations
-        // TagList enumeration is thread-safe for reading, but we create a new instance
-        // to ensure consistent behavior across all metric emission patterns
-        foreach (var tag in baseTags)
-        {
-            tags.Add(tag.Key, tag.Value);
-        }
-
-        return tags;
-    }
-
-    /// <summary>
-    /// Thread-safe helper to create eviction tags by combining base tags with eviction reason.
-    /// This method creates a new TagList instance to prevent concurrent modification exceptions
-    /// that could occur when multiple threads simultaneously emit eviction metrics.
-    /// </summary>
-    private static TagList CreateEvictionTags(TagList baseTags, string reason)
-    {
-        var tags = new TagList();
-
-        // Copy base tags in a thread-safe manner by creating a new TagList
-        // This approach avoids sharing mutable state between eviction callbacks
-        // which can be invoked concurrently from different threads (e.g., background eviction, manual removal)
-        // TagList enumeration is thread-safe for reading, but we create a new instance
-        // to ensure the eviction callback has its own independent tag collection
-        foreach (var tag in baseTags)
-        {
-            tags.Add(tag.Key, tag.Value);
-        }
-
-        // Add the specific eviction reason as a dimensional tag
-        // Common values: "Expired", "TokenExpired", "Capacity", "Removed", "Replaced"
-        tags.Add("reason", reason);
-        return tags;
-    }
-
-    /// <summary>
     /// Releases all resources used by this <see cref="MeteredMemoryCache"/> instance.
-    /// Optionally disposes the inner <see cref="IMemoryCache"/> if <c>disposeInner</c> was set to <see langword="true"/> during construction.
     /// </summary>
     public void Dispose()
     {
-        if (!_disposed)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            return;
+
+        if (_disposeInner)
         {
-            _disposed = true;
-            if (_disposeInner)
-            {
-                _inner.Dispose();
-            }
+            _inner.Dispose();
         }
     }
 }

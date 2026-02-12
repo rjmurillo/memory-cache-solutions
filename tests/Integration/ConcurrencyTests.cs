@@ -17,6 +17,7 @@ namespace Integration;
 /// <summary>
 /// Tests for thread-safety validation of MeteredMemoryCache tag operations and concurrent metric emission.
 /// </summary>
+[Collection("MetricsIntegration")]
 public class ConcurrencyTests : IDisposable
 {
     private readonly List<IDisposable> _disposables = [];
@@ -82,8 +83,8 @@ public class ConcurrencyTests : IDisposable
         await FlushMetricsAsync(metricsProvider);
 
         // Assert: Verify metrics were recorded correctly despite concurrent access
-        var hitsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache_hits_total");
-        var missesMetric = exportedItems.FirstOrDefault(m => m.Name == "cache_misses_total");
+        var hitsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache.hits");
+        var missesMetric = exportedItems.FirstOrDefault(m => m.Name == "cache.misses");
 
         Assert.NotNull(hitsMetric);
         Assert.NotNull(missesMetric);
@@ -173,7 +174,7 @@ public class ConcurrencyTests : IDisposable
         await FlushMetricsAsync(metricsProvider);
 
         // Assert: Verify eviction metrics are properly attributed to each cache
-        var evictionsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache_evictions_total");
+        var evictionsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache.evictions");
 
         Assert.NotNull(evictionsMetric);
 
@@ -255,8 +256,8 @@ public class ConcurrencyTests : IDisposable
         // Assert: Verify metric accuracy under high concurrency
         var exportedMetrics = exportedItems;
 
-        var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_hits_total");
-        var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_misses_total");
+        var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.hits");
+        var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.misses");
 
         Assert.NotNull(hitsMetric);
         Assert.NotNull(missesMetric);
@@ -342,8 +343,8 @@ public class ConcurrencyTests : IDisposable
         // Assert: Verify all tags are preserved under concurrency
         var exportedMetrics = exportedItems;
 
-        var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_hits_total");
-        var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_misses_total");
+        var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.hits");
+        var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.misses");
 
         Assert.NotNull(hitsMetric);
         Assert.NotNull(missesMetric);
@@ -432,9 +433,9 @@ public class ConcurrencyTests : IDisposable
         // Assert: Verify metrics consistency despite race conditions
         var exportedMetrics = exportedItems;
 
-        var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_hits_total");
-        var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_misses_total");
-        var evictionsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache_evictions_total");
+        var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.hits");
+        var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.misses");
+        var evictionsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.evictions");
 
         Assert.NotNull(hitsMetric);
         Assert.NotNull(missesMetric);
@@ -480,7 +481,7 @@ public class ConcurrencyTests : IDisposable
         var builder = new HostApplicationBuilder();
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter(meterName)
+                .AddMeter(MeteredMemoryCache.MeterName)
                 .AddInMemoryExporter(exportedItems));
 
         var host = builder.Build();
@@ -489,8 +490,8 @@ public class ConcurrencyTests : IDisposable
         // Start the host to activate the meter provider
         await host.StartAsync();
 
-        // Create meter instance after host is started to ensure proper registration
-        var meter = new Meter(meterName);
+        // Create meter instance via IMeterFactory for proper DI-scoped isolation
+        var meterFactory = host.Services.GetRequiredService<IMeterFactory>();
         var meterProvider = host.Services.GetRequiredService<MeterProvider>();
 
         var tasks = new List<Task>();
@@ -505,7 +506,7 @@ public class ConcurrencyTests : IDisposable
                 // Create cache with unique name
                 var innerCache = new MemoryCache(new MemoryCacheOptions());
                 var cacheName = $"concurrent-cache-{cacheIndex}";
-                var meteredCache = new MeteredMemoryCache(innerCache, meter, cacheName);
+                var meteredCache = new MeteredMemoryCache(innerCache, meterFactory, cacheName);
 
                 caches.Add(meteredCache);
 
@@ -543,8 +544,8 @@ public class ConcurrencyTests : IDisposable
         var allMetricNames = exportedItems.Select(m => m.Name).ToList();
         Assert.True(exportedItems.Count > 0, $"No metrics were exported. Expected at least some metrics, but got {exportedItems.Count} metrics. Available metric names: [{string.Join(", ", allMetricNames)}]");
 
-        var hitsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache_hits_total");
-        var missesMetric = exportedItems.FirstOrDefault(m => m.Name == "cache_misses_total");
+        var hitsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache.hits");
+        var missesMetric = exportedItems.FirstOrDefault(m => m.Name == "cache.misses");
 
         Assert.NotNull(hitsMetric);
         Assert.NotNull(missesMetric);
@@ -594,7 +595,7 @@ public class ConcurrencyTests : IDisposable
 
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter(meterName)
+                .AddMeter(MeteredMemoryCache.MeterName)
                 .AddInMemoryExporter(exportedItems));
 
         builder.Services.AddNamedMeteredMemoryCache(cacheName, meterName: meterName);
@@ -615,7 +616,7 @@ public class ConcurrencyTests : IDisposable
 
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter(meterName)
+                .AddMeter(MeteredMemoryCache.MeterName)
                 .AddInMemoryExporter(exportedItems));
 
         // Create multiple named caches with unique meter name
@@ -639,7 +640,7 @@ public class ConcurrencyTests : IDisposable
 
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter(meterName)
+                .AddMeter(MeteredMemoryCache.MeterName)
                 .AddInMemoryExporter(exportedItems));
 
         builder.Services.AddNamedMeteredMemoryCache(options.CacheName!, meterName: meterName, configureOptions: opt =>

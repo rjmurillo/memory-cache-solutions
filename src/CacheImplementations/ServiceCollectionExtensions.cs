@@ -76,8 +76,6 @@ public static class ServiceCollectionExtensions
         if (string.IsNullOrWhiteSpace(cacheName))
             throw new ArgumentException("Cache name must be non-empty.", nameof(cacheName));
 
-        var effectiveMeterName = string.IsNullOrEmpty(meterName) ? nameof(MeteredMemoryCache) : meterName;
-
         // Register options with validation
         services.AddOptions<MeteredMemoryCacheOptions>(cacheName)
             .Configure(opts =>
@@ -93,20 +91,14 @@ public static class ServiceCollectionExtensions
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<MeteredMemoryCacheOptions>, MeteredMemoryCacheOptionsValidator>());
 
-        // Register the meter with keyed registration to prevent conflicts between different meter names
-        services.AddKeyedSingleton<Meter>(effectiveMeterName, (sp, key) => new Meter((string)key!));
-
-        // Also register as singleton for backward compatibility (uses the named meter)
-        services.TryAddSingleton<Meter>(sp => sp.GetRequiredKeyedService<Meter>(effectiveMeterName));
-
-        // Register the keyed cache service
+        // Register the keyed cache service — uses IMeterFactory from DI when available
         services.AddKeyedSingleton<IMemoryCache>(cacheName, (sp, key) =>
         {
             var keyString = (string)key!;
             var innerCache = new MemoryCache(new MemoryCacheOptions());
-            var meter = sp.GetRequiredKeyedService<Meter>(effectiveMeterName);
+            var meterFactory = sp.GetService<IMeterFactory>();
             var options = sp.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>().Get(keyString);
-            return new MeteredMemoryCache(innerCache, meter, options);
+            return new MeteredMemoryCache(innerCache, meterFactory, options);
         });
 
         // Try to register as singleton for cases where there's only one named cache
@@ -169,14 +161,6 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        var effectiveMeterName = string.IsNullOrEmpty(meterName) ? nameof(MeteredMemoryCache) : meterName;
-
-        // Register the meter with keyed registration to prevent conflicts
-        services.AddKeyedSingleton<Meter>(effectiveMeterName, (sp, key) => new Meter((string)key!));
-
-        // Also register as singleton for backward compatibility (uses the named meter)
-        services.TryAddSingleton<Meter>(sp => sp.GetRequiredKeyedService<Meter>(effectiveMeterName));
-
         // Use named options configuration to prevent global contamination
         // Use timestamp + random to reduce collision probability
         var optionsName = $"DecoratedCache_{DateTimeOffset.UtcNow.Ticks}_{Guid.NewGuid():N}";
@@ -200,15 +184,15 @@ public static class ServiceCollectionExtensions
         // Remove the existing registration
         services.Remove(existingDescriptor);
 
-        // Create new descriptor that decorates the original
+        // Create new descriptor that decorates the original — uses IMeterFactory from DI when available
         var decoratedDescriptor = new ServiceDescriptor(
             typeof(IMemoryCache),
             sp =>
             {
                 var innerCache = CreateInnerCache(existingDescriptor, sp);
-                var meter = sp.GetRequiredKeyedService<Meter>(effectiveMeterName);
+                var meterFactory = sp.GetService<IMeterFactory>();
                 var options = sp.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>().Get(optionsName);
-                return new MeteredMemoryCache(innerCache, meter, options);
+                return new MeteredMemoryCache(innerCache, meterFactory, options);
             },
             existingDescriptor.Lifetime);
 

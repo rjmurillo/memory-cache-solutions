@@ -38,7 +38,7 @@ internal static class TestSynchronization
     /// Example usage:
     /// <code>
     /// var evictionCount = await TestSynchronization.WaitForConditionAsync(
-    ///     () => cache.GetCurrentStatistics().EvictionCount,
+    ///     () => cache.GetCurrentStatistics().TotalEvictions,
     ///     count => count > 0,
     ///     TimeSpan.FromSeconds(5));
     /// </code>

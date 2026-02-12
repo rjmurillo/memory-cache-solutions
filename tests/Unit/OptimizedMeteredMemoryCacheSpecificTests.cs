@@ -27,10 +27,9 @@ public class OptimizedMeteredMemoryCacheSpecificTests
         Assert.Equal("test-cache", cache.Name);
 
         var stats = cache.GetCurrentStatistics();
-        Assert.Equal("test-cache", stats.CacheName);
-        Assert.Equal(0, stats.HitCount);
-        Assert.Equal(0, stats.MissCount);
-        Assert.Equal(0, stats.EvictionCount);
+        Assert.Equal(0, stats.TotalHits);
+        Assert.Equal(0, stats.TotalMisses);
+        Assert.Equal(0, stats.TotalEvictions);
         Assert.Equal(0, stats.CurrentEntryCount);
         Assert.Equal(0, stats.HitRatio);
     }
@@ -45,7 +44,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
             new OptimizedMeteredMemoryCache(null!, meter));
 
         Assert.Throws<ArgumentNullException>(() =>
-            new OptimizedMeteredMemoryCache(inner, null!));
+            new OptimizedMeteredMemoryCache(inner, (Meter)null!));
     }
 
     [Fact]
@@ -57,12 +56,11 @@ public class OptimizedMeteredMemoryCacheSpecificTests
 
         var stats = cache.GetCurrentStatistics();
 
-        Assert.Equal(0, stats.HitCount);
-        Assert.Equal(0, stats.MissCount);
-        Assert.Equal(0, stats.EvictionCount);
+        Assert.Equal(0, stats.TotalHits);
+        Assert.Equal(0, stats.TotalMisses);
+        Assert.Equal(0, stats.TotalEvictions);
         Assert.Equal(0, stats.CurrentEntryCount);
         Assert.Equal(0, stats.HitRatio);
-        Assert.Equal("zero-test", stats.CacheName);
     }
 
     [Fact]
@@ -83,8 +81,8 @@ public class OptimizedMeteredMemoryCacheSpecificTests
 
         var stats = cache.GetCurrentStatistics();
 
-        Assert.Equal(3, stats.HitCount);
-        Assert.Equal(2, stats.MissCount);
+        Assert.Equal(3, stats.TotalHits);
+        Assert.Equal(2, stats.TotalMisses);
         Assert.Equal(2, stats.CurrentEntryCount);
         Assert.Equal(60.0, stats.HitRatio, 1); // 3/(3+2) * 100 = 60%
     }
@@ -136,8 +134,8 @@ public class OptimizedMeteredMemoryCacheSpecificTests
 
         // Statistics should still be tracked (atomic operations work regardless)
         var stats = cache.GetCurrentStatistics();
-        Assert.Equal(1, stats.HitCount);
-        Assert.Equal(1, stats.MissCount);
+        Assert.Equal(1, stats.TotalHits);
+        Assert.Equal(1, stats.TotalMisses);
     }
 
     [Fact]
@@ -152,7 +150,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
 
         listener.InstrumentPublished = (inst, meterListener) =>
         {
-            if (inst.Meter.Name == meter.Name && inst.Name.StartsWith("cache_"))
+            if (inst.Meter.Name == meter.Name && inst.Name.StartsWith("cache."))
             {
                 meterListener.EnableMeasurementEvents(inst);
             }
@@ -171,7 +169,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
     }
 
     [Fact]
-    public void PublishMetrics_ResetsInternalCounters()
+    public void PublishMetrics_IsNoOpWithObservableInstruments()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.reset"));
@@ -183,17 +181,18 @@ public class OptimizedMeteredMemoryCacheSpecificTests
         cache.TryGetValue("hit", out _);
 
         var statsBeforePublish = cache.GetCurrentStatistics();
-        Assert.Equal(1, statsBeforePublish.HitCount);
-        Assert.Equal(1, statsBeforePublish.MissCount);
+        Assert.Equal(1, statsBeforePublish.TotalHits);
+        Assert.Equal(1, statsBeforePublish.TotalMisses);
 
-        // Publish should reset hit/miss counters but not entry count or eviction count
+        // PublishMetrics is now a no-op — Observable instruments auto-poll counters
         cache.PublishMetrics();
 
+        // Counters should NOT be reset since PublishMetrics is a no-op
         var statsAfterPublish = cache.GetCurrentStatistics();
-        Assert.Equal(0, statsAfterPublish.HitCount);
-        Assert.Equal(0, statsAfterPublish.MissCount);
-        Assert.Equal(1, statsAfterPublish.CurrentEntryCount); // Entry count not reset
-        Assert.Equal(0, statsAfterPublish.EvictionCount); // Eviction count not reset
+        Assert.Equal(1, statsAfterPublish.TotalHits);
+        Assert.Equal(1, statsAfterPublish.TotalMisses);
+        Assert.Equal(1, statsAfterPublish.CurrentEntryCount);
+        Assert.Equal(0, statsAfterPublish.TotalEvictions);
     }
 
     [Fact]
@@ -303,11 +302,11 @@ public class OptimizedMeteredMemoryCacheSpecificTests
         // Wait for statistics to be updated
         var statsAfterEviction = await TestSynchronization.WaitForConditionAsync(
             () => cache.GetCurrentStatistics(),
-            stats => Volatile.Read(ref evictionCount) > 0 && stats.EvictionCount >= 1,
+            stats => Volatile.Read(ref evictionCount) > 0 && stats.TotalEvictions >= 1,
             TestTimeouts.Short);
 
         Assert.True(Volatile.Read(ref evictionCount) >= 1, "Eviction callback should have been triggered");
-        Assert.True(statsAfterEviction.EvictionCount >= 1, "Eviction count should be updated in statistics");
+        Assert.True(statsAfterEviction.TotalEvictions >= 1, "Eviction count should be updated in statistics");
         Assert.True(statsAfterEviction.CurrentEntryCount <= 0, "Entry count should decrease after eviction");
     }
 
@@ -414,7 +413,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
 
         listener.InstrumentPublished = (inst, meterListener) =>
         {
-            if (inst.Meter.Name == meter.Name && inst.Name == "cache_evictions_total")
+            if (inst.Meter.Name == meter.Name && inst.Name == "cache.evictions")
             {
                 meterListener.EnableMeasurementEvents(inst);
             }
@@ -444,7 +443,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
         await Task.Yield();
 
         // No eviction metrics should be emitted after disposal
-        Assert.DoesNotContain(emittedMetrics, m => m.StartsWith("cache_evictions_total"));
+        Assert.DoesNotContain(emittedMetrics, m => m.StartsWith("cache.evictions"));
     }
 
     [Fact]
@@ -459,7 +458,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
 
         listener.InstrumentPublished = (inst, meterListener) =>
         {
-            if (inst.Meter.Name == meter.Name && inst.Name.StartsWith("cache_"))
+            if (inst.Meter.Name == meter.Name && inst.Name.StartsWith("cache."))
             {
                 meterListener.EnableMeasurementEvents(inst);
             }
@@ -471,9 +470,12 @@ public class OptimizedMeteredMemoryCacheSpecificTests
         });
         listener.Start();
 
-        // Perform operation and publish
+        // Perform operation — counter incremented atomically
         cache.TryGetValue("miss", out _);
-        cache.PublishMetrics();
+        cache.PublishMetrics(); // No-op with Observable instruments
+
+        // Record Observable instruments to trigger measurement callbacks
+        listener.RecordObservableInstruments();
 
         // Should have emitted metrics with empty/default tags
         Assert.NotEmpty(emittedTags);
