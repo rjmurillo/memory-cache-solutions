@@ -246,7 +246,16 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
                 () =>
                 {
                     if (Volatile.Read(ref _disposed) != 0) return new Measurement<long>(0, tags);
-                    return new Measurement<long>(memoryCache.GetCurrentStatistics()?.CurrentEstimatedSize ?? 0, tags);
+                    try
+                    {
+                        return new Measurement<long>(memoryCache.GetCurrentStatistics()?.CurrentEstimatedSize ?? 0, tags);
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // TOCTOU: inner cache may be disposed between the _disposed check and this call
+                        // when _disposeInner is true and the meter is externally owned.
+                        return new Measurement<long>(0, tags);
+                    }
                 },
                 description: "Estimated size of the cache in bytes.");
         }

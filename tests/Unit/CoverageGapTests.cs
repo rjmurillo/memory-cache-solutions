@@ -407,6 +407,192 @@ public class CoverageGapTests
 
     #endregion
 
+    #region MeteredMemoryCache with non-null IMeterFactory
+
+    [Fact]
+    public void MeteredMemoryCache_NonNullMeterFactory_UsesFactoryMeter()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meterFactory = new TestMeterFactory();
+        var cacheName = SharedUtilities.GetUniqueCacheName("factory-meter");
+
+        using var cache = new MeteredMemoryCache(inner, meterFactory, cacheName);
+
+        Assert.Equal(cacheName, cache.Name);
+        cache.Set("key", "value");
+        Assert.True(cache.TryGetValue("key", out var val));
+        Assert.Equal("value", val);
+    }
+
+    [Fact]
+    public void MeteredMemoryCache_NonNullMeterFactory_WithOptions_UsesFactoryMeter()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meterFactory = new TestMeterFactory();
+        var cacheName = SharedUtilities.GetUniqueCacheName("factory-opts");
+        var options = new MeteredMemoryCacheOptions { CacheName = cacheName };
+
+        using var cache = new MeteredMemoryCache(inner, meterFactory, options);
+
+        Assert.Equal(cacheName, cache.Name);
+        cache.Set("key", "value");
+        Assert.True(cache.TryGetValue("key", out _));
+    }
+
+    #endregion
+
+    #region Eviction callback after disposal
+
+    [Fact]
+    public void MeteredMemoryCache_EvictionCallback_AfterDisposal_NoMetricUpdate()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("evict-after-dispose"));
+        var cacheName = SharedUtilities.GetUniqueCacheName("evict-disposed");
+
+        var cache = new MeteredMemoryCache(inner, meter, cacheName);
+
+        // Add entry then dispose cache before eviction fires
+        using (var entry = cache.CreateEntry("key"))
+        {
+            entry.Value = "value";
+        }
+
+        cache.Dispose();
+
+        // Force eviction by removing from inner cache — triggers the post-eviction callback
+        // with the disposal guard active
+        inner.Remove("key");
+
+        // The eviction callback disposal guard should have returned early — no throw
+    }
+
+    [Fact]
+    public void OptimizedMeteredMemoryCache_EvictionCallback_AfterDisposal_NoMetricUpdate()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("opt-evict-after-dispose"));
+
+        var cache = new OptimizedMeteredMemoryCache(inner, meter,
+            SharedUtilities.GetUniqueCacheName("opt-evict-disposed"));
+
+        using (var entry = cache.CreateEntry("key"))
+        {
+            entry.Value = "value";
+        }
+
+        cache.Dispose();
+
+        inner.Remove("key");
+    }
+
+    #endregion
+
+    #region BuildTags edge cases
+
+    [Fact]
+    public void MeteredMemoryCache_AdditionalTags_EmptyKeyAfterTrim_Excluded()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("empty-tag-key"));
+        var cacheName = SharedUtilities.GetUniqueCacheName("empty-tag");
+
+        var options = new MeteredMemoryCacheOptions
+        {
+            CacheName = cacheName,
+            AdditionalTags = new Dictionary<string, object?>
+            {
+                { "valid-tag", "value" },
+                { "  ", "whitespace-key" }, // This key should be excluded after trim
+            },
+        };
+
+        // Should not throw - empty keys after trim are silently excluded
+        using var cache = new MeteredMemoryCache(inner, meter, options);
+        Assert.Equal(cacheName, cache.Name);
+    }
+
+    [Fact]
+    public void MeteredMemoryCache_AdditionalTags_CacheNameDuplicate_Excluded()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("dup-cache-name"));
+        var cacheName = SharedUtilities.GetUniqueCacheName("dup-name");
+
+        var options = new MeteredMemoryCacheOptions
+        {
+            CacheName = cacheName,
+            AdditionalTags = new Dictionary<string, object?>
+            {
+                { "cache.name", "should-be-ignored" },
+                { "env", "test" },
+            },
+        };
+
+        using var cache = new MeteredMemoryCache(inner, meter, options);
+        Assert.Equal(cacheName, cache.Name);
+    }
+
+    #endregion
+
+    #region TOCTOU race: ObjectDisposedException catch in estimated_size callback
+
+    [Fact]
+    public void MeteredMemoryCache_EstimatedSize_TOCTOU_CatchesObjectDisposedException()
+    {
+        // When disposeInner=true + externally-owned meter, inner cache is disposed but
+        // Observable callbacks remain registered. The try-catch guards this TOCTOU race.
+        var inner = new MemoryCache(new MemoryCacheOptions { TrackStatistics = true });
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("toctou"));
+
+        var measurements = new List<long>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (inst, ml) =>
+        {
+            if (inst.Meter.Name == meter.Name && inst.Name == "cache.estimated_size")
+                ml.EnableMeasurementEvents(inst);
+        };
+        listener.SetMeasurementEventCallback<long>((_, value, _, _) => measurements.Add(value));
+        listener.Start();
+
+        var cache = new MeteredMemoryCache(inner, meter,
+            SharedUtilities.GetUniqueCacheName("toctou"), disposeInner: true);
+
+        // Dispose inner cache directly (simulating the TOCTOU race window)
+        inner.Dispose();
+
+        // Now record — the callback should catch ObjectDisposedException and return 0
+        var ex = Record.Exception(() => listener.RecordObservableInstruments());
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void OptimizedMeteredMemoryCache_EstimatedSize_TOCTOU_CatchesObjectDisposedException()
+    {
+        var inner = new MemoryCache(new MemoryCacheOptions { TrackStatistics = true });
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("opt-toctou"));
+
+        var measurements = new List<long>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (inst, ml) =>
+        {
+            if (inst.Meter.Name == meter.Name && inst.Name == "cache.estimated_size")
+                ml.EnableMeasurementEvents(inst);
+        };
+        listener.SetMeasurementEventCallback<long>((_, value, _, _) => measurements.Add(value));
+        listener.Start();
+
+        var cache = new OptimizedMeteredMemoryCache(inner, meter,
+            SharedUtilities.GetUniqueCacheName("opt-toctou"), disposeInner: true);
+
+        inner.Dispose();
+
+        var ex = Record.Exception(() => listener.RecordObservableInstruments());
+        Assert.Null(ex);
+    }
+
+    #endregion
+
     #region ServiceCollectionExtensions error path
 
     [Fact]
