@@ -44,7 +44,7 @@ public class Program
         // Configure OpenTelemetry
         services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("AspNetCore.Cache") // Our application meter
+                .AddMeter(MeteredMemoryCache.MeterName) // Use the standard meter name for cache metrics
                 .AddAspNetCoreInstrumentation() // ASP.NET Core metrics
                 .AddRuntimeInstrumentation() // .NET runtime metrics
                 .AddHttpClientInstrumentation() // HTTP client metrics

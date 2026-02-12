@@ -33,7 +33,7 @@ public class Program
         // Configure OpenTelemetry metrics
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
-                .AddMeter("BasicUsage.Cache") // Our meter name
+                .AddMeter(MeteredMemoryCache.MeterName) // Use the standard meter name
                 .AddConsoleExporter());
 
         // Register MeteredMemoryCache

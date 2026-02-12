@@ -9,7 +9,8 @@ namespace CacheImplementations;
 /// High-performance <see cref="IMemoryCache"/> decorator that uses atomic operations
 /// for minimal-overhead metrics tracking, similar to HybridCache and <see cref="MemoryCache"/>.
 /// Uses Observable instruments per dotnet/runtime#124140 to avoid hot-path overhead.
-/// </summary>("{Name ?? \"(unnamed)\"}")]
+/// </summary>
+[DebuggerDisplay("{Name ?? \"(unnamed)\"}")]
 public sealed class OptimizedMeteredMemoryCache : IMemoryCache
 {
     private readonly IMemoryCache _inner;
