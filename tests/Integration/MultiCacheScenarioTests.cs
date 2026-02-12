@@ -557,8 +557,6 @@ public class MultiCacheScenarioTests
     private static IHost CreateHostWithThreeNamedCaches(List<Metric> exportedItems)
     {
         var builder = new HostApplicationBuilder();
-        var meterName = SharedUtilities.GetUniqueMeterName("test.three.caches");
-
         // Add OpenTelemetry with InMemory exporter
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
@@ -566,9 +564,9 @@ public class MultiCacheScenarioTests
                 .AddInMemoryExporter(exportedItems));
 
         // Add three named caches
-        builder.Services.AddNamedMeteredMemoryCache("user-cache", meterName: meterName);
-        builder.Services.AddNamedMeteredMemoryCache("product-cache", meterName: meterName);
-        builder.Services.AddNamedMeteredMemoryCache("session-cache", meterName: meterName);
+        builder.Services.AddNamedMeteredMemoryCache("user-cache");
+        builder.Services.AddNamedMeteredMemoryCache("product-cache");
+        builder.Services.AddNamedMeteredMemoryCache("session-cache");
 
         return builder.Build();
     }
@@ -576,7 +574,6 @@ public class MultiCacheScenarioTests
     private static IHost CreateHostWithTaggedCaches(List<Metric> exportedItems)
     {
         var builder = new HostApplicationBuilder();
-        var meterName = SharedUtilities.GetUniqueMeterName("test.tagged.caches");
 
         // Add OpenTelemetry with InMemory exporter
         builder.Services.AddOpenTelemetry()
@@ -585,7 +582,7 @@ public class MultiCacheScenarioTests
                 .AddInMemoryExporter(exportedItems));
 
         // Add production cache with production tags
-        builder.Services.AddNamedMeteredMemoryCache("prod-cache", meterName: meterName, configureOptions: opt =>
+        builder.Services.AddNamedMeteredMemoryCache("prod-cache", configureOptions: opt =>
         {
             opt.AdditionalTags["environment"] = "production";
             opt.AdditionalTags["region"] = "us-east-1";
@@ -593,7 +590,7 @@ public class MultiCacheScenarioTests
         });
 
         // Add staging cache with staging tags
-        builder.Services.AddNamedMeteredMemoryCache("staging-cache", meterName: meterName, configureOptions: opt =>
+        builder.Services.AddNamedMeteredMemoryCache("staging-cache", configureOptions: opt =>
         {
             opt.AdditionalTags["environment"] = "staging";
             opt.AdditionalTags["region"] = "us-west-2";
@@ -606,7 +603,6 @@ public class MultiCacheScenarioTests
     private static IHost CreateHostWithEvictionCaches(List<Metric> exportedItems)
     {
         var builder = new HostApplicationBuilder();
-        var meterName = SharedUtilities.GetUniqueMeterName("test.eviction.caches");
 
         // Add OpenTelemetry with InMemory exporter
         builder.Services.AddOpenTelemetry()
@@ -659,7 +655,6 @@ public class MultiCacheScenarioTests
     private static IHost CreateHostWithConcurrencyCaches(List<Metric> exportedItems)
     {
         var builder = new HostApplicationBuilder();
-        var meterName = SharedUtilities.GetUniqueMeterName("test.concurrency.caches");
 
         // Add OpenTelemetry with InMemory exporter
         builder.Services.AddOpenTelemetry()
@@ -668,13 +663,13 @@ public class MultiCacheScenarioTests
                 .AddInMemoryExporter(exportedItems));
 
         // Add two caches for concurrency testing
-        builder.Services.AddNamedMeteredMemoryCache("concurrent-cache-1", meterName: meterName, configureOptions: opt =>
+        builder.Services.AddNamedMeteredMemoryCache("concurrent-cache-1", configureOptions: opt =>
         {
             opt.AdditionalTags["test-type"] = "concurrency";
             opt.AdditionalTags["cache-id"] = "1";
         });
 
-        builder.Services.AddNamedMeteredMemoryCache("concurrent-cache-2", meterName: meterName, configureOptions: opt =>
+        builder.Services.AddNamedMeteredMemoryCache("concurrent-cache-2", configureOptions: opt =>
         {
             opt.AdditionalTags["test-type"] = "concurrency";
             opt.AdditionalTags["cache-id"] = "2";
@@ -693,9 +688,9 @@ public class MultiCacheScenarioTests
                 .AddMeter(MeteredMemoryCache.MeterName)
                 .AddInMemoryExporter(exportedItems));
 
-        // Add cache with the specified meter
+        // Add cache (meter name parameter was removed since it's now always standardized)
         var cacheName = meterName == "MainMeter" ? "main-cache" : "secondary-cache";
-        builder.Services.AddNamedMeteredMemoryCache(cacheName, meterName: meterName);
+        builder.Services.AddNamedMeteredMemoryCache(cacheName);
 
         return builder.Build();
     }

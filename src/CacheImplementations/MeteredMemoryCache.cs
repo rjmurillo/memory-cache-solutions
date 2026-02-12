@@ -19,6 +19,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
 {
     private readonly IMemoryCache _inner;
     private readonly bool _disposeInner;
+    private readonly Meter? _ownedMeter;
 
     // Pre-allocated tags for Observable instrument callbacks (zero per-operation allocation)
     private readonly KeyValuePair<string, object?>[] _tags;
@@ -65,13 +66,37 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// Initializes a new instance of <see cref="MeteredMemoryCache"/> using an <see cref="IMeterFactory"/> for proper meter lifecycle management.
     /// </summary>
     /// <param name="innerCache">The <see cref="IMemoryCache"/> implementation to decorate with metrics.</param>
-    /// <param name="meterFactory">The <see cref="IMeterFactory"/> used to create the <see cref="Meter"/> instance. If <see langword="null"/>, a global fallback meter is created.</param>
+    /// <param name="meterFactory">The <see cref="IMeterFactory"/> used to create the <see cref="Meter"/> instance. If <see langword="null"/>, a fallback meter is created and owned by this instance.</param>
     /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in dimensional metrics.</param>
     /// <param name="disposeInner">Whether to dispose the <paramref name="innerCache"/> when this instance is disposed. Defaults to <see langword="false"/>.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="innerCache"/> is <see langword="null"/>.</exception>
     public MeteredMemoryCache(IMemoryCache innerCache, IMeterFactory? meterFactory, string? cacheName = null, bool disposeInner = false)
-        : this(innerCache, CreateMeter(meterFactory), cacheName, disposeInner)
     {
+        ArgumentNullException.ThrowIfNull(innerCache);
+        _inner = innerCache;
+        _disposeInner = disposeInner;
+
+        var normalizedCacheName = NormalizeCacheName(cacheName);
+        Name = normalizedCacheName;
+
+        // Pre-allocate tags array for Observable instrument callbacks
+        _tags = BuildTags(normalizedCacheName, null);
+
+        // Create meter - if factory is null, we own the meter and must dispose it
+        Meter meter;
+        if (meterFactory is not null)
+        {
+            meter = meterFactory.Create(MeterName);
+            _ownedMeter = null;
+        }
+        else
+        {
+            meter = new Meter(MeterName);
+            _ownedMeter = meter;
+        }
+
+        // Create Observable instruments per dotnet/runtime#124140 — zero hot-path overhead
+        RegisterObservableInstruments(meter);
     }
 
     /// <summary>
@@ -103,12 +128,37 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// Initializes a new instance of <see cref="MeteredMemoryCache"/> using an <see cref="IMeterFactory"/> and the options pattern.
     /// </summary>
     /// <param name="innerCache">The <see cref="IMemoryCache"/> implementation to decorate with metrics.</param>
-    /// <param name="meterFactory">The <see cref="IMeterFactory"/> used to create the <see cref="Meter"/> instance. If <see langword="null"/>, a global fallback meter is created.</param>
+    /// <param name="meterFactory">The <see cref="IMeterFactory"/> used to create the <see cref="Meter"/> instance. If <see langword="null"/>, a fallback meter is created and owned by this instance.</param>
     /// <param name="options">The <see cref="MeteredMemoryCacheOptions"/> containing cache name, disposal behavior, and additional tags.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="innerCache"/> or <paramref name="options"/> is <see langword="null"/>.</exception>
     public MeteredMemoryCache(IMemoryCache innerCache, IMeterFactory? meterFactory, MeteredMemoryCacheOptions options)
-        : this(innerCache, CreateMeter(meterFactory), options)
     {
+        ArgumentNullException.ThrowIfNull(innerCache);
+        ArgumentNullException.ThrowIfNull(options);
+        _inner = innerCache;
+        _disposeInner = options.DisposeInner;
+
+        var normalizedCacheName = NormalizeCacheName(options.CacheName);
+        Name = normalizedCacheName;
+
+        // Pre-allocate tags array with cache name and additional tags
+        _tags = BuildTags(normalizedCacheName, options.AdditionalTags);
+
+        // Create meter - if factory is null, we own the meter and must dispose it
+        Meter meter;
+        if (meterFactory is not null)
+        {
+            meter = meterFactory.Create(MeterName);
+            _ownedMeter = null;
+        }
+        else
+        {
+            meter = new Meter(MeterName);
+            _ownedMeter = meter;
+        }
+
+        // Create Observable instruments per dotnet/runtime#124140 — zero hot-path overhead
+        RegisterObservableInstruments(meter);
     }
 
     /// <summary>
@@ -170,14 +220,6 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// The meter name used per dotnet/runtime#124140.
     /// </summary>
     public const string MeterName = "Microsoft.Extensions.Caching.Memory";
-
-    /// <summary>
-    /// Creates a <see cref="Meter"/> from an <see cref="IMeterFactory"/> or falls back to a global meter.
-    /// </summary>
-    private static Meter CreateMeter(IMeterFactory? meterFactory)
-    {
-        return meterFactory?.Create(MeterName) ?? new Meter(MeterName);
-    }
 
     /// <summary>
     /// Normalizes cache names to handle whitespace and prevent tag cardinality issues.
@@ -284,6 +326,10 @@ public sealed class MeteredMemoryCache : IMemoryCache
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
             return;
+
+        // Dispose the owned meter first to unregister Observable instruments
+        // and break the reference chain (Meter → Instruments → Callbacks → this)
+        _ownedMeter?.Dispose();
 
         if (_disposeInner)
         {

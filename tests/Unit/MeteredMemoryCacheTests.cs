@@ -592,7 +592,7 @@ public class MeteredMemoryCacheTests
                 {
                     for (int i = 0; i < 50; i++)
                     {
-                        services1.AddNamedMeteredMemoryCache($"service1-cache-{i}", meterName: $"service1-meter-{i}");
+                        services1.AddNamedMeteredMemoryCache($"service1-cache-{i}");
                     }
                 }
                 catch (Exception ex)
@@ -606,7 +606,7 @@ public class MeteredMemoryCacheTests
                 {
                     for (int i = 0; i < 50; i++)
                     {
-                        services2.AddNamedMeteredMemoryCache($"service2-cache-{i}", meterName: $"service2-meter-{i}");
+                        services2.AddNamedMeteredMemoryCache($"service2-cache-{i}");
                     }
                 }
                 catch (Exception ex)

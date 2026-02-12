@@ -15,6 +15,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
 {
     private readonly IMemoryCache _inner;
     private readonly bool _disposeInner;
+    private readonly Meter? _ownedMeter;
     private readonly string? _cacheName;
 
     // Atomic counters for high-performance metrics
@@ -63,7 +64,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     /// Initializes a new instance of <see cref="OptimizedMeteredMemoryCache"/> using an <see cref="IMeterFactory"/> for proper meter lifecycle management.
     /// </summary>
     /// <param name="innerCache">The underlying <see cref="IMemoryCache"/> instance to decorate.</param>
-    /// <param name="meterFactory">The <see cref="IMeterFactory"/> used to create the <see cref="Meter"/> instance. If <see langword="null"/>, a global fallback meter is created.</param>
+    /// <param name="meterFactory">The <see cref="IMeterFactory"/> used to create the <see cref="Meter"/> instance. If <see langword="null"/>, a fallback meter is created and owned by this instance.</param>
     /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in metrics.</param>
     /// <param name="disposeInner">Whether to dispose the <paramref name="innerCache"/> when this instance is disposed.</param>
     /// <param name="enableMetrics">Whether to enable metric collection. When <see langword="false"/>, no metrics are collected.</param>
@@ -74,8 +75,30 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
         string? cacheName = null,
         bool disposeInner = false,
         bool enableMetrics = true)
-        : this(innerCache, CreateMeter(meterFactory), cacheName, disposeInner, enableMetrics)
     {
+        ArgumentNullException.ThrowIfNull(innerCache);
+
+        _inner = innerCache;
+        _disposeInner = disposeInner;
+        _cacheName = NormalizeCacheName(cacheName);
+
+        // Create meter - if factory is null, we own the meter and must dispose it
+        if (enableMetrics)
+        {
+            Meter meter;
+            if (meterFactory is not null)
+            {
+                meter = meterFactory.Create(MeterName);
+                _ownedMeter = null;
+            }
+            else
+            {
+                meter = new Meter(MeterName);
+                _ownedMeter = meter;
+            }
+
+            RegisterObservableInstruments(meter);
+        }
     }
 
     /// <summary>
@@ -168,6 +191,10 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
             return;
 
+        // Dispose the owned meter first to unregister Observable instruments
+        // and break the reference chain (Meter → Instruments → Callbacks → this)
+        _ownedMeter?.Dispose();
+
         if (_disposeInner)
             _inner.Dispose();
     }
@@ -176,14 +203,6 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     /// The meter name used per dotnet/runtime#124140.
     /// </summary>
     internal const string MeterName = "Microsoft.Extensions.Caching.Memory";
-
-    /// <summary>
-    /// Creates a <see cref="Meter"/> from an <see cref="IMeterFactory"/> or falls back to a global meter.
-    /// </summary>
-    private static Meter CreateMeter(IMeterFactory? meterFactory)
-    {
-        return meterFactory?.Create(MeterName) ?? new Meter(MeterName);
-    }
 
     /// <summary>
     /// Registers Observable instruments that poll atomic counters on demand.

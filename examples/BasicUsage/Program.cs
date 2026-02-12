@@ -43,8 +43,7 @@ public class Program
                 // Configure additional tags for metrics
                 options.AdditionalTags["environment"] = "demo";
                 options.AdditionalTags["component"] = "basic-usage";
-            },
-            meterName: "BasicUsage.Cache");
+            });
 
         // Register our demo service
         builder.Services.AddTransient<CacheDemo>();

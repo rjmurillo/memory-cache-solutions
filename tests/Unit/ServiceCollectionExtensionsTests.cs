@@ -17,14 +17,13 @@ public class ServiceCollectionExtensionsTests
         // Arrange
         var services = new ServiceCollection();
         var cacheName = SharedUtilities.GetUniqueCacheName("test-cache");
-        var meterName = SharedUtilities.GetUniqueMeterName("test-meter");
 
         // Act
         services.AddNamedMeteredMemoryCache(cacheName, options =>
         {
             options.DisposeInner = true;
             options.AdditionalTags["env"] = "test";
-        }, meterName: meterName);
+        });
 
         using var provider = services.BuildServiceProvider();
 
@@ -86,15 +85,10 @@ public class ServiceCollectionExtensionsTests
         var services = new ServiceCollection();
 
         // Act
-        var meterName1 = SharedUtilities.GetUniqueMeterName("meter1");
-        var meterName2 = SharedUtilities.GetUniqueMeterName("meter2");
-
         services.AddNamedMeteredMemoryCache("cache1",
-            options => options.AdditionalTags["type"] = "primary",
-            meterName: meterName1);
+            options => options.AdditionalTags["type"] = "primary");
         services.AddNamedMeteredMemoryCache("cache2",
-            options => options.AdditionalTags["type"] = "secondary",
-            meterName: meterName2);
+            options => options.AdditionalTags["type"] = "secondary");
 
         using var provider = services.BuildServiceProvider();
 
@@ -140,19 +134,19 @@ public class ServiceCollectionExtensionsTests
 
 
     [Fact]
-    public void AddNamedMeteredMemoryCache_AllowsNullMeterName()
+    public void AddNamedMeteredMemoryCache_RegistersMultipleDistinctCaches()
     {
         // Arrange
         var services = new ServiceCollection();
 
-        // Act & Assert (should not throw)
-        services.AddNamedMeteredMemoryCache("cache1", meterName: null);
-        services.AddNamedMeteredMemoryCache("cache2", meterName: null);
+        // Act
+        services.AddNamedMeteredMemoryCache("cache1");
+        services.AddNamedMeteredMemoryCache("cache2");
 
         using var provider = services.BuildServiceProvider();
         Assert.NotNull(provider);
 
-        // Strengthen assertions: Verify actual cache registration works
+        // Assert: Verify actual cache registration works
         var cache1 = provider.GetRequiredKeyedService<IMemoryCache>("cache1");
         var cache2 = provider.GetRequiredKeyedService<IMemoryCache>("cache2");
         Assert.NotNull(cache1);
@@ -163,19 +157,19 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddNamedMeteredMemoryCache_AllowsEmptyMeterName()
+    public void AddNamedMeteredMemoryCache_CachesAreFunctionalWithoutMeterFactory()
     {
         // Arrange
         var services = new ServiceCollection();
 
-        // Act & Assert (should not throw)
-        services.AddNamedMeteredMemoryCache("cache1", meterName: "");
-        services.AddNamedMeteredMemoryCache("cache2", meterName: "");
+        // Act (no IMeterFactory registered - fallback meter will be used)
+        services.AddNamedMeteredMemoryCache("cache1");
+        services.AddNamedMeteredMemoryCache("cache2");
 
         using var provider = services.BuildServiceProvider();
         Assert.NotNull(provider);
 
-        // Strengthen assertions: Verify registry availability and functionality
+        // Assert: Verify registry availability and functionality
         var cache1 = provider.GetRequiredKeyedService<IMemoryCache>("cache1");
         var cache2 = provider.GetRequiredKeyedService<IMemoryCache>("cache2");
         Assert.NotNull(cache1);
@@ -183,7 +177,7 @@ public class ServiceCollectionExtensionsTests
         Assert.IsType<MeteredMemoryCache>(cache1);
         Assert.IsType<MeteredMemoryCache>(cache2);
 
-        // Verify caches are functional with IMeterFactory fallback
+        // Verify caches are functional with fallback meter
         cache1.Set("test-key", "value1");
         Assert.True(cache1.TryGetValue("test-key", out _));
     }
@@ -261,8 +255,7 @@ public class ServiceCollectionExtensionsTests
         services.AddSingleton<IMemoryCache>(sp => new MemoryCache(new MemoryCacheOptions()));
 
         // Act
-        var decoratedMeterName = SharedUtilities.GetUniqueMeterName("decorated-meter");
-        services.DecorateMemoryCacheWithMetrics(cacheName: "decorated", meterName: decoratedMeterName);
+        services.DecorateMemoryCacheWithMetrics(cacheName: "decorated");
         using var provider = services.BuildServiceProvider();
 
         // Assert
@@ -302,10 +295,8 @@ public class ServiceCollectionExtensionsTests
         services.AddSingleton<IMemoryCache>(sp => new MemoryCache(new MemoryCacheOptions()));
 
         // Act
-        var customMeterName = SharedUtilities.GetUniqueMeterName("custom-meter");
         services.DecorateMemoryCacheWithMetrics(
             cacheName: "decorated-cache",
-            meterName: customMeterName,
             configureOptions: options =>
             {
                 options.DisposeInner = true;
@@ -356,14 +347,13 @@ public class ServiceCollectionExtensionsTests
         var services = new ServiceCollection();
         var lockObj = new object();
 
-        // Act - Register multiple caches with same meter name to avoid keyed service conflicts
+        // Act - Register multiple caches
         // Use locking to synchronize concurrent registrations since ServiceCollection is not thread-safe
-        var sharedMeterName = SharedUtilities.GetUniqueMeterName("shared-meter");
         Parallel.For(0, 10, i =>
         {
             lock (lockObj)
             {
-                services.AddNamedMeteredMemoryCache($"cache-{i}", meterName: sharedMeterName);
+                services.AddNamedMeteredMemoryCache($"cache-{i}");
             }
         });
 

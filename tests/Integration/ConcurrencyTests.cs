@@ -588,9 +588,6 @@ public class ConcurrencyTests : IDisposable
         var exportedItems = new List<Metric>();
         // Note: List<Metric> doesn't implement IDisposable, we'll dispose the host which cleans up resources
 
-        // Generate unique meter name for test isolation
-        var meterName = SharedUtilities.GetUniqueMeterName("test.single.cache");
-
         var builder = new HostApplicationBuilder();
 
         builder.Services.AddOpenTelemetry()
@@ -598,7 +595,7 @@ public class ConcurrencyTests : IDisposable
                 .AddMeter(MeteredMemoryCache.MeterName)
                 .AddInMemoryExporter(exportedItems));
 
-        builder.Services.AddNamedMeteredMemoryCache(cacheName, meterName: meterName);
+        builder.Services.AddNamedMeteredMemoryCache(cacheName);
 
         var host = builder.Build();
         _disposables.Add(host);
@@ -609,9 +606,6 @@ public class ConcurrencyTests : IDisposable
     {
         var exportedItems = new List<Metric>();
 
-        // Generate unique meter name for test isolation
-        var meterName = SharedUtilities.GetUniqueMeterName("test.multiple.caches");
-
         var builder = new HostApplicationBuilder();
 
         builder.Services.AddOpenTelemetry()
@@ -619,10 +613,10 @@ public class ConcurrencyTests : IDisposable
                 .AddMeter(MeteredMemoryCache.MeterName)
                 .AddInMemoryExporter(exportedItems));
 
-        // Create multiple named caches with unique meter name
-        builder.Services.AddNamedMeteredMemoryCache("cache-1", meterName: meterName);
-        builder.Services.AddNamedMeteredMemoryCache("cache-2", meterName: meterName);
-        builder.Services.AddNamedMeteredMemoryCache("cache-3", meterName: meterName);
+        // Create multiple named caches
+        builder.Services.AddNamedMeteredMemoryCache("cache-1");
+        builder.Services.AddNamedMeteredMemoryCache("cache-2");
+        builder.Services.AddNamedMeteredMemoryCache("cache-3");
 
         var host = builder.Build();
         _disposables.Add(host);
@@ -633,9 +627,6 @@ public class ConcurrencyTests : IDisposable
     {
         var exportedItems = new List<Metric>();
 
-        // Generate unique meter name for test isolation
-        var meterName = SharedUtilities.GetUniqueMeterName("test.options.cache");
-
         var builder = new HostApplicationBuilder();
 
         builder.Services.AddOpenTelemetry()
@@ -643,7 +634,7 @@ public class ConcurrencyTests : IDisposable
                 .AddMeter(MeteredMemoryCache.MeterName)
                 .AddInMemoryExporter(exportedItems));
 
-        builder.Services.AddNamedMeteredMemoryCache(options.CacheName!, meterName: meterName, configureOptions: opt =>
+        builder.Services.AddNamedMeteredMemoryCache(options.CacheName!, configureOptions: opt =>
         {
             opt.AdditionalTags = options.AdditionalTags;
         });

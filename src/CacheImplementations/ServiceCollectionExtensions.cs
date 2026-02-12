@@ -25,7 +25,6 @@ public static class ServiceCollectionExtensions
     /// <param name="services">The <see cref="IServiceCollection"/> to add services to. Cannot be <see langword="null"/>.</param>
     /// <param name="cacheName">The logical name for the cache instance, used for keyed service resolution and as the "cache.name" metric tag. Cannot be <see langword="null"/> or whitespace.</param>
     /// <param name="configureOptions">Optional delegate to configure <see cref="MeteredMemoryCacheOptions"/>. If <see langword="null"/>, default options will be used.</param>
-    /// <param name="meterName">Optional name for the <see cref="System.Diagnostics.Metrics.Meter"/> instance. If <see langword="null"/>, defaults to "MeteredMemoryCache".</param>
     /// <returns>The <paramref name="services"/> collection for method chaining.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="services"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="cacheName"/> is <see langword="null"/>, empty, or contains only whitespace.</exception>
@@ -68,8 +67,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddNamedMeteredMemoryCache(
         this IServiceCollection services,
         string cacheName,
-        Action<MeteredMemoryCacheOptions>? configureOptions = null,
-        string? meterName = null)
+        Action<MeteredMemoryCacheOptions>? configureOptions = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
@@ -113,7 +111,6 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection"/> containing the existing cache registration. Cannot be <see langword="null"/>.</param>
     /// <param name="cacheName">Optional logical name for the cache instance, used as the "cache.name" metric tag. If <see langword="null"/>, no cache name tag will be added.</param>
-    /// <param name="meterName">Optional name for the <see cref="System.Diagnostics.Metrics.Meter"/> instance. If <see langword="null"/>, defaults to "MeteredMemoryCache".</param>
     /// <param name="configureOptions">Optional delegate to configure <see cref="MeteredMemoryCacheOptions"/>. If <see langword="null"/>, default options will be used.</param>
     /// <returns>The <paramref name="services"/> collection for method chaining.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="services"/> is <see langword="null"/>.</exception>
@@ -156,7 +153,6 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection DecorateMemoryCacheWithMetrics(
         this IServiceCollection services,
         string? cacheName = null,
-        string? meterName = null,
         Action<MeteredMemoryCacheOptions>? configureOptions = null)
     {
         ArgumentNullException.ThrowIfNull(services);
