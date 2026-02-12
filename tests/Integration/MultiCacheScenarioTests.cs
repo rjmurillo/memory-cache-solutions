@@ -66,11 +66,11 @@ public class MultiCacheScenarioTests
         await FlushMetricsAsync(host);
 
         // Wait for expected metrics using deterministic timing with cache-specific filtering
-        var userHitsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.hits", "user-cache", 2, TimeSpan.FromSeconds(5));
-        var userMissesDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.misses", "user-cache", 1, TimeSpan.FromSeconds(5));
-        var productHitsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.hits", "product-cache", 1, TimeSpan.FromSeconds(5));
-        var productMissesDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.misses", "product-cache", 2, TimeSpan.FromSeconds(5));
-        var sessionHitsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.hits", "session-cache", 3, TimeSpan.FromSeconds(5));
+        var userHitsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.lookups", "user-cache", 2, TimeSpan.FromSeconds(5));
+        var userMissesDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.lookups", "user-cache", 1, TimeSpan.FromSeconds(5));
+        var productHitsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.lookups", "product-cache", 1, TimeSpan.FromSeconds(5));
+        var productMissesDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.lookups", "product-cache", 2, TimeSpan.FromSeconds(5));
+        var sessionHitsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.lookups", "session-cache", 3, TimeSpan.FromSeconds(5));
 
         // Assert - Verify each cache has correct metrics
         Assert.True(userHitsDetected, "User cache hit metrics should be detected within timeout");
@@ -79,35 +79,27 @@ public class MultiCacheScenarioTests
         Assert.True(productMissesDetected, "Product cache miss metrics should be detected within timeout");
         Assert.True(sessionHitsDetected, "Session cache hit metrics should be detected within timeout");
 
-        var hitMetrics = FindMetrics(exportedItems, "cache.hits");
-        var missMetrics = FindMetrics(exportedItems, "cache.misses");
+        var hitMetrics = FindMetrics(exportedItems, "cache.lookups");
+        var missMetrics = FindMetrics(exportedItems, "cache.lookups");
 
         // User cache assertions
-        var userHits = hitMetrics.Where(m => HasTag(m, "cache.name", "user-cache"));
-        var userMisses = missMetrics.Where(m => HasTag(m, "cache.name", "user-cache"));
-        Assert.Single(userHits);
-        Assert.Single(userMisses);
-        AssertMetricValueForCache(userHits.First(), "user-cache", 2);
-        AssertMetricValueForCache(userMisses.First(), "user-cache", 1);
+        var userLookups = hitMetrics.Where(m => HasTag(m, "cache.name", "user-cache"));
+        Assert.Single(userLookups);
+        AssertMetricValueForCacheByResult(userLookups.First(), "user-cache", "hit", 2);
+        AssertMetricValueForCacheByResult(userLookups.First(), "user-cache", "miss", 1);
 
         // Product cache assertions
-        var productHits = hitMetrics.Where(m => HasTag(m, "cache.name", "product-cache"));
-        var productMisses = missMetrics.Where(m => HasTag(m, "cache.name", "product-cache"));
-        Assert.Single(productHits);
-        Assert.Single(productMisses);
-        AssertMetricValueForCache(productHits.First(), "product-cache", 1);
-        AssertMetricValueForCache(productMisses.First(), "product-cache", 2);
+        var productLookups = hitMetrics.Where(m => HasTag(m, "cache.name", "product-cache"));
+        Assert.Single(productLookups);
+        AssertMetricValueForCacheByResult(productLookups.First(), "product-cache", "hit", 1);
+        AssertMetricValueForCacheByResult(productLookups.First(), "product-cache", "miss", 2);
 
         // Session cache assertions
-        var sessionHits = hitMetrics.Where(m => HasTag(m, "cache.name", "session-cache"));
-        var sessionMisses = missMetrics.Where(m => HasTag(m, "cache.name", "session-cache"));
-        Assert.Single(sessionHits);
-        AssertMetricValueForCache(sessionHits.First(), "session-cache", 3);
+        var sessionLookups = hitMetrics.Where(m => HasTag(m, "cache.name", "session-cache"));
+        Assert.Single(sessionLookups);
+        AssertMetricValueForCacheByResult(sessionLookups.First(), "session-cache", "hit", 3);
         // Observable instruments always report — session cache misses should be 0
-        if (sessionMisses.Any())
-        {
-            AssertMetricValueForCache(sessionMisses.First(), "session-cache", 0);
-        }
+        AssertMetricValueForCacheByResult(sessionLookups.First(), "session-cache", "miss", 0);
     }
 
     /// <summary>
@@ -139,8 +131,8 @@ public class MultiCacheScenarioTests
         await FlushMetricsAsync(host);
 
         // Assert
-        var hitMetrics = FindMetrics(exportedItems, "cache.hits");
-        var missMetrics = FindMetrics(exportedItems, "cache.misses");
+        var hitMetrics = FindMetrics(exportedItems, "cache.lookups");
+        var missMetrics = FindMetrics(exportedItems, "cache.lookups");
 
         // Production cache metrics
         var prodHits = hitMetrics.Where(m => HasTag(m, "cache.name", "prod-cache"));
@@ -361,31 +353,26 @@ public class MultiCacheScenarioTests
         await FlushMetricsAsync(host);
 
         // Wait for expected metrics using deterministic timing
-        var hitsDetected = await WaitForMetricValueAsync(exportedItems, "cache.hits", operationsPerCache, TimeSpan.FromSeconds(5));
-        var missesDetected = await WaitForMetricValueAsync(exportedItems, "cache.misses", operationsPerCache, TimeSpan.FromSeconds(5));
+        var hitsDetected = await WaitForMetricValueAsync(exportedItems, "cache.lookups", operationsPerCache, TimeSpan.FromSeconds(5));
+        var missesDetected = await WaitForMetricValueAsync(exportedItems, "cache.lookups", operationsPerCache, TimeSpan.FromSeconds(5));
 
         // Assert
         Assert.True(hitsDetected, "Expected hit metrics should be detected within timeout");
         Assert.True(missesDetected, "Expected miss metrics should be detected within timeout");
 
-        var hitMetrics = FindMetrics(exportedItems, "cache.hits");
-        var missMetrics = FindMetrics(exportedItems, "cache.misses");
+        var lookupsMetrics = FindMetrics(exportedItems, "cache.lookups");
 
         // Cache 1 assertions
-        var cache1Hits = hitMetrics.Where(m => HasTag(m, "cache.name", "concurrent-cache-1"));
-        var cache1Misses = missMetrics.Where(m => HasTag(m, "cache.name", "concurrent-cache-1"));
-        Assert.Single(cache1Hits);
-        Assert.Single(cache1Misses);
-        AssertMetricValueForCache(cache1Hits.First(), "concurrent-cache-1", operationsPerCache / 2);
-        AssertMetricValueForCache(cache1Misses.First(), "concurrent-cache-1", operationsPerCache / 2);
+        var cache1Lookups = lookupsMetrics.Where(m => HasTag(m, "cache.name", "concurrent-cache-1"));
+        Assert.Single(cache1Lookups);
+        AssertMetricValueForCacheByResult(cache1Lookups.First(), "concurrent-cache-1", "hit", operationsPerCache / 2);
+        AssertMetricValueForCacheByResult(cache1Lookups.First(), "concurrent-cache-1", "miss", operationsPerCache / 2);
 
         // Cache 2 assertions
-        var cache2Hits = hitMetrics.Where(m => HasTag(m, "cache.name", "concurrent-cache-2"));
-        var cache2Misses = missMetrics.Where(m => HasTag(m, "cache.name", "concurrent-cache-2"));
-        Assert.Single(cache2Hits);
-        Assert.Single(cache2Misses);
-        AssertMetricValueForCache(cache2Hits.First(), "concurrent-cache-2", operationsPerCache / 2);
-        AssertMetricValueForCache(cache2Misses.First(), "concurrent-cache-2", operationsPerCache / 2);
+        var cache2Lookups = lookupsMetrics.Where(m => HasTag(m, "cache.name", "concurrent-cache-2"));
+        Assert.Single(cache2Lookups);
+        AssertMetricValueForCacheByResult(cache2Lookups.First(), "concurrent-cache-2", "hit", operationsPerCache / 2);
+        AssertMetricValueForCacheByResult(cache2Lookups.First(), "concurrent-cache-2", "miss", operationsPerCache / 2);
     }
 
     /// <summary>
@@ -420,12 +407,12 @@ public class MultiCacheScenarioTests
         await FlushMetricsAsync(secondaryHost);
 
         // Assert - Main meter should have metrics from main-cache
-        var mainHitMetrics = FindMetrics(mainMeterItems, "cache.hits");
+        var mainHitMetrics = FindMetrics(mainMeterItems, "cache.lookups");
         Assert.Single(mainHitMetrics);
         AssertMetricHasTag(mainHitMetrics.First(), "cache.name", "main-cache");
 
         // Secondary meter should have metrics from secondary-cache
-        var secondaryHitMetrics = FindMetrics(secondaryMeterItems, "cache.hits");
+        var secondaryHitMetrics = FindMetrics(secondaryMeterItems, "cache.lookups");
         Assert.Single(secondaryHitMetrics);
         AssertMetricHasTag(secondaryHitMetrics.First(), "cache.name", "secondary-cache");
 
@@ -752,6 +739,33 @@ public class MultiCacheScenarioTests
                 }
             }
             if (hasCacheTag)
+            {
+                filteredValue += mp.GetSumLong();
+            }
+        }
+
+        Assert.Equal(expectedValue, filteredValue);
+    }
+
+    private static void AssertMetricValueForCacheByResult(Metric metric, string cacheName, string resultValue, long expectedValue)
+    {
+        var filteredValue = 0L;
+        foreach (ref readonly var mp in metric.GetMetricPoints())
+        {
+            var hasCacheTag = false;
+            var hasResultTag = false;
+            foreach (var tag in mp.Tags)
+            {
+                if (tag.Key == "cache.name" && tag.Value?.ToString() == cacheName)
+                {
+                    hasCacheTag = true;
+                }
+                if (tag.Key == "cache.result" && tag.Value?.ToString() == resultValue)
+                {
+                    hasResultTag = true;
+                }
+            }
+            if (hasCacheTag && hasResultTag)
             {
                 filteredValue += mp.GetSumLong();
             }

@@ -9,8 +9,7 @@ namespace CacheImplementations;
 /// <see cref="IMemoryCache"/> decorator that emits OpenTelemetry / .NET metrics for cache hits, misses and evictions.
 /// Provides comprehensive observability for any <see cref="IMemoryCache"/> implementation.
 /// Uses Observable instruments per dotnet/runtime#124140 to avoid hot-path overhead:
-///  - cache.hits (<see cref="ObservableCounter{T}"/>)
-///  - cache.misses (<see cref="ObservableCounter{T}"/>)
+///  - cache.lookups (<see cref="ObservableCounter{T}"/>) with cache.result dimension (hit/miss)
 ///  - cache.evictions (<see cref="ObservableCounter{T}"/>)
 ///  - cache.entries (<see cref="ObservableUpDownCounter{T}"/>)
 /// </summary>
@@ -275,13 +274,17 @@ public sealed class MeteredMemoryCache : IMemoryCache
     {
         var tags = _tags;
 
-        meter.CreateObservableCounter("cache.hits",
-            () => new Measurement<long>(Interlocked.Read(ref _hitCount), tags),
-            description: "Total number of cache hits.");
+        // Pre-allocate tag arrays with cache.result dimension per OTel conventions
+        var hitTags = tags.Append(new KeyValuePair<string, object?>("cache.result", "hit")).ToArray();
+        var missTags = tags.Append(new KeyValuePair<string, object?>("cache.result", "miss")).ToArray();
 
-        meter.CreateObservableCounter("cache.misses",
-            () => new Measurement<long>(Interlocked.Read(ref _missCount), tags),
-            description: "Total number of cache misses.");
+        meter.CreateObservableCounter("cache.lookups",
+            () => new[]
+            {
+                new Measurement<long>(Interlocked.Read(ref _hitCount), hitTags),
+                new Measurement<long>(Interlocked.Read(ref _missCount), missTags),
+            },
+            description: "Total number of cache lookup operations.");
 
         meter.CreateObservableCounter("cache.evictions",
             () => new Measurement<long>(Interlocked.Read(ref _evictionCount), tags),

@@ -83,17 +83,14 @@ public class ConcurrencyTests : IDisposable
         await FlushMetricsAsync(metricsProvider);
 
         // Assert: Verify metrics were recorded correctly despite concurrent access
-        var hitsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache.hits");
-        var missesMetric = exportedItems.FirstOrDefault(m => m.Name == "cache.misses");
+        var lookupsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache.lookups");
 
-        Assert.NotNull(hitsMetric);
-        Assert.NotNull(missesMetric);
+        Assert.NotNull(lookupsMetric);
 
-        AssertMetricHasTag(hitsMetric, "cache.name", "concurrent-cache");
-        AssertMetricHasTag(missesMetric, "cache.name", "concurrent-cache");
+        AssertMetricHasTag(lookupsMetric, "cache.name", "concurrent-cache");
 
-        var totalHits = GetMetricValue(hitsMetric);
-        var totalMisses = GetMetricValue(missesMetric);
+        var totalHits = GetMetricValueByTag(lookupsMetric, "cache.result", "hit");
+        var totalMisses = GetMetricValueByTag(lookupsMetric, "cache.result", "miss");
 
         // Verify total operations match expected count
         Assert.Equal(operationCount, totalHits + totalMisses);
@@ -256,21 +253,18 @@ public class ConcurrencyTests : IDisposable
         // Assert: Verify metric accuracy under high concurrency
         var exportedMetrics = exportedItems;
 
-        var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.hits");
-        var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.misses");
+        var lookupsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.lookups");
 
-        Assert.NotNull(hitsMetric);
-        Assert.NotNull(missesMetric);
+        Assert.NotNull(lookupsMetric);
 
-        var totalHits = GetMetricValue(hitsMetric);
-        var totalMisses = GetMetricValue(missesMetric);
+        var totalHits = GetMetricValueByTag(lookupsMetric, "cache.result", "hit");
+        var totalMisses = GetMetricValueByTag(lookupsMetric, "cache.result", "miss");
 
         // Verify total operations
         Assert.Equal(totalOperations, totalHits + totalMisses);
 
         // Verify cache name tag is present and correct
-        AssertMetricHasTag(hitsMetric, "cache.name", "stress-cache");
-        AssertMetricHasTag(missesMetric, "cache.name", "stress-cache");
+        AssertMetricHasTag(lookupsMetric, "cache.name", "stress-cache");
 
         // Verify individual thread counters sum correctly
         var expectedHits = operationCounters.Where(kv => kv.Key.Contains("-hits")).Sum(kv => kv.Value);
@@ -343,25 +337,20 @@ public class ConcurrencyTests : IDisposable
         // Assert: Verify all tags are preserved under concurrency
         var exportedMetrics = exportedItems;
 
-        var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.hits");
-        var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.misses");
+        var lookupsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.lookups");
 
-        Assert.NotNull(hitsMetric);
-        Assert.NotNull(missesMetric);
+        Assert.NotNull(lookupsMetric);
 
         // Verify cache name tag
-        AssertMetricHasTag(hitsMetric, "cache.name", "tagged-cache");
-        AssertMetricHasTag(missesMetric, "cache.name", "tagged-cache");
+        AssertMetricHasTag(lookupsMetric, "cache.name", "tagged-cache");
 
         // Verify additional tags
-        AssertMetricHasTag(hitsMetric, "environment", "test");
-        AssertMetricHasTag(hitsMetric, "component", "integration-test");
-        AssertMetricHasTag(missesMetric, "environment", "test");
-        AssertMetricHasTag(missesMetric, "component", "integration-test");
+        AssertMetricHasTag(lookupsMetric, "environment", "test");
+        AssertMetricHasTag(lookupsMetric, "component", "integration-test");
 
         // Verify operation counts
         var totalOperations = threadCount * operationsPerThread;
-        var hitsAndMisses = GetMetricValue(hitsMetric) + GetMetricValue(missesMetric);
+        var hitsAndMisses = GetMetricValue(lookupsMetric);
 
         // Should be roughly half since we do 2 get operations for every 2 set/remove operations
         Assert.True(hitsAndMisses >= totalOperations / 4, $"Expected at least {totalOperations / 4} hits+misses, got {hitsAndMisses}");
@@ -433,16 +422,13 @@ public class ConcurrencyTests : IDisposable
         // Assert: Verify metrics consistency despite race conditions
         var exportedMetrics = exportedItems;
 
-        var hitsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.hits");
-        var missesMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.misses");
+        var lookupsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.lookups");
         var evictionsMetric = exportedMetrics.FirstOrDefault(m => m.Name == "cache.evictions");
 
-        Assert.NotNull(hitsMetric);
-        Assert.NotNull(missesMetric);
+        Assert.NotNull(lookupsMetric);
 
         // Verify metrics have correct tags
-        AssertMetricHasTag(hitsMetric, "cache.name", "race-cache");
-        AssertMetricHasTag(missesMetric, "cache.name", "race-cache");
+        AssertMetricHasTag(lookupsMetric, "cache.name", "race-cache");
 
         if (evictionsMetric != null)
         {
@@ -450,8 +436,8 @@ public class ConcurrencyTests : IDisposable
         }
 
         // Verify metric values are reasonable (no negative values, etc.)
-        var hits = GetMetricValue(hitsMetric);
-        var misses = GetMetricValue(missesMetric);
+        var hits = GetMetricValueByTag(lookupsMetric, "cache.result", "hit");
+        var misses = GetMetricValueByTag(lookupsMetric, "cache.result", "miss");
         var evictions = evictionsMetric != null ? GetMetricValue(evictionsMetric) : 0;
 
         Assert.True(hits >= 0, $"Hits should be non-negative, got {hits}");
@@ -544,20 +530,18 @@ public class ConcurrencyTests : IDisposable
         var allMetricNames = exportedItems.Select(m => m.Name).ToList();
         Assert.True(exportedItems.Count > 0, $"No metrics were exported. Expected at least some metrics, but got {exportedItems.Count} metrics. Available metric names: [{string.Join(", ", allMetricNames)}]");
 
-        var hitsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache.hits");
-        var missesMetric = exportedItems.FirstOrDefault(m => m.Name == "cache.misses");
+        var lookupsMetric = exportedItems.FirstOrDefault(m => m.Name == "cache.lookups");
 
-        Assert.NotNull(hitsMetric);
-        Assert.NotNull(missesMetric);
+        Assert.NotNull(lookupsMetric);
 
         // Verify metrics from all caches are captured
         var totalExpectedOperations = cacheCount * operationsPerCache;
-        var totalMetricOperations = GetMetricValue(hitsMetric) + GetMetricValue(missesMetric);
+        var totalMetricOperations = GetMetricValue(lookupsMetric);
 
         Assert.Equal(totalExpectedOperations, totalMetricOperations);
 
         // Verify each cache has its own metrics with correct cache name
-        foreach (var metricPoint in GetMetricPoints(hitsMetric))
+        foreach (var metricPoint in GetMetricPoints(lookupsMetric))
         {
             var cacheNameTag = default(KeyValuePair<string, object?>);
             foreach (var tag in metricPoint.Tags)

@@ -9,8 +9,7 @@ namespace CacheImplementations;
 /// High-performance <see cref="IMemoryCache"/> decorator that uses atomic operations
 /// for minimal-overhead metrics tracking, similar to HybridCache and <see cref="MemoryCache"/>.
 /// Uses Observable instruments per dotnet/runtime#124140 to avoid hot-path overhead.
-/// </summary>
-[DebuggerDisplay("{Name ?? \"(unnamed)\"}")]
+/// </summary>("{Name ?? \"(unnamed)\"}")]
 public sealed class OptimizedMeteredMemoryCache : IMemoryCache
 {
     private readonly IMemoryCache _inner;
@@ -213,13 +212,17 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
             ? Array.Empty<KeyValuePair<string, object?>>()
             : new[] { new KeyValuePair<string, object?>("cache.name", _cacheName!) };
 
-        meter.CreateObservableCounter("cache.hits",
-            () => new Measurement<long>(Interlocked.Read(ref _hitCount), tags),
-            description: "Total number of cache hits.");
+        // Pre-allocate tag arrays with cache.result dimension per OTel conventions
+        var hitTags = tags.Append(new KeyValuePair<string, object?>("cache.result", "hit")).ToArray();
+        var missTags = tags.Append(new KeyValuePair<string, object?>("cache.result", "miss")).ToArray();
 
-        meter.CreateObservableCounter("cache.misses",
-            () => new Measurement<long>(Interlocked.Read(ref _missCount), tags),
-            description: "Total number of cache misses.");
+        meter.CreateObservableCounter("cache.lookups",
+            () => new[]
+            {
+                new Measurement<long>(Interlocked.Read(ref _hitCount), hitTags),
+                new Measurement<long>(Interlocked.Read(ref _missCount), missTags),
+            },
+            description: "Total number of cache lookup operations.");
 
         meter.CreateObservableCounter("cache.evictions",
             () => new Measurement<long>(Interlocked.Read(ref _evictionCount), tags),

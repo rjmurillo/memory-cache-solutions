@@ -73,23 +73,26 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
     public void PublishMetrics_PublishesAccumulatedMetrics()
     {
         using var subject = CreateTestSubject(cacheName: "publish-test");
-        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.hits", "cache.misses");
+        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.lookups");
 
         // Perform operations
         subject.Cache.TryGetValue("miss", out _); // miss
         subject.Cache.Set("hit", "value");
         subject.Cache.TryGetValue("hit", out _); // hit
 
+        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+
         // With Observable instruments, metrics are always available via RecordObservableInstruments
-        Assert.Equal(1, harness.AggregatedCounters["cache.hits"]);
-        Assert.Equal(1, harness.AggregatedCounters["cache.misses"]);
+        Assert.Equal(1, harness.GetAggregatedCount("cache.lookups", hitTag));
+        Assert.Equal(1, harness.GetAggregatedCount("cache.lookups", missTag));
 
         // PublishMetrics is now a no-op — counters are not reset
         subject.PublishMetrics();
 
         // Metrics should still show accumulated values
-        Assert.Equal(1, harness.AggregatedCounters["cache.hits"]);
-        Assert.Equal(1, harness.AggregatedCounters["cache.misses"]);
+        Assert.Equal(1, harness.GetAggregatedCount("cache.lookups", hitTag));
+        Assert.Equal(1, harness.GetAggregatedCount("cache.lookups", missTag));
 
         // Statistics reflect accumulated totals (no reset with Observable instruments)
         var stats = subject.GetCurrentStatistics() as CacheStatistics;
@@ -105,7 +108,7 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
     public void WithMetricsDisabled_NoMetricsEmitted()
     {
         using var subject = CreateTestSubjectWithMetricsDisabled(cacheName: "disabled-test");
-        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.hits", "cache.misses");
+        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.lookups");
 
         Assert.False(subject.MetricsEnabled);
 
@@ -118,8 +121,8 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
         subject.PublishMetrics();
 
         // No metrics should be emitted
-        Assert.Equal(0, harness.AggregatedCounters.GetValueOrDefault("cache.hits", 0));
-        Assert.Equal(0, harness.AggregatedCounters.GetValueOrDefault("cache.misses", 0));
+        Assert.Equal(0, harness.AggregatedCounters.GetValueOrDefault("cache.lookups", 0));
+        Assert.Equal(0, harness.AggregatedCounters.GetValueOrDefault("cache.lookups", 0));
 
         // Statistics should still be available (they use atomic operations regardless)
         var stats = subject.GetCurrentStatistics() as CacheStatistics;
@@ -185,16 +188,19 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
     public void MultiplePublishMetrics_WorksCorrectly()
     {
         using var subject = CreateTestSubject(cacheName: "multiple-publish-test");
-        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.hits", "cache.misses");
+        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.lookups");
 
         // First batch of operations
         subject.Cache.TryGetValue("miss1", out _);
         subject.Cache.Set("hit1", "value1");
         subject.Cache.TryGetValue("hit1", out _);
 
+        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+
         // Observable instruments report accumulated totals
-        Assert.Equal(1, harness.AggregatedCounters["cache.hits"]);
-        Assert.Equal(1, harness.AggregatedCounters["cache.misses"]);
+        Assert.Equal(1, harness.GetAggregatedCount("cache.lookups", hitTag));
+        Assert.Equal(1, harness.GetAggregatedCount("cache.lookups", missTag));
 
         // Second batch of operations
         subject.Cache.TryGetValue("miss2", out _);
@@ -203,8 +209,8 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
         subject.Cache.TryGetValue("hit2", out _);
 
         // Counters accumulate monotonically
-        Assert.Equal(2, harness.AggregatedCounters["cache.hits"]); // 1 + 1
-        Assert.Equal(3, harness.AggregatedCounters["cache.misses"]); // 1 + 2
+        Assert.Equal(2, harness.GetAggregatedCount("cache.lookups", hitTag)); // 1 + 1
+        Assert.Equal(3, harness.GetAggregatedCount("cache.lookups", missTag)); // 1 + 2
 
         // Statistics reflect accumulated totals (no reset with Observable instruments)
         var stats = subject.GetCurrentStatistics() as CacheStatistics;
@@ -244,16 +250,19 @@ public class OptimizedMeteredMemoryCacheSharedTests : MeteredCacheTestBase<Optim
         try
         {
             subject = CreateTestSubject(cacheName: "dispose-test");
-            harness = new MetricCollectionHarness(subject.Meter.Name, "cache.hits", "cache.misses");
+            harness = new MetricCollectionHarness(subject.Meter.Name, "cache.lookups");
 
             // Perform operations
             subject.Cache.TryGetValue("miss", out _);
             subject.Cache.Set("hit", "value");
             subject.Cache.TryGetValue("hit", out _);
 
+            var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+            var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+
             // Observable instruments report accumulated values before disposal
-            Assert.Equal(1, harness.AggregatedCounters.GetValueOrDefault("cache.hits", 0));
-            Assert.Equal(1, harness.AggregatedCounters.GetValueOrDefault("cache.misses", 0));
+            Assert.Equal(1, harness.GetAggregatedCount("cache.lookups", hitTag));
+            Assert.Equal(1, harness.GetAggregatedCount("cache.lookups", missTag));
 
             // Dispose the cache
             subject.Dispose();

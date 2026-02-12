@@ -113,6 +113,22 @@ public class MeteredMemoryCacheTests
             _listener.Start();
         }
 
+        /// <summary>
+        /// Gets the aggregated count for measurements of a specific instrument filtered by tags.
+        /// </summary>
+        public long GetAggregatedCount(string instrumentName, params KeyValuePair<string, object?>[] requiredTags)
+        {
+            Collect();
+            lock (_lock)
+            {
+                return _measurements
+                    .Where(m => m.Name == instrumentName &&
+                        requiredTags.All(required =>
+                            m.Tags.Any(t => t.Key == required.Key && Equals(t.Value, required.Value))))
+                    .Sum(m => m.Value);
+            }
+        }
+
         public void Dispose() => _listener.Dispose();
     }
 
@@ -147,7 +163,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache"));
-        using var listener = new TestListener(meter.Name, "cache.hits", "cache.misses");
+        using var listener = new TestListener(meter.Name, "cache.lookups");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: null);
 
@@ -155,8 +171,10 @@ public class MeteredMemoryCacheTests
         cache.Set("k", 10);            // set
         cache.TryGetValue("k", out _); // hit
 
-        Assert.Equal(1, listener.Counters["cache.hits"]);
-        Assert.Equal(1, listener.Counters["cache.misses"]);
+        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", hitTag));
+        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", missTag));
     }
 
     [Fact]
@@ -188,7 +206,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache3"));
-        using var listener = new TestListener(meter.Name, "cache.hits", "cache.misses");
+        using var listener = new TestListener(meter.Name, "cache.lookups");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "test-cache-name");
 
@@ -270,10 +288,10 @@ public class MeteredMemoryCacheTests
             $"Expected metrics with cache.name tag, but only {metricsWithCacheName} found out of {metricsSnapshot.Length} total");
 
         // Document the pattern inconsistency in the test output
-        var hitMissMetrics = metricsSnapshot.Where(m => m.InstrumentName.Contains("hits") || m.InstrumentName.Contains("misses"));
+        var lookupMetrics = metricsSnapshot.Where(m => m.InstrumentName.Contains("lookups"));
         var evictionMetrics = metricsSnapshot.Where(m => m.InstrumentName.Contains("evictions"));
 
-        Assert.True(hitMissMetrics.Any(), "Should have hit/miss metrics that use _baseTags directly");
+        Assert.True(lookupMetrics.Any(), "Should have lookup metrics with cache.result dimension");
         // Eviction metrics may or may not be present due to timing, but the pattern difference exists in the code
     }
 
@@ -768,7 +786,7 @@ public class MeteredMemoryCacheTests
 
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.miss.race"));
-        using var listener = new TestListener(meter.Name, "cache.hits", "cache.misses");
+        using var listener = new TestListener(meter.Name, "cache.lookups");
 
         var cache = new MeteredMemoryCache(inner, meter, "miss-race-test");
 
@@ -793,15 +811,18 @@ public class MeteredMemoryCacheTests
         // because it increments miss counter before checking if factory actually runs
         // This test documents the race condition that needs to be fixed
 
+        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+
         // With the current implementation, this will show 1 miss even though no factory ran
         // After the fix, this should show 0 misses since the value was already cached
-        var missCount = listener.Counters.TryGetValue("cache.misses", out var misses) ? misses : 0;
+        var missCount = listener.GetAggregatedCount("cache.lookups", missTag);
 
         // With the fix implemented, miss count should be 0 since factory didn't run
         Assert.Equal(0, missCount);
 
         // Verify we got a hit instead since the value was already in cache
-        var hitCount = listener.Counters.TryGetValue("cache.hits", out var hits) ? hits : 0;
+        var hitCount = listener.GetAggregatedCount("cache.lookups", hitTag);
         Assert.Equal(1, hitCount);
     }
 
@@ -825,7 +846,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache7"));
-        using var listener = new TestListener(meter.Name, "cache.hits", "cache.misses");
+        using var listener = new TestListener(meter.Name, "cache.lookups");
 
         var options = new MeteredMemoryCacheOptions
         {
@@ -855,7 +876,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache8"));
-        using var listener = new TestListener(meter.Name, "cache.hits");
+        using var listener = new TestListener(meter.Name, "cache.lookups");
 
         var options = new MeteredMemoryCacheOptions
         {
@@ -868,7 +889,7 @@ public class MeteredMemoryCacheTests
         cache.TryGetValue("k", out _); // miss
 
         // Should only have the cache.name from CacheName property, not from AdditionalTags
-        var measurements = listener.Measurements.Where(m => m.Name == "cache.hits" || m.Name == "cache.misses").ToList();
+        var measurements = listener.Measurements.Where(m => m.Name == "cache.lookups").ToList();
         Assert.All(measurements, m =>
         {
             var cacheNameTags = m.Tags.Where(tag => tag.Key == "cache.name").ToList();
@@ -983,7 +1004,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache16"));
-        using var listener = new TestListener(meter.Name, "cache.hits", "cache.misses");
+        using var listener = new TestListener(meter.Name, "cache.lookups");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "tryget-cache");
 
@@ -999,8 +1020,10 @@ public class MeteredMemoryCacheTests
         Assert.Equal("test-value", hitValue);
 
         // Verify metrics with cache.name tag
-        Assert.Equal(1, listener.Counters["cache.hits"]);
-        Assert.Equal(1, listener.Counters["cache.misses"]);
+        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", hitTag));
+        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", missTag));
 
         Assert.Contains(true, listener.Measurements.Select(m =>
             m.Tags.Any(tag => tag.Key == "cache.name" && (string?)tag.Value == "tryget-cache")));
@@ -1011,7 +1034,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache17"));
-        using var listener = new TestListener(meter.Name, "cache.hits", "cache.misses");
+        using var listener = new TestListener(meter.Name, "cache.lookups");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "getorcreate-cache");
 
@@ -1024,8 +1047,10 @@ public class MeteredMemoryCacheTests
         Assert.Equal("created-value", value2);
 
         // Verify metrics
-        Assert.Equal(1, listener.Counters["cache.hits"]);
-        Assert.Equal(1, listener.Counters["cache.misses"]);
+        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", hitTag));
+        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", missTag));
 
         // Verify cache.name tag is present
         Assert.Contains(true, listener.Measurements.Select(m =>
@@ -1038,7 +1063,7 @@ public class MeteredMemoryCacheTests
         using var inner1 = new MemoryCache(new MemoryCacheOptions());
         using var inner2 = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache18"));
-        using var listener = new TestListener(meter.Name, "cache.hits", "cache.misses");
+        using var listener = new TestListener(meter.Name, "cache.lookups");
 
         var cache1 = new MeteredMemoryCache(inner1, meter, cacheName: "cache-one");
         var cache2 = new MeteredMemoryCache(inner2, meter, cacheName: "cache-two");
@@ -1062,11 +1087,9 @@ public class MeteredMemoryCacheTests
         Assert.NotEmpty(cache1Measurements);
         Assert.NotEmpty(cache2Measurements);
 
-        // Each cache should have both hit and miss measurements
-        Assert.Contains(cache1Measurements, m => m.Name == "cache.hits");
-        Assert.Contains(cache1Measurements, m => m.Name == "cache.misses");
-        Assert.Contains(cache2Measurements, m => m.Name == "cache.hits");
-        Assert.Contains(cache2Measurements, m => m.Name == "cache.misses");
+        // Each cache should have lookups measurements with both hit and miss results
+        Assert.Contains(cache1Measurements, m => m.Name == "cache.lookups");
+        Assert.Contains(cache2Measurements, m => m.Name == "cache.lookups");
     }
 
     [Theory]

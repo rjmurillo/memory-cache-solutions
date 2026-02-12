@@ -355,7 +355,7 @@ public abstract class MeteredCacheTestBase<TTestSubject>
     public void HitAndMissOperations_RecordsCorrectMetrics()
     {
         using var subject = CreateTestSubject(cacheName: "test-cache");
-        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.hits", "cache.misses");
+        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.lookups");
 
         // Execute operations
         subject.Cache.TryGetValue("k", out _); // miss
@@ -365,15 +365,18 @@ public abstract class MeteredCacheTestBase<TTestSubject>
         // Publish metrics if supported
         subject.PublishMetrics();
 
+        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+
         if (subject.MetricsEnabled)
         {
-            Assert.Equal(1, harness.AggregatedCounters["cache.hits"]);
-            Assert.Equal(1, harness.AggregatedCounters["cache.misses"]);
+            Assert.Equal(1, harness.GetAggregatedCount("cache.lookups", hitTag));
+            Assert.Equal(1, harness.GetAggregatedCount("cache.lookups", missTag));
         }
         else
         {
-            Assert.Equal(0, harness.AggregatedCounters.GetValueOrDefault("cache.hits", 0));
-            Assert.Equal(0, harness.AggregatedCounters.GetValueOrDefault("cache.misses", 0));
+            Assert.Equal(0, harness.GetAggregatedCount("cache.lookups", hitTag));
+            Assert.Equal(0, harness.GetAggregatedCount("cache.lookups", missTag));
         }
     }
 
@@ -441,7 +444,7 @@ public abstract class MeteredCacheTestBase<TTestSubject>
     public void WithCacheName_EmitsCacheNameTag()
     {
         using var subject = CreateTestSubject(cacheName: "test-cache-name");
-        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.hits", "cache.misses");
+        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.lookups");
 
         subject.Cache.TryGetValue("k", out _); // miss
         subject.Cache.Set("k", 42);
@@ -467,7 +470,7 @@ public abstract class MeteredCacheTestBase<TTestSubject>
         using var sharedMeter = new Meter(SharedUtilities.GetUniqueMeterName("test.shared"));
         using var subject1 = CreateTestSubject(meter: sharedMeter, cacheName: "cache-one");
         using var subject2 = CreateTestSubject(meter: sharedMeter, cacheName: "cache-two");
-        using var harness = new MetricCollectionHarness(sharedMeter.Name, "cache.hits", "cache.misses");
+        using var harness = new MetricCollectionHarness(sharedMeter.Name, "cache.lookups");
         // Generate metrics for both caches
         subject1.Cache.TryGetValue("key", out _); // miss for cache-one
         subject2.Cache.TryGetValue("key", out _); // miss for cache-two
@@ -502,7 +505,7 @@ public abstract class MeteredCacheTestBase<TTestSubject>
     public void HighVolumeOperations_AccurateAggregation()
     {
         using var subject = CreateTestSubject(cacheName: "volume-test");
-        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.hits", "cache.misses");
+        using var harness = new MetricCollectionHarness(subject.Meter.Name, "cache.lookups");
 
         const int operationCount = 1000;
 
@@ -534,11 +537,14 @@ public abstract class MeteredCacheTestBase<TTestSubject>
         // Publish metrics if supported
         subject.PublishMetrics();
 
+        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
+
         if (subject.MetricsEnabled)
         {
             // Validate exact counts: 100 misses + 800 hits = 900 total operations
-            harness.AssertAggregatedCount("cache.misses", 100);
-            harness.AssertAggregatedCount("cache.hits", 800);
+            Assert.Equal(100, harness.GetAggregatedCount("cache.lookups", missTag));
+            Assert.Equal(800, harness.GetAggregatedCount("cache.lookups", hitTag));
         }
     }
 
