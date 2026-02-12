@@ -243,7 +243,11 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
         if (_inner is MemoryCache memoryCache && memoryCache.GetCurrentStatistics() is not null)
         {
             meter.CreateObservableGauge("cache.estimated_size",
-                () => new Measurement<long>(memoryCache.GetCurrentStatistics()?.CurrentEstimatedSize ?? 0, tags),
+                () =>
+                {
+                    if (Volatile.Read(ref _disposed) != 0) return new Measurement<long>(0, tags);
+                    return new Measurement<long>(memoryCache.GetCurrentStatistics()?.CurrentEstimatedSize ?? 0, tags);
+                },
                 description: "Estimated size of the cache in bytes.");
         }
     }
