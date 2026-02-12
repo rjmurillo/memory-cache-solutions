@@ -127,6 +127,70 @@ public class ServiceCollectionExtensionsValidationTests
     }
 
     /// <summary>
+    /// Tests that DecorateMemoryCacheWithMetrics throws when multiple IMemoryCache registrations exist.
+    /// </summary>
+    [Fact]
+    public void DecorateMemoryCacheWithMetrics_WithMultipleRegistrations_ShouldThrowInvalidOperationException()
+    {
+        var services = new ServiceCollection();
+        // Add two IMemoryCache registrations
+        services.AddSingleton<IMemoryCache>(new MemoryCache(new MemoryCacheOptions()));
+        services.AddSingleton<IMemoryCache>(new MemoryCache(new MemoryCacheOptions()));
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+        {
+            services.DecorateMemoryCacheWithMetrics(cacheName: "test-cache", meterName: "test-meter");
+        });
+
+        Assert.Contains("Multiple IMemoryCache registrations found", exception.Message);
+    }
+
+    /// <summary>
+    /// Tests that DecorateMemoryCacheWithMetrics resolves from ImplementationInstance correctly.
+    /// </summary>
+    [Fact]
+    public void DecorateMemoryCacheWithMetrics_WithImplementationInstance_ShouldResolveCorrectly()
+    {
+        var services = new ServiceCollection();
+        var innerCache = new MemoryCache(new MemoryCacheOptions());
+        // Register with an implementation instance
+        services.AddSingleton<IMemoryCache>(innerCache);
+
+        services.DecorateMemoryCacheWithMetrics(cacheName: "instance-cache", meterName: "instance-meter");
+
+        var provider = services.BuildServiceProvider();
+        var cache = provider.GetRequiredService<IMemoryCache>();
+
+        // Should be a MeteredMemoryCache wrapping the instance
+        Assert.IsType<MeteredMemoryCache>(cache);
+        cache.Set("test-key", "test-value");
+        Assert.True(cache.TryGetValue("test-key", out var value));
+        Assert.Equal("test-value", value);
+    }
+
+    /// <summary>
+    /// Tests that CreateInnerCache throws when the descriptor has an unresolvable configuration.
+    /// This covers the defensive guard for descriptors registered as keyed services
+    /// where ImplementationType, ImplementationFactory, and ImplementationInstance are all null.
+    /// </summary>
+    [Fact]
+    public void DecorateMemoryCacheWithMetrics_WithKeyedServiceDescriptor_ShouldThrowInvalidOperationException()
+    {
+        var services = new ServiceCollection();
+
+        // Register a keyed IMemoryCache service — the non-keyed properties will all be null
+        services.AddKeyedSingleton<IMemoryCache>("my-key", (sp, key) => new MemoryCache(new MemoryCacheOptions()));
+
+        // The keyed descriptor has ServiceType == IMemoryCache but ImplementationType/Factory/Instance are all null.
+        // Attempting to decorate it should hit the defensive throw.
+        services.DecorateMemoryCacheWithMetrics(cacheName: "keyed-cache", meterName: "keyed-meter");
+
+        var provider = services.BuildServiceProvider();
+
+        Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IMemoryCache>());
+    }
+
+    /// <summary>
     /// Tests that AddNamedMeteredMemoryCache works correctly with valid configuration.
     /// </summary>
     [Fact]
