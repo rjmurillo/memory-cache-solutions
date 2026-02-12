@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Primitives;
 
 namespace CacheImplementations;
 
@@ -198,9 +199,10 @@ public sealed class MeteredMemoryCache : IMemoryCache
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
         var entry = _inner.CreateEntry(key);
 
-        Interlocked.Increment(ref _entryCount);
+        // Entry count is incremented when the entry is committed (disposed), not when created.
+        // This prevents inflated counts when entries are created but never committed.
         RegisterEvictionCallback(entry, this);
-        return entry;
+        return new TrackingCacheEntry(entry, this);
     }
 
     /// <summary>
@@ -356,6 +358,94 @@ public sealed class MeteredMemoryCache : IMemoryCache
 
         if (_disposeInner)
         {
+            _inner.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Wrapper for <see cref="ICacheEntry"/> that increments entry count only when the entry is committed.
+    /// This prevents inflated counts when entries are created but never committed to the cache.
+    /// </summary>
+    private sealed class TrackingCacheEntry : ICacheEntry
+    {
+        private readonly ICacheEntry _inner;
+        private readonly MeteredMemoryCache _cache;
+        private int _committed;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TrackingCacheEntry"/> class.
+        /// </summary>
+        /// <param name="inner">The underlying cache entry to wrap.</param>
+        /// <param name="cache">The parent cache instance for entry count tracking.</param>
+        public TrackingCacheEntry(ICacheEntry inner, MeteredMemoryCache cache)
+        {
+            _inner = inner;
+            _cache = cache;
+        }
+
+        /// <inheritdoc/>
+        public object Key => _inner.Key;
+
+        /// <inheritdoc/>
+        public object? Value
+        {
+            get => _inner.Value;
+            set => _inner.Value = value;
+        }
+
+        /// <inheritdoc/>
+        public DateTimeOffset? AbsoluteExpiration
+        {
+            get => _inner.AbsoluteExpiration;
+            set => _inner.AbsoluteExpiration = value;
+        }
+
+        /// <inheritdoc/>
+        public TimeSpan? AbsoluteExpirationRelativeToNow
+        {
+            get => _inner.AbsoluteExpirationRelativeToNow;
+            set => _inner.AbsoluteExpirationRelativeToNow = value;
+        }
+
+        /// <inheritdoc/>
+        public TimeSpan? SlidingExpiration
+        {
+            get => _inner.SlidingExpiration;
+            set => _inner.SlidingExpiration = value;
+        }
+
+        /// <inheritdoc/>
+        public IList<IChangeToken> ExpirationTokens => _inner.ExpirationTokens;
+
+        /// <inheritdoc/>
+        public IList<PostEvictionCallbackRegistration> PostEvictionCallbacks => _inner.PostEvictionCallbacks;
+
+        /// <inheritdoc/>
+        public CacheItemPriority Priority
+        {
+            get => _inner.Priority;
+            set => _inner.Priority = value;
+        }
+
+        /// <inheritdoc/>
+        public long? Size
+        {
+            get => _inner.Size;
+            set => _inner.Size = value;
+        }
+
+        /// <summary>
+        /// Commits the entry to the cache and increments the entry count.
+        /// The count is only incremented once, even if Dispose is called multiple times.
+        /// </summary>
+        public void Dispose()
+        {
+            // Only increment entry count once when the entry is committed
+            if (Interlocked.Exchange(ref _committed, 1) == 0)
+            {
+                Interlocked.Increment(ref _cache._entryCount);
+            }
+
             _inner.Dispose();
         }
     }
