@@ -442,8 +442,12 @@ public class OptimizedMeteredMemoryCacheSpecificTests
         await Task.Yield();
         await Task.Yield();
 
-        // No eviction metrics should be emitted after disposal
-        Assert.DoesNotContain(emittedMetrics, m => m.StartsWith("cache.evictions"));
+        // Record Observable instruments to trigger measurement callbacks
+        listener.RecordObservableInstruments();
+
+        // The disposal guard should prevent eviction count from incrementing.
+        // Observable instruments still report (value 0), but no eviction was counted.
+        Assert.DoesNotContain(emittedMetrics, m => m.StartsWith("cache.evictions") && !m.EndsWith(":0"));
     }
 
     [Fact]

@@ -161,6 +161,12 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
         {
             var cache = (OptimizedMeteredMemoryCache)state!;
 
+            // Guard: no metric updates after disposal
+            if (Volatile.Read(ref cache._disposed) != 0)
+            {
+                return;
+            }
+
             // Per dotnet/runtime#124140: evictions exclude explicit user removals and replacements.
             if (reason != EvictionReason.Removed && reason != EvictionReason.Replaced)
             {
@@ -233,7 +239,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
             description: "Current number of entries in the cache.");
 
         // cache.estimated_size is only available when the inner cache is MemoryCache with TrackStatistics enabled
-        if (_inner is MemoryCache memoryCache)
+        if (_inner is MemoryCache memoryCache && memoryCache.GetCurrentStatistics() is not null)
         {
             meter.CreateObservableGauge("cache.estimated_size",
                 () => new Measurement<long>(memoryCache.GetCurrentStatistics()?.CurrentEstimatedSize ?? 0, tags),

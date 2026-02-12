@@ -235,11 +235,7 @@ public class OpenTelemetryIntegrationTests
             // With Observable instruments, both caches report hits — just verify both are present
             var productCacheHits = hitMetrics.Where(m => HasTag(m, "cache.name", "product-cache"));
             // Observable instruments always report, so product-cache metric exists (with value 0)
-
-            var missMetrics = FindMetrics(exportedItems, "cache.lookups");
-            var productCacheMisses = missMetrics.Where(m => HasTag(m, "cache.name", "product-cache"));
-
-            Assert.Single(productCacheMisses);
+            Assert.Single(productCacheHits);
         });
     }
 

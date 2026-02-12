@@ -12,6 +12,7 @@ namespace CacheImplementations;
 ///  - cache.lookups (<see cref="ObservableCounter{T}"/>) with cache.result dimension (hit/miss)
 ///  - cache.evictions (<see cref="ObservableCounter{T}"/>)
 ///  - cache.entries (<see cref="ObservableUpDownCounter{T}"/>)
+///  - cache.estimated_size (<see cref="ObservableGauge{T}"/>) when the inner cache is a <see cref="MemoryCache"/> with statistics tracking enabled.
 /// </summary>
 [DebuggerDisplay("{Name ?? \"(unnamed)\"}")]
 public sealed class MeteredMemoryCache : IMemoryCache
@@ -295,7 +296,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
             description: "Current number of entries in the cache.");
 
         // cache.estimated_size is only available when the inner cache is MemoryCache with TrackStatistics enabled
-        if (_inner is MemoryCache memoryCache)
+        if (_inner is MemoryCache memoryCache && memoryCache.GetCurrentStatistics() is not null)
         {
             meter.CreateObservableGauge("cache.estimated_size",
                 () => new Measurement<long>(memoryCache.GetCurrentStatistics()?.CurrentEstimatedSize ?? 0, tags),
@@ -311,6 +312,12 @@ public sealed class MeteredMemoryCache : IMemoryCache
         entry.RegisterPostEvictionCallback(static (_, _, reason, state) =>
         {
             var cache = (MeteredMemoryCache)state!;
+
+            // Guard: no metric updates after disposal
+            if (Volatile.Read(ref cache._disposed) != 0)
+            {
+                return;
+            }
 
             // Per dotnet/runtime#124140: evictions exclude explicit user removals and replacements.
             if (reason != EvictionReason.Removed && reason != EvictionReason.Replaced)

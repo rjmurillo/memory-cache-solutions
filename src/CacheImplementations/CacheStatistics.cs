@@ -6,7 +6,7 @@ namespace CacheImplementations;
 /// <remarks>
 /// This class provides a snapshot of cache performance metrics including hit counts,
 /// miss counts, eviction counts, and the calculated hit ratio. Property names align
-/// with the BCL <c>MemoryCacheStatistics</c> type per dotnet/runtime#124140.
+/// with the BCL <see cref="Microsoft.Extensions.Caching.Memory.MemoryCacheStatistics"/> type per dotnet/runtime#124140.
 /// </remarks>
 public sealed class CacheStatistics
 {
