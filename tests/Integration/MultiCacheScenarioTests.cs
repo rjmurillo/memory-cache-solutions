@@ -80,7 +80,6 @@ public class MultiCacheScenarioTests
         Assert.True(sessionHitsDetected, "Session cache hit metrics should be detected within timeout");
 
         var hitMetrics = FindMetrics(exportedItems, "cache.lookups");
-        var missMetrics = FindMetrics(exportedItems, "cache.lookups");
 
         // User cache assertions
         var userLookups = hitMetrics.Where(m => HasTag(m, "cache.name", "user-cache"));
@@ -131,32 +130,35 @@ public class MultiCacheScenarioTests
         await FlushMetricsAsync(host);
 
         // Assert
-        var hitMetrics = FindMetrics(exportedItems, "cache.lookups");
-        var missMetrics = FindMetrics(exportedItems, "cache.lookups");
+        var lookupsMetrics = FindMetrics(exportedItems, "cache.lookups");
 
         // Production cache metrics
-        var prodHits = hitMetrics.Where(m => HasTag(m, "cache.name", "prod-cache"));
-        var prodMisses = missMetrics.Where(m => HasTag(m, "cache.name", "prod-cache"));
-        Assert.Single(prodHits);
-        Assert.Single(prodMisses);
+        var prodLookups = lookupsMetrics.Where(m => HasTag(m, "cache.name", "prod-cache"));
+        Assert.Single(prodLookups);
 
         // Verify production cache has correct tags
-        AssertMetricHasTag(prodHits.First(), "cache.name", "prod-cache");
-        AssertMetricHasTag(prodHits.First(), "environment", "production");
-        AssertMetricHasTag(prodHits.First(), "region", "us-east-1");
-        AssertMetricHasTag(prodHits.First(), "tier", "premium");
+        AssertMetricHasTag(prodLookups.First(), "cache.name", "prod-cache");
+        AssertMetricHasTag(prodLookups.First(), "environment", "production");
+        AssertMetricHasTag(prodLookups.First(), "region", "us-east-1");
+        AssertMetricHasTag(prodLookups.First(), "tier", "premium");
+
+        // Verify production cache hit/miss values using cache.result dimension
+        AssertMetricValueForCacheByResult(prodLookups.First(), "prod-cache", "hit", 1);
+        AssertMetricValueForCacheByResult(prodLookups.First(), "prod-cache", "miss", 1);
 
         // Staging cache metrics
-        var stagingHits = hitMetrics.Where(m => HasTag(m, "cache.name", "staging-cache"));
-        var stagingMisses = missMetrics.Where(m => HasTag(m, "cache.name", "staging-cache"));
-        Assert.Single(stagingHits);
-        Assert.Single(stagingMisses);
+        var stagingLookups = lookupsMetrics.Where(m => HasTag(m, "cache.name", "staging-cache"));
+        Assert.Single(stagingLookups);
 
         // Verify staging cache has correct tags
-        AssertMetricHasTag(stagingHits.First(), "cache.name", "staging-cache");
-        AssertMetricHasTag(stagingHits.First(), "environment", "staging");
-        AssertMetricHasTag(stagingHits.First(), "region", "us-west-2");
-        AssertMetricHasTag(stagingHits.First(), "tier", "standard");
+        AssertMetricHasTag(stagingLookups.First(), "cache.name", "staging-cache");
+        AssertMetricHasTag(stagingLookups.First(), "environment", "staging");
+        AssertMetricHasTag(stagingLookups.First(), "region", "us-west-2");
+        AssertMetricHasTag(stagingLookups.First(), "tier", "standard");
+
+        // Verify staging cache hit/miss values using cache.result dimension
+        AssertMetricValueForCacheByResult(stagingLookups.First(), "staging-cache", "hit", 1);
+        AssertMetricValueForCacheByResult(stagingLookups.First(), "staging-cache", "miss", 1);
     }
 
     /// <summary>

@@ -187,13 +187,13 @@ public class OpenTelemetryIntegrationTests
             await FlushMetricsAsync(h);
 
             // Assert
-            var hitMetric = FindMetric(exportedItems, "cache.lookups");
-            Assert.NotNull(hitMetric);
-            AssertMetricHasTag(hitMetric, "cache.name", "user-cache");
+            var lookupsMetric = FindMetric(exportedItems, "cache.lookups");
+            Assert.NotNull(lookupsMetric);
+            AssertMetricHasTag(lookupsMetric, "cache.name", "user-cache");
 
-            var missMetric = FindMetric(exportedItems, "cache.lookups");
-            Assert.NotNull(missMetric);
-            AssertMetricHasTag(missMetric, "cache.name", "user-cache");
+            // Verify hit/miss values using cache.result dimension
+            AssertMetricValueByTag(lookupsMetric, "cache.result", "hit", 1);
+            AssertMetricValueByTag(lookupsMetric, "cache.result", "miss", 1);
         });
     }
 
