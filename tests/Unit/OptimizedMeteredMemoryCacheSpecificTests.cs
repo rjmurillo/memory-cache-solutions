@@ -480,4 +480,19 @@ public class OptimizedMeteredMemoryCacheSpecificTests
         var tagArray = emittedTags[0];
         Assert.DoesNotContain(tagArray, t => t.Key == "cache.name");
     }
+
+    [Fact]
+    public void Remove_ValidKey_RemovesEntryFromInnerCache()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.remove"));
+        using var cache = new OptimizedMeteredMemoryCache(inner, meter);
+
+        cache.Set("key1", "value1");
+        Assert.True(cache.TryGetValue("key1", out _));
+
+        cache.Remove("key1");
+
+        Assert.False(cache.TryGetValue("key1", out _));
+    }
 }
