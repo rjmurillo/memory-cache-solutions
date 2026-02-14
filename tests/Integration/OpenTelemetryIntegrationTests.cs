@@ -50,13 +50,13 @@ public class OpenTelemetryIntegrationTests
             Assert.True(result);
             Assert.Equal("test-value", value);
 
-            var hitMetric = FindMetric(exportedItems, "cache.lookups");
+            var hitMetric = FindMetric(exportedItems, "cache.requests");
             Assert.NotNull(hitMetric);
-            AssertMetricValueByTag(hitMetric, "cache.result", "hit", 1);
+            AssertMetricValueByTag(hitMetric, "cache.request.type", "hit", 1);
 
             // Verify miss metric is zero (Observable instruments always report)
-            Assert.Single(exportedItems, m => m.Name == "cache.lookups");
-            AssertMetricValueByTag(hitMetric, "cache.result", "miss", 0);
+            Assert.Single(exportedItems, m => m.Name == "cache.requests");
+            AssertMetricValueByTag(hitMetric, "cache.request.type", "miss", 0);
         });
     }
 
@@ -88,13 +88,13 @@ public class OpenTelemetryIntegrationTests
             Assert.False(result);
             Assert.Null(value);
 
-            var missMetric = FindMetric(exportedItems, "cache.lookups");
+            var missMetric = FindMetric(exportedItems, "cache.requests");
             Assert.NotNull(missMetric);
-            AssertMetricValueByTag(missMetric, "cache.result", "miss", 1);
+            AssertMetricValueByTag(missMetric, "cache.request.type", "miss", 1);
 
             // Verify hit metric is zero (Observable instruments always report)
-            Assert.Single(exportedItems, m => m.Name == "cache.lookups");
-            AssertMetricValueByTag(missMetric, "cache.result", "hit", 0);
+            Assert.Single(exportedItems, m => m.Name == "cache.requests");
+            AssertMetricValueByTag(missMetric, "cache.request.type", "hit", 0);
         });
     }
 
@@ -187,13 +187,13 @@ public class OpenTelemetryIntegrationTests
             await FlushMetricsAsync(h);
 
             // Assert
-            var lookupsMetric = FindMetric(exportedItems, "cache.lookups");
+            var lookupsMetric = FindMetric(exportedItems, "cache.requests");
             Assert.NotNull(lookupsMetric);
             AssertMetricHasTag(lookupsMetric, "cache.name", "user-cache");
 
-            // Verify hit/miss values using cache.result dimension
-            AssertMetricValueByTag(lookupsMetric, "cache.result", "hit", 1);
-            AssertMetricValueByTag(lookupsMetric, "cache.result", "miss", 1);
+            // Verify hit/miss values using cache.request.type dimension
+            AssertMetricValueByTag(lookupsMetric, "cache.request.type", "hit", 1);
+            AssertMetricValueByTag(lookupsMetric, "cache.request.type", "miss", 1);
         });
     }
 
@@ -228,7 +228,7 @@ public class OpenTelemetryIntegrationTests
             await FlushMetricsAsync(h);
 
             // Assert
-            var hitMetrics = FindMetrics(exportedItems, "cache.lookups");
+            var hitMetrics = FindMetrics(exportedItems, "cache.requests");
             var userCacheHits = hitMetrics.Where(m => HasTag(m, "cache.name", "user-cache"));
 
             Assert.Single(userCacheHits);
@@ -264,7 +264,7 @@ public class OpenTelemetryIntegrationTests
             await FlushMetricsAsync(h);
 
             // Assert
-            var missMetric = FindMetric(exportedItems, "cache.lookups");
+            var missMetric = FindMetric(exportedItems, "cache.requests");
             Assert.NotNull(missMetric);
             AssertMetricHasTag(missMetric, "cache.name", "tagged-cache");
             AssertMetricHasTag(missMetric, "environment", "test");
@@ -320,12 +320,12 @@ public class OpenTelemetryIntegrationTests
             await FlushMetricsAsync(h);
 
             // Assert
-            var lookupsMetric = FindMetric(exportedItems, "cache.lookups");
+            var lookupsMetric = FindMetric(exportedItems, "cache.requests");
 
             Assert.NotNull(lookupsMetric);
 
-            AssertMetricValueByTag(lookupsMetric, "cache.result", "hit", operationsPerType / 2);
-            AssertMetricValueByTag(lookupsMetric, "cache.result", "miss", operationsPerType / 2);
+            AssertMetricValueByTag(lookupsMetric, "cache.request.type", "hit", operationsPerType / 2);
+            AssertMetricValueByTag(lookupsMetric, "cache.request.type", "miss", operationsPerType / 2);
         });
     }
 

@@ -337,15 +337,15 @@ public class OptimizedMeteredMemoryCacheSpecificTests
 
         // Test null
         using var cache1 = new OptimizedMeteredMemoryCache(inner, meter, cacheName: null);
-        Assert.Null(cache1.Name);
+        Assert.Equal("Default", cache1.Name);
 
         // Test empty string
         using var cache2 = new OptimizedMeteredMemoryCache(inner, meter, cacheName: "");
-        Assert.Null(cache2.Name);
+        Assert.Equal("Default", cache2.Name);
 
         // Test whitespace only
         using var cache3 = new OptimizedMeteredMemoryCache(inner, meter, cacheName: "   ");
-        Assert.Null(cache3.Name);
+        Assert.Equal("Default", cache3.Name);
 
         // Test trimming
         using var cache4 = new OptimizedMeteredMemoryCache(inner, meter, cacheName: "  test-cache  ");
@@ -484,7 +484,7 @@ public class OptimizedMeteredMemoryCacheSpecificTests
         // Should have emitted metrics with empty/default tags
         Assert.NotEmpty(emittedTags);
         var tagArray = emittedTags[0];
-        Assert.DoesNotContain(tagArray, t => t.Key == "cache.name");
+        Assert.Contains(tagArray, t => t.Key == "cache.name" && (string?)t.Value == "Default");
     }
 
     [Fact]

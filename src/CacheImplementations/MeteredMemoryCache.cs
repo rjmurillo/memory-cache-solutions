@@ -10,12 +10,12 @@ namespace CacheImplementations;
 /// <see cref="IMemoryCache"/> decorator that emits OpenTelemetry / .NET metrics for cache hits, misses and evictions.
 /// Provides comprehensive observability for any <see cref="IMemoryCache"/> implementation.
 /// Uses Observable instruments per dotnet/runtime#124140 to avoid hot-path overhead:
-///  - cache.lookups (<see cref="ObservableCounter{T}"/>) with cache.result dimension (hit/miss)
+///  - cache.requests (<see cref="ObservableCounter{T}"/>) with cache.request.type dimension (hit/miss)
 ///  - cache.evictions (<see cref="ObservableCounter{T}"/>)
 ///  - cache.entries (<see cref="ObservableUpDownCounter{T}"/>)
 ///  - cache.estimated_size (<see cref="ObservableGauge{T}"/>) when the inner cache is a <see cref="MemoryCache"/> with statistics tracking enabled.
 /// </summary>
-[DebuggerDisplay("{Name ?? \"(unnamed)\"}")]
+[DebuggerDisplay("{Name}")]
 public sealed class MeteredMemoryCache : IMemoryCache
 {
     private readonly IMemoryCache _inner;
@@ -34,16 +34,16 @@ public sealed class MeteredMemoryCache : IMemoryCache
     private int _disposed;
 
     /// <summary>
-    /// Gets the logical name of this cache instance, if provided.
+    /// Gets the logical name of this cache instance. Defaults to <c>"Default"</c> when no explicit name is provided.
     /// </summary>
-    public string? Name { get; }
+    public string Name { get; }
 
     /// <summary>
     /// Initializes a new instance of <see cref="MeteredMemoryCache"/> that decorates the specified <see cref="IMemoryCache"/> with OpenTelemetry metrics.
     /// </summary>
     /// <param name="innerCache">The <see cref="IMemoryCache"/> implementation to decorate with metrics.</param>
     /// <param name="meter">The <see cref="Meter"/> instance used to create counters for hit, miss, and eviction metrics.</param>
-    /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in dimensional metrics. Pass <see langword="null"/> for unnamed cache.</param>
+    /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in dimensional metrics. Defaults to <c>"Default"</c> when <see langword="null"/>.</param>
     /// <param name="disposeInner">Whether to dispose the <paramref name="innerCache"/> when this instance is disposed. Defaults to <see langword="false"/>.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="innerCache"/> or <paramref name="meter"/> is <see langword="null"/>.</exception>
     public MeteredMemoryCache(IMemoryCache innerCache, Meter meter, string? cacheName = null, bool disposeInner = false)
@@ -68,7 +68,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// </summary>
     /// <param name="innerCache">The <see cref="IMemoryCache"/> implementation to decorate with metrics.</param>
     /// <param name="meterFactory">The <see cref="IMeterFactory"/> used to create the <see cref="Meter"/> instance. If <see langword="null"/>, a fallback meter is created and owned by this instance.</param>
-    /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in dimensional metrics.</param>
+    /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in dimensional metrics. Defaults to <c>"Default"</c> when <see langword="null"/>.</param>
     /// <param name="disposeInner">Whether to dispose the <paramref name="innerCache"/> when this instance is disposed. Defaults to <see langword="false"/>.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="innerCache"/> is <see langword="null"/>.</exception>
     public MeteredMemoryCache(IMemoryCache innerCache, IMeterFactory? meterFactory, string? cacheName = null, bool disposeInner = false)
@@ -226,28 +226,27 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// <summary>
     /// Normalizes cache names to handle whitespace and prevent tag cardinality issues.
     /// </summary>
-    private static string? NormalizeCacheName(string? cacheName)
+    private static string NormalizeCacheName(string? cacheName)
     {
         if (string.IsNullOrEmpty(cacheName))
-            return null;
+            return "Default";
 
         var trimmed = cacheName.Trim();
-        return string.IsNullOrEmpty(trimmed) ? null : trimmed;
+        return string.IsNullOrEmpty(trimmed) ? "Default" : trimmed;
     }
 
     /// <summary>
     /// Builds a pre-allocated tag array for Observable instrument callbacks.
     /// </summary>
     private static KeyValuePair<string, object?>[] BuildTags(
-        string? cacheName,
+        string cacheName,
         IDictionary<string, object?>? additionalTags)
     {
-        var tagList = new List<KeyValuePair<string, object?>>();
-
-        if (!string.IsNullOrEmpty(cacheName))
+        // cacheName is always non-empty (NormalizeCacheName returns "Default" for null/empty/whitespace)
+        var tagList = new List<KeyValuePair<string, object?>>
         {
-            tagList.Add(new KeyValuePair<string, object?>("cache.name", cacheName));
-        }
+            new KeyValuePair<string, object?>("cache.name", cacheName),
+        };
 
         if (additionalTags != null)
         {
@@ -277,24 +276,27 @@ public sealed class MeteredMemoryCache : IMemoryCache
     {
         var tags = _tags;
 
-        // Pre-allocate tag arrays with cache.result dimension per OTel conventions
-        var hitTags = tags.Append(new KeyValuePair<string, object?>("cache.result", "hit")).ToArray();
-        var missTags = tags.Append(new KeyValuePair<string, object?>("cache.result", "miss")).ToArray();
+        // Pre-allocate tag arrays with cache.request.type dimension per OTel conventions
+        var hitTags = tags.Append(new KeyValuePair<string, object?>("cache.request.type", "hit")).ToArray();
+        var missTags = tags.Append(new KeyValuePair<string, object?>("cache.request.type", "miss")).ToArray();
 
-        meter.CreateObservableCounter("cache.lookups",
+        meter.CreateObservableCounter("cache.requests",
             () => new[]
             {
                 new Measurement<long>(Interlocked.Read(ref _hitCount), hitTags),
                 new Measurement<long>(Interlocked.Read(ref _missCount), missTags),
             },
+            unit: "{requests}",
             description: "Total number of cache lookup operations.");
 
         meter.CreateObservableCounter("cache.evictions",
             () => new Measurement<long>(Interlocked.Read(ref _evictionCount), tags),
+            unit: "{evictions}",
             description: "Total number of automatic cache evictions.");
 
         meter.CreateObservableUpDownCounter("cache.entries",
             () => new Measurement<long>(Interlocked.Read(ref _entryCount), tags),
+            unit: "{entries}",
             description: "Current number of entries in the cache.");
 
         // cache.estimated_size is only available when the inner cache is MemoryCache with TrackStatistics enabled
@@ -315,6 +317,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
                         return new Measurement<long>(0, tags);
                     }
                 },
+                unit: "By",
                 description: "Estimated size of the cache in bytes.");
         }
     }

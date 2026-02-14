@@ -11,13 +11,13 @@ namespace CacheImplementations;
 /// for minimal-overhead metrics tracking, similar to HybridCache and <see cref="MemoryCache"/>.
 /// Uses Observable instruments per dotnet/runtime#124140 to avoid hot-path overhead.
 /// </summary>
-[DebuggerDisplay("{Name ?? \"(unnamed)\"}")]
+[DebuggerDisplay("{Name}")]
 public sealed class OptimizedMeteredMemoryCache : IMemoryCache
 {
     private readonly IMemoryCache _inner;
     private readonly bool _disposeInner;
     private readonly Meter? _ownedMeter;
-    private readonly string? _cacheName;
+    private readonly string _cacheName;
 
     // Atomic counters for high-performance metrics
     private long _hitCount;
@@ -28,16 +28,16 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     private int _disposed;
 
     /// <summary>
-    /// Gets the logical name of this cache instance, if provided.
+    /// Gets the logical name of this cache instance. Defaults to <c>"Default"</c> when no explicit name is provided.
     /// </summary>
-    public string? Name => _cacheName;
+    public string Name => _cacheName;
 
     /// <summary>
     /// Initializes a new instance of <see cref="OptimizedMeteredMemoryCache"/> with high-performance metrics.
     /// </summary>
     /// <param name="innerCache">The underlying <see cref="IMemoryCache"/> instance to decorate.</param>
     /// <param name="meter">The <see cref="Meter"/> instance used to create metric counters.</param>
-    /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in metrics.</param>
+    /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in metrics. Defaults to <c>"Default"</c> when <see langword="null"/>.</param>
     /// <param name="disposeInner">Whether to dispose the <paramref name="innerCache"/> when this instance is disposed.</param>
     /// <param name="enableMetrics">Whether to enable metric collection. When <see langword="false"/>, no metrics are collected.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="innerCache"/> or <paramref name="meter"/> is <see langword="null"/>.</exception>
@@ -66,7 +66,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     /// </summary>
     /// <param name="innerCache">The underlying <see cref="IMemoryCache"/> instance to decorate.</param>
     /// <param name="meterFactory">The <see cref="IMeterFactory"/> used to create the <see cref="Meter"/> instance. If <see langword="null"/>, a fallback meter is created and owned by this instance.</param>
-    /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in metrics.</param>
+    /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in metrics. Defaults to <c>"Default"</c> when <see langword="null"/>.</param>
     /// <param name="disposeInner">Whether to dispose the <paramref name="innerCache"/> when this instance is disposed.</param>
     /// <param name="enableMetrics">Whether to enable metric collection. When <see langword="false"/>, no metrics are collected.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="innerCache"/> is <see langword="null"/>.</exception>
@@ -217,28 +217,30 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     /// </summary>
     private void RegisterObservableInstruments(Meter meter)
     {
-        var tags = string.IsNullOrEmpty(_cacheName)
-            ? Array.Empty<KeyValuePair<string, object?>>()
-            : new[] { new KeyValuePair<string, object?>("cache.name", _cacheName!) };
+        // _cacheName is always non-empty (NormalizeCacheName returns "Default" for null/empty/whitespace)
+        var tags = new[] { new KeyValuePair<string, object?>("cache.name", _cacheName) };
 
-        // Pre-allocate tag arrays with cache.result dimension per OTel conventions
-        var hitTags = tags.Append(new KeyValuePair<string, object?>("cache.result", "hit")).ToArray();
-        var missTags = tags.Append(new KeyValuePair<string, object?>("cache.result", "miss")).ToArray();
+        // Pre-allocate tag arrays with cache.request.type dimension per OTel conventions
+        var hitTags = tags.Append(new KeyValuePair<string, object?>("cache.request.type", "hit")).ToArray();
+        var missTags = tags.Append(new KeyValuePair<string, object?>("cache.request.type", "miss")).ToArray();
 
-        meter.CreateObservableCounter("cache.lookups",
+        meter.CreateObservableCounter("cache.requests",
             () => new[]
             {
                 new Measurement<long>(Interlocked.Read(ref _hitCount), hitTags),
                 new Measurement<long>(Interlocked.Read(ref _missCount), missTags),
             },
+            unit: "{requests}",
             description: "Total number of cache lookup operations.");
 
         meter.CreateObservableCounter("cache.evictions",
             () => new Measurement<long>(Interlocked.Read(ref _evictionCount), tags),
+            unit: "{evictions}",
             description: "Total number of automatic cache evictions.");
 
         meter.CreateObservableUpDownCounter("cache.entries",
             () => new Measurement<long>(Interlocked.Read(ref _entryCount), tags),
+            unit: "{entries}",
             description: "Current number of entries in the cache.");
 
         // cache.estimated_size is only available when the inner cache is MemoryCache with TrackStatistics enabled
@@ -259,6 +261,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
                         return new Measurement<long>(0, tags);
                     }
                 },
+                unit: "By",
                 description: "Estimated size of the cache in bytes.");
         }
     }
@@ -267,9 +270,9 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     /// Normalizes a cache name by trimming whitespace.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string? NormalizeCacheName(string? name)
+    private static string NormalizeCacheName(string? name)
     {
-        return string.IsNullOrWhiteSpace(name) ? null : name.Trim();
+        return string.IsNullOrWhiteSpace(name) ? "Default" : name.Trim();
     }
 
     /// <summary>

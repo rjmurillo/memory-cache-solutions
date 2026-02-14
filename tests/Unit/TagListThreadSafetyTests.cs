@@ -78,7 +78,7 @@ public class TagListThreadSafetyTests
         // using the shared _tags TagList field, which can cause enumeration exceptions
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.concurrent.metrics"));
-        using var listener = new TestMetricsListener(meter.Name, "cache.lookups");
+        using var listener = new TestMetricsListener(meter.Name, "cache.requests");
 
         var cache = new MeteredMemoryCache(inner, meter, "concurrent-cache");
 
@@ -220,7 +220,7 @@ public class TagListThreadSafetyTests
         // of concurrent TagList enumeration, which is the root cause of thread-safety issues
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.mixed.operations"));
-        using var listener = new TestMetricsListener(meter.Name, "cache.lookups", "cache.evictions");
+        using var listener = new TestMetricsListener(meter.Name, "cache.requests", "cache.evictions");
 
         var options = new MeteredMemoryCacheOptions
         {
@@ -303,7 +303,7 @@ public class TagListThreadSafetyTests
         // race conditions in TagList enumeration under very high load
         using var inner = new MemoryCache(new MemoryCacheOptions { SizeLimit = 1000 });
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.stress.enumeration"));
-        using var listener = new TestMetricsListener(meter.Name, "cache.lookups", "cache.evictions");
+        using var listener = new TestMetricsListener(meter.Name, "cache.requests", "cache.evictions");
 
         var options = new MeteredMemoryCacheOptions
         {
