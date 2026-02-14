@@ -55,7 +55,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
         _inner = innerCache;
         _disposeInner = disposeInner;
         _cacheName = NormalizeCacheName(cacheName);
-        _tags = BuildTags(_cacheName, null);
+        _tags = TagBuilder.BuildTags(_cacheName, null);
 
         if (enableMetrics)
         {
@@ -84,7 +84,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
         _inner = innerCache;
         _disposeInner = disposeInner;
         _cacheName = NormalizeCacheName(cacheName);
-        _tags = BuildTags(_cacheName, null);
+        _tags = TagBuilder.BuildTags(_cacheName, null);
 
         // Create meter - if factory is null, we own the meter and must dispose it
         if (enableMetrics)
@@ -126,7 +126,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
         _inner = innerCache;
         _disposeInner = options.DisposeInner;
         _cacheName = NormalizeCacheName(options.CacheName);
-        _tags = BuildTags(_cacheName, options.AdditionalTags);
+        _tags = TagBuilder.BuildTags(_cacheName, options.AdditionalTags);
 
         if (enableMetrics)
         {
@@ -154,7 +154,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
         _inner = innerCache;
         _disposeInner = options.DisposeInner;
         _cacheName = NormalizeCacheName(options.CacheName);
-        _tags = BuildTags(_cacheName, options.AdditionalTags);
+        _tags = TagBuilder.BuildTags(_cacheName, options.AdditionalTags);
 
         if (enableMetrics)
         {
@@ -351,39 +351,6 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     private static string NormalizeCacheName(string? name)
     {
         return string.IsNullOrWhiteSpace(name) ? "Default" : name.Trim();
-    }
-
-    /// <summary>
-    /// Builds a pre-allocated tag array for Observable instrument callbacks.
-    /// </summary>
-    private static KeyValuePair<string, object?>[] BuildTags(
-        string cacheName,
-        IDictionary<string, object?>? additionalTags)
-    {
-        // cacheName is always non-empty (NormalizeCacheName returns "Default" for null/empty/whitespace)
-        var tagList = new List<KeyValuePair<string, object?>>
-        {
-            new KeyValuePair<string, object?>("cache.name", cacheName),
-        };
-
-        if (additionalTags != null)
-        {
-#pragma warning disable S3267 // Intentionally avoiding LINQ Where() allocation for performance
-            foreach (var kvp in additionalTags)
-            {
-                if (!string.Equals(kvp.Key, "cache.name", StringComparison.Ordinal))
-                {
-                    var normalizedKey = kvp.Key?.Trim();
-                    if (!string.IsNullOrEmpty(normalizedKey))
-                    {
-                        tagList.Add(new KeyValuePair<string, object?>(normalizedKey, kvp.Value));
-                    }
-                }
-            }
-#pragma warning restore S3267
-        }
-
-        return tagList.ToArray();
     }
 
     /// <summary>
