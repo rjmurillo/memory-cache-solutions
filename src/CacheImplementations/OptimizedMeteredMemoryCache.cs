@@ -28,7 +28,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     private int _disposed;
 
     /// <summary>
-    /// Gets the logical name of this cache instance, if provided.
+    /// Gets the logical name of this cache instance. Defaults to <c>"Default"</c> when no explicit name is provided.
     /// </summary>
     public string Name => _cacheName;
 
@@ -37,7 +37,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     /// </summary>
     /// <param name="innerCache">The underlying <see cref="IMemoryCache"/> instance to decorate.</param>
     /// <param name="meter">The <see cref="Meter"/> instance used to create metric counters.</param>
-    /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in metrics.</param>
+    /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in metrics. Defaults to <c>"Default"</c> when <see langword="null"/>.</param>
     /// <param name="disposeInner">Whether to dispose the <paramref name="innerCache"/> when this instance is disposed.</param>
     /// <param name="enableMetrics">Whether to enable metric collection. When <see langword="false"/>, no metrics are collected.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="innerCache"/> or <paramref name="meter"/> is <see langword="null"/>.</exception>
@@ -66,7 +66,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     /// </summary>
     /// <param name="innerCache">The underlying <see cref="IMemoryCache"/> instance to decorate.</param>
     /// <param name="meterFactory">The <see cref="IMeterFactory"/> used to create the <see cref="Meter"/> instance. If <see langword="null"/>, a fallback meter is created and owned by this instance.</param>
-    /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in metrics.</param>
+    /// <param name="cacheName">Optional logical name for this cache instance. Used as the "cache.name" tag in metrics. Defaults to <c>"Default"</c> when <see langword="null"/>.</param>
     /// <param name="disposeInner">Whether to dispose the <paramref name="innerCache"/> when this instance is disposed.</param>
     /// <param name="enableMetrics">Whether to enable metric collection. When <see langword="false"/>, no metrics are collected.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="innerCache"/> is <see langword="null"/>.</exception>
