@@ -57,7 +57,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
         Name = normalizedCacheName;
 
         // Pre-allocate tags array for Observable instrument callbacks
-        _tags = BuildTags(normalizedCacheName, null);
+        _tags = TagBuilder.BuildTags(normalizedCacheName, null);
 
         // Create Observable instruments per dotnet/runtime#124140 — zero hot-path overhead
         RegisterObservableInstruments(meter);
@@ -81,7 +81,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
         Name = normalizedCacheName;
 
         // Pre-allocate tags array for Observable instrument callbacks
-        _tags = BuildTags(normalizedCacheName, null);
+        _tags = TagBuilder.BuildTags(normalizedCacheName, null);
 
         // Create meter - if factory is null, we own the meter and must dispose it
         Meter meter;
@@ -119,7 +119,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
         Name = normalizedCacheName;
 
         // Pre-allocate tags array with cache name and additional tags
-        _tags = BuildTags(normalizedCacheName, options.AdditionalTags);
+        _tags = TagBuilder.BuildTags(normalizedCacheName, options.AdditionalTags);
 
         // Create Observable instruments per dotnet/runtime#124140 — zero hot-path overhead
         RegisterObservableInstruments(meter);
@@ -143,7 +143,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
         Name = normalizedCacheName;
 
         // Pre-allocate tags array with cache name and additional tags
-        _tags = BuildTags(normalizedCacheName, options.AdditionalTags);
+        _tags = TagBuilder.BuildTags(normalizedCacheName, options.AdditionalTags);
 
         // Create meter - if factory is null, we own the meter and must dispose it
         Meter meter;
@@ -233,39 +233,6 @@ public sealed class MeteredMemoryCache : IMemoryCache
 
         var trimmed = cacheName.Trim();
         return string.IsNullOrEmpty(trimmed) ? "Default" : trimmed;
-    }
-
-    /// <summary>
-    /// Builds a pre-allocated tag array for Observable instrument callbacks.
-    /// </summary>
-    private static KeyValuePair<string, object?>[] BuildTags(
-        string cacheName,
-        IDictionary<string, object?>? additionalTags)
-    {
-        // cacheName is always non-empty (NormalizeCacheName returns "Default" for null/empty/whitespace)
-        var tagList = new List<KeyValuePair<string, object?>>
-        {
-            new KeyValuePair<string, object?>("cache.name", cacheName),
-        };
-
-        if (additionalTags != null)
-        {
-#pragma warning disable S3267 // Intentionally avoiding LINQ Where() allocation for performance
-            foreach (var kvp in additionalTags)
-            {
-                if (!string.Equals(kvp.Key, "cache.name", StringComparison.Ordinal))
-                {
-                    var normalizedKey = kvp.Key?.Trim();
-                    if (!string.IsNullOrEmpty(normalizedKey))
-                    {
-                        tagList.Add(new KeyValuePair<string, object?>(normalizedKey, kvp.Value));
-                    }
-                }
-            }
-#pragma warning restore S3267
-        }
-
-        return tagList.ToArray();
     }
 
     /// <summary>
