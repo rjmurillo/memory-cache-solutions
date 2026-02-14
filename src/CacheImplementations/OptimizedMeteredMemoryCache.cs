@@ -217,9 +217,8 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     /// </summary>
     private void RegisterObservableInstruments(Meter meter)
     {
-        var tags = string.IsNullOrEmpty(_cacheName)
-            ? Array.Empty<KeyValuePair<string, object?>>()
-            : new[] { new KeyValuePair<string, object?>("cache.name", _cacheName!) };
+        // _cacheName is always non-empty (NormalizeCacheName returns "Default" for null/empty/whitespace)
+        var tags = new[] { new KeyValuePair<string, object?>("cache.name", _cacheName) };
 
         // Pre-allocate tag arrays with cache.request.type dimension per OTel conventions
         var hitTags = tags.Append(new KeyValuePair<string, object?>("cache.request.type", "hit")).ToArray();

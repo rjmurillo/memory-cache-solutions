@@ -242,12 +242,11 @@ public sealed class MeteredMemoryCache : IMemoryCache
         string cacheName,
         IDictionary<string, object?>? additionalTags)
     {
-        var tagList = new List<KeyValuePair<string, object?>>();
-
-        if (!string.IsNullOrEmpty(cacheName))
+        // cacheName is always non-empty (NormalizeCacheName returns "Default" for null/empty/whitespace)
+        var tagList = new List<KeyValuePair<string, object?>>
         {
-            tagList.Add(new KeyValuePair<string, object?>("cache.name", cacheName));
-        }
+            new KeyValuePair<string, object?>("cache.name", cacheName),
+        };
 
         if (additionalTags != null)
         {
