@@ -15,7 +15,7 @@ namespace CacheImplementations;
 ///  - cache.entries (<see cref="ObservableUpDownCounter{T}"/>)
 ///  - cache.estimated_size (<see cref="ObservableGauge{T}"/>) when the inner cache is a <see cref="MemoryCache"/> with statistics tracking enabled.
 /// </summary>
-[DebuggerDisplay("{Name ?? \"(unnamed)\"}")]
+[DebuggerDisplay("{Name}")]
 public sealed class MeteredMemoryCache : IMemoryCache
 {
     private readonly IMemoryCache _inner;

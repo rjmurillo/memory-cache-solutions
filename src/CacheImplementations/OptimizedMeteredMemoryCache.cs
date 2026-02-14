@@ -11,7 +11,7 @@ namespace CacheImplementations;
 /// for minimal-overhead metrics tracking, similar to HybridCache and <see cref="MemoryCache"/>.
 /// Uses Observable instruments per dotnet/runtime#124140 to avoid hot-path overhead.
 /// </summary>
-[DebuggerDisplay("{Name ?? \"(unnamed)\"}")]
+[DebuggerDisplay("{Name}")]
 public sealed class OptimizedMeteredMemoryCache : IMemoryCache
 {
     private readonly IMemoryCache _inner;
