@@ -66,11 +66,11 @@ public class MultiCacheScenarioTests
         await FlushMetricsAsync(host);
 
         // Wait for expected metrics using deterministic timing with cache-specific filtering
-        var userHitsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.lookups", "user-cache", 2, TimeSpan.FromSeconds(5));
-        var userMissesDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.lookups", "user-cache", 1, TimeSpan.FromSeconds(5));
-        var productHitsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.lookups", "product-cache", 1, TimeSpan.FromSeconds(5));
-        var productMissesDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.lookups", "product-cache", 2, TimeSpan.FromSeconds(5));
-        var sessionHitsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.lookups", "session-cache", 3, TimeSpan.FromSeconds(5));
+        var userHitsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.requests", "user-cache", 2, TimeSpan.FromSeconds(5));
+        var userMissesDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.requests", "user-cache", 1, TimeSpan.FromSeconds(5));
+        var productHitsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.requests", "product-cache", 1, TimeSpan.FromSeconds(5));
+        var productMissesDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.requests", "product-cache", 2, TimeSpan.FromSeconds(5));
+        var sessionHitsDetected = await WaitForMetricValueWithCacheFilterAsync(exportedItems, "cache.requests", "session-cache", 3, TimeSpan.FromSeconds(5));
 
         // Assert - Verify each cache has correct metrics
         Assert.True(userHitsDetected, "User cache hit metrics should be detected within timeout");
@@ -79,7 +79,7 @@ public class MultiCacheScenarioTests
         Assert.True(productMissesDetected, "Product cache miss metrics should be detected within timeout");
         Assert.True(sessionHitsDetected, "Session cache hit metrics should be detected within timeout");
 
-        var hitMetrics = FindMetrics(exportedItems, "cache.lookups");
+        var hitMetrics = FindMetrics(exportedItems, "cache.requests");
 
         // User cache assertions
         var userLookups = hitMetrics.Where(m => HasTag(m, "cache.name", "user-cache"));
@@ -130,7 +130,7 @@ public class MultiCacheScenarioTests
         await FlushMetricsAsync(host);
 
         // Assert
-        var lookupsMetrics = FindMetrics(exportedItems, "cache.lookups");
+        var lookupsMetrics = FindMetrics(exportedItems, "cache.requests");
 
         // Production cache metrics
         var prodLookups = lookupsMetrics.Where(m => HasTag(m, "cache.name", "prod-cache"));
@@ -142,7 +142,7 @@ public class MultiCacheScenarioTests
         AssertMetricHasTag(prodLookups.First(), "region", "us-east-1");
         AssertMetricHasTag(prodLookups.First(), "tier", "premium");
 
-        // Verify production cache hit/miss values using cache.result dimension
+        // Verify production cache hit/miss values using cache.request.type dimension
         AssertMetricValueForCacheByResult(prodLookups.First(), "prod-cache", "hit", 1);
         AssertMetricValueForCacheByResult(prodLookups.First(), "prod-cache", "miss", 1);
 
@@ -156,7 +156,7 @@ public class MultiCacheScenarioTests
         AssertMetricHasTag(stagingLookups.First(), "region", "us-west-2");
         AssertMetricHasTag(stagingLookups.First(), "tier", "standard");
 
-        // Verify staging cache hit/miss values using cache.result dimension
+        // Verify staging cache hit/miss values using cache.request.type dimension
         AssertMetricValueForCacheByResult(stagingLookups.First(), "staging-cache", "hit", 1);
         AssertMetricValueForCacheByResult(stagingLookups.First(), "staging-cache", "miss", 1);
     }
@@ -355,14 +355,14 @@ public class MultiCacheScenarioTests
         await FlushMetricsAsync(host);
 
         // Wait for expected metrics using deterministic timing
-        var hitsDetected = await WaitForMetricValueAsync(exportedItems, "cache.lookups", operationsPerCache, TimeSpan.FromSeconds(5));
-        var missesDetected = await WaitForMetricValueAsync(exportedItems, "cache.lookups", operationsPerCache, TimeSpan.FromSeconds(5));
+        var hitsDetected = await WaitForMetricValueAsync(exportedItems, "cache.requests", operationsPerCache, TimeSpan.FromSeconds(5));
+        var missesDetected = await WaitForMetricValueAsync(exportedItems, "cache.requests", operationsPerCache, TimeSpan.FromSeconds(5));
 
         // Assert
         Assert.True(hitsDetected, "Expected hit metrics should be detected within timeout");
         Assert.True(missesDetected, "Expected miss metrics should be detected within timeout");
 
-        var lookupsMetrics = FindMetrics(exportedItems, "cache.lookups");
+        var lookupsMetrics = FindMetrics(exportedItems, "cache.requests");
 
         // Cache 1 assertions
         var cache1Lookups = lookupsMetrics.Where(m => HasTag(m, "cache.name", "concurrent-cache-1"));
@@ -409,12 +409,12 @@ public class MultiCacheScenarioTests
         await FlushMetricsAsync(secondaryHost);
 
         // Assert - Main meter should have metrics from main-cache
-        var mainHitMetrics = FindMetrics(mainMeterItems, "cache.lookups");
+        var mainHitMetrics = FindMetrics(mainMeterItems, "cache.requests");
         Assert.Single(mainHitMetrics);
         AssertMetricHasTag(mainHitMetrics.First(), "cache.name", "main-cache");
 
         // Secondary meter should have metrics from secondary-cache
-        var secondaryHitMetrics = FindMetrics(secondaryMeterItems, "cache.lookups");
+        var secondaryHitMetrics = FindMetrics(secondaryMeterItems, "cache.requests");
         Assert.Single(secondaryHitMetrics);
         AssertMetricHasTag(secondaryHitMetrics.First(), "cache.name", "secondary-cache");
 
@@ -762,7 +762,7 @@ public class MultiCacheScenarioTests
                 {
                     hasCacheTag = true;
                 }
-                if (tag.Key == "cache.result" && tag.Value?.ToString() == resultValue)
+                if (tag.Key == "cache.request.type" && tag.Value?.ToString() == resultValue)
                 {
                     hasResultTag = true;
                 }

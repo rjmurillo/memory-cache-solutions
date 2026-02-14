@@ -351,7 +351,7 @@ public class CoverageGapTests
         using var cache = new OptimizedMeteredMemoryCache(
             inner, meter, enableMetrics: true);
 
-        Assert.Contains("cache.lookups", instrumentNames);
+        Assert.Contains("cache.requests", instrumentNames);
         Assert.Contains("cache.evictions", instrumentNames);
         Assert.Contains("cache.entries", instrumentNames);
     }
@@ -376,7 +376,7 @@ public class CoverageGapTests
         using var cache = new OptimizedMeteredMemoryCache(
             inner, meter, enableMetrics: false);
 
-        Assert.DoesNotContain("cache.lookups", instrumentNames);
+        Assert.DoesNotContain("cache.requests", instrumentNames);
     }
 
     [Fact]

@@ -163,7 +163,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache"));
-        using var listener = new TestListener(meter.Name, "cache.lookups");
+        using var listener = new TestListener(meter.Name, "cache.requests");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: null);
 
@@ -171,10 +171,10 @@ public class MeteredMemoryCacheTests
         cache.Set("k", 10);            // set
         cache.TryGetValue("k", out _); // hit
 
-        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
-        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
-        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", hitTag));
-        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", missTag));
+        var hitTag = new KeyValuePair<string, object?>("cache.request.type", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.request.type", "miss");
+        Assert.Equal(1, listener.GetAggregatedCount("cache.requests", hitTag));
+        Assert.Equal(1, listener.GetAggregatedCount("cache.requests", missTag));
     }
 
     [Fact]
@@ -206,7 +206,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache3"));
-        using var listener = new TestListener(meter.Name, "cache.lookups");
+        using var listener = new TestListener(meter.Name, "cache.requests");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "test-cache-name");
 
@@ -288,10 +288,10 @@ public class MeteredMemoryCacheTests
             $"Expected metrics with cache.name tag, but only {metricsWithCacheName} found out of {metricsSnapshot.Length} total");
 
         // Document the pattern inconsistency in the test output
-        var lookupMetrics = metricsSnapshot.Where(m => m.InstrumentName.Contains("lookups"));
+        var lookupMetrics = metricsSnapshot.Where(m => m.InstrumentName.Contains("requests"));
         var evictionMetrics = metricsSnapshot.Where(m => m.InstrumentName.Contains("evictions"));
 
-        Assert.True(lookupMetrics.Any(), "Should have lookup metrics with cache.result dimension");
+        Assert.True(lookupMetrics.Any(), "Should have lookup metrics with cache.request.type dimension");
         // Eviction metrics may or may not be present due to timing, but the pattern difference exists in the code
     }
 
@@ -493,7 +493,7 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
-    public void OptionsConstructor_WithNullCacheName_NamePropertyIsNull()
+    public void OptionsConstructor_WithNullCacheName_NamePropertyIsDefault()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache5"));
@@ -504,7 +504,7 @@ public class MeteredMemoryCacheTests
 
         var cache = new MeteredMemoryCache(inner, meter, options);
 
-        Assert.Null(cache.Name);
+        Assert.Equal("Default", cache.Name);
     }
 
     [Fact]
@@ -786,7 +786,7 @@ public class MeteredMemoryCacheTests
 
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.miss.race"));
-        using var listener = new TestListener(meter.Name, "cache.lookups");
+        using var listener = new TestListener(meter.Name, "cache.requests");
 
         var cache = new MeteredMemoryCache(inner, meter, "miss-race-test");
 
@@ -811,23 +811,23 @@ public class MeteredMemoryCacheTests
         // because it increments miss counter before checking if factory actually runs
         // This test documents the race condition that needs to be fixed
 
-        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
-        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.request.type", "miss");
+        var hitTag = new KeyValuePair<string, object?>("cache.request.type", "hit");
 
         // With the current implementation, this will show 1 miss even though no factory ran
         // After the fix, this should show 0 misses since the value was already cached
-        var missCount = listener.GetAggregatedCount("cache.lookups", missTag);
+        var missCount = listener.GetAggregatedCount("cache.requests", missTag);
 
         // With the fix implemented, miss count should be 0 since factory didn't run
         Assert.Equal(0, missCount);
 
         // Verify we got a hit instead since the value was already in cache
-        var hitCount = listener.GetAggregatedCount("cache.lookups", hitTag);
+        var hitCount = listener.GetAggregatedCount("cache.requests", hitTag);
         Assert.Equal(1, hitCount);
     }
 
     [Fact]
-    public void OptionsConstructor_WithEmptyCacheName_NamePropertyIsNull()
+    public void OptionsConstructor_WithEmptyCacheName_NamePropertyIsDefault()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache6"));
@@ -838,7 +838,7 @@ public class MeteredMemoryCacheTests
 
         var cache = new MeteredMemoryCache(inner, meter, options);
 
-        Assert.Null(cache.Name);
+        Assert.Equal("Default", cache.Name);
     }
 
     [Fact]
@@ -846,7 +846,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache7"));
-        using var listener = new TestListener(meter.Name, "cache.lookups");
+        using var listener = new TestListener(meter.Name, "cache.requests");
 
         var options = new MeteredMemoryCacheOptions
         {
@@ -876,7 +876,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache8"));
-        using var listener = new TestListener(meter.Name, "cache.lookups");
+        using var listener = new TestListener(meter.Name, "cache.requests");
 
         var options = new MeteredMemoryCacheOptions
         {
@@ -889,7 +889,7 @@ public class MeteredMemoryCacheTests
         cache.TryGetValue("k", out _); // miss
 
         // Should only have the cache.name from CacheName property, not from AdditionalTags
-        var measurements = listener.Measurements.Where(m => m.Name == "cache.lookups").ToList();
+        var measurements = listener.Measurements.Where(m => m.Name == "cache.requests").ToList();
         Assert.All(measurements, m =>
         {
             var cacheNameTags = m.Tags.Where(tag => tag.Key == "cache.name").ToList();
@@ -948,25 +948,25 @@ public class MeteredMemoryCacheTests
     }
 
     [Fact]
-    public void StringConstructor_WithNullCacheName_NamePropertyIsNull()
+    public void StringConstructor_WithNullCacheName_NamePropertyIsDefault()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache12"));
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: null);
 
-        Assert.Null(cache.Name);
+        Assert.Equal("Default", cache.Name);
     }
 
     [Fact]
-    public void StringConstructor_WithEmptyCacheName_NamePropertyIsNull()
+    public void StringConstructor_WithEmptyCacheName_NamePropertyIsDefault()
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache13"));
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "");
 
-        Assert.Null(cache.Name);
+        Assert.Equal("Default", cache.Name);
     }
 
     [Fact]
@@ -1004,7 +1004,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache16"));
-        using var listener = new TestListener(meter.Name, "cache.lookups");
+        using var listener = new TestListener(meter.Name, "cache.requests");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "tryget-cache");
 
@@ -1020,10 +1020,10 @@ public class MeteredMemoryCacheTests
         Assert.Equal("test-value", hitValue);
 
         // Verify metrics with cache.name tag
-        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
-        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
-        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", hitTag));
-        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", missTag));
+        var hitTag = new KeyValuePair<string, object?>("cache.request.type", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.request.type", "miss");
+        Assert.Equal(1, listener.GetAggregatedCount("cache.requests", hitTag));
+        Assert.Equal(1, listener.GetAggregatedCount("cache.requests", missTag));
 
         Assert.Contains(true, listener.Measurements.Select(m =>
             m.Tags.Any(tag => tag.Key == "cache.name" && (string?)tag.Value == "tryget-cache")));
@@ -1034,7 +1034,7 @@ public class MeteredMemoryCacheTests
     {
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache17"));
-        using var listener = new TestListener(meter.Name, "cache.lookups");
+        using var listener = new TestListener(meter.Name, "cache.requests");
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "getorcreate-cache");
 
@@ -1047,10 +1047,10 @@ public class MeteredMemoryCacheTests
         Assert.Equal("created-value", value2);
 
         // Verify metrics
-        var hitTag = new KeyValuePair<string, object?>("cache.result", "hit");
-        var missTag = new KeyValuePair<string, object?>("cache.result", "miss");
-        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", hitTag));
-        Assert.Equal(1, listener.GetAggregatedCount("cache.lookups", missTag));
+        var hitTag = new KeyValuePair<string, object?>("cache.request.type", "hit");
+        var missTag = new KeyValuePair<string, object?>("cache.request.type", "miss");
+        Assert.Equal(1, listener.GetAggregatedCount("cache.requests", hitTag));
+        Assert.Equal(1, listener.GetAggregatedCount("cache.requests", missTag));
 
         // Verify cache.name tag is present
         Assert.Contains(true, listener.Measurements.Select(m =>
@@ -1063,7 +1063,7 @@ public class MeteredMemoryCacheTests
         using var inner1 = new MemoryCache(new MemoryCacheOptions());
         using var inner2 = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache18"));
-        using var listener = new TestListener(meter.Name, "cache.lookups");
+        using var listener = new TestListener(meter.Name, "cache.requests");
 
         var cache1 = new MeteredMemoryCache(inner1, meter, cacheName: "cache-one");
         var cache2 = new MeteredMemoryCache(inner2, meter, cacheName: "cache-two");
@@ -1088,8 +1088,8 @@ public class MeteredMemoryCacheTests
         Assert.NotEmpty(cache2Measurements);
 
         // Each cache should have lookups measurements with both hit and miss results
-        Assert.Contains(cache1Measurements, m => m.Name == "cache.lookups");
-        Assert.Contains(cache2Measurements, m => m.Name == "cache.lookups");
+        Assert.Contains(cache1Measurements, m => m.Name == "cache.requests");
+        Assert.Contains(cache2Measurements, m => m.Name == "cache.requests");
     }
 
     [Theory]
@@ -1100,9 +1100,9 @@ public class MeteredMemoryCacheTests
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache19"));
 
-        // Should not throw for null/empty cache names and Name should be null
+        // Should not throw for null/empty cache names and Name should be "Default"
         var cache = new MeteredMemoryCache(inner, meter, cacheName: invalidInput);
-        Assert.Null(cache.Name);
+        Assert.Equal("Default", cache.Name);
     }
 
     [Fact]
@@ -1111,9 +1111,9 @@ public class MeteredMemoryCacheTests
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache19b"));
 
-        // Whitespace-only strings are normalized to null to prevent tag cardinality issues
+        // Whitespace-only strings are normalized to "Default" to prevent tag cardinality issues
         var cache = new MeteredMemoryCache(inner, meter, cacheName: "   ");
-        Assert.Null(cache.Name);
+        Assert.Equal("Default", cache.Name);
     }
 
     [Fact]
@@ -1184,21 +1184,21 @@ public class MeteredMemoryCacheTests
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.name.normalization"));
 
-        // Test 1: Whitespace-only cache name should result in no cache.name tag
+        // Test 1: Whitespace-only cache name should result in "Default"
         var cache1 = new MeteredMemoryCache(inner, meter, "   ");
-        Assert.Null(cache1.Name);
+        Assert.Equal("Default", cache1.Name);
 
         // Test 2: Cache name with leading/trailing whitespace should be trimmed
         var cache2 = new MeteredMemoryCache(inner, meter, "  trimmed-name  ");
         Assert.Equal("trimmed-name", cache2.Name);
 
-        // Test 3: Empty string should result in no cache.name tag
+        // Test 3: Empty string should result in "Default"
         var cache3 = new MeteredMemoryCache(inner, meter, "");
-        Assert.Null(cache3.Name);
+        Assert.Equal("Default", cache3.Name);
 
-        // Test 4: Null cache name should result in no cache.name tag
+        // Test 4: Null cache name should result in "Default"
         var cache4 = new MeteredMemoryCache(inner, meter, cacheName: null);
-        Assert.Null(cache4.Name);
+        Assert.Equal("Default", cache4.Name);
 
         // Test 5: Tab and newline characters should be trimmed
         var cache5 = new MeteredMemoryCache(inner, meter, "\t\n  spaced-name  \r\n\t");

@@ -284,7 +284,7 @@ public class ServiceCollectionExtensionsTests
         var cache = provider.GetRequiredService<IMemoryCache>();
 
         Assert.IsType<MeteredMemoryCache>(cache);
-        Assert.Null(((MeteredMemoryCache)cache).Name); // No cache name specified
+        Assert.Equal("Default", ((MeteredMemoryCache)cache).Name); // Default cache name when none specified
     }
 
     [Fact]
