@@ -274,10 +274,15 @@ public class CoverageGapTests
 
         var cache = new MeteredMemoryCache(inner, meter, cacheName);
 
-        // Add entry then dispose cache before eviction fires
+        // Use CancellationChangeToken to trigger TokenExpired eviction (which IS counted)
+        // Unlike Remove/Replaced, TokenExpired would increment _evictionCount without the disposal guard
+        var cts = new CancellationTokenSource();
+
+        // Add entry with expiration token, then dispose cache before eviction fires
         using (var entry = cache.CreateEntry("key"))
         {
             entry.Value = "value";
+            entry.AddExpirationToken(new Microsoft.Extensions.Primitives.CancellationChangeToken(cts.Token));
         }
 
         cache.Dispose();
@@ -286,13 +291,17 @@ public class CoverageGapTests
         listener.RecordObservableInstruments();
         var countBeforeEviction = evictionCount;
 
-        // Force eviction by removing from inner cache
-        inner.Remove("key");
+        // Force eviction via token cancellation (triggers TokenExpired, which IS counted)
+        // The disposal guard should prevent the counter increment
+        cts.Cancel();
+
+        // Compact to process eviction callbacks
+        inner.Compact(1.0);
 
         // Re-read Observable instruments
         listener.RecordObservableInstruments();
 
-        // Eviction counter should NOT have increased after disposal
+        // Eviction counter should NOT have increased after disposal due to disposal guard
         Assert.Equal(countBeforeEviction, evictionCount);
     }
 
