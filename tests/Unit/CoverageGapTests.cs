@@ -132,7 +132,7 @@ public class CoverageGapTests
 
         listener.RecordObservableInstruments();
 
-        Assert.NotEmpty(measurements);
+        Assert.Contains(42L, measurements);
     }
 
     #endregion
@@ -219,9 +219,16 @@ public class CoverageGapTests
         using var cache = new MeteredMemoryCache(inner, meterFactory, cacheName);
 
         Assert.Equal(cacheName, cache.Name);
-        cache.Set("key", "value");
-        Assert.True(cache.TryGetValue("key", out var val));
-        Assert.Equal("value", val);
+
+        // Perform operations that should emit metrics
+        cache.TryGetValue("miss-key", out _); // miss
+        cache.Set("hit-key", "value");
+        cache.TryGetValue("hit-key", out _); // hit
+
+        // Verify metrics were emitted through the factory-created meter
+        var stats = cache.GetCurrentStatistics();
+        Assert.Equal(1, stats.TotalHits);
+        Assert.Equal(1, stats.TotalMisses);
     }
 
     [Fact]
@@ -250,6 +257,21 @@ public class CoverageGapTests
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("evict-after-dispose"));
         var cacheName = SharedUtilities.GetUniqueCacheName("evict-disposed");
 
+        long evictionCount = 0;
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (inst, ml) =>
+        {
+            if (inst.Meter.Name == meter.Name && inst.Name == "cache.evictions")
+            {
+                ml.EnableMeasurementEvents(inst);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((_, value, _, _) =>
+        {
+            evictionCount += value;
+        });
+        listener.Start();
+
         var cache = new MeteredMemoryCache(inner, meter, cacheName);
 
         // Add entry then dispose cache before eviction fires
@@ -260,11 +282,18 @@ public class CoverageGapTests
 
         cache.Dispose();
 
-        // Force eviction by removing from inner cache — triggers the post-eviction callback
-        // with the disposal guard active
+        // Capture eviction count before forcing eviction
+        listener.RecordObservableInstruments();
+        var countBeforeEviction = evictionCount;
+
+        // Force eviction by removing from inner cache
         inner.Remove("key");
 
-        // The eviction callback disposal guard should have returned early — no throw
+        // Re-read Observable instruments
+        listener.RecordObservableInstruments();
+
+        // Eviction counter should NOT have increased after disposal
+        Assert.Equal(countBeforeEviction, evictionCount);
     }
 
     #endregion
@@ -288,9 +317,38 @@ public class CoverageGapTests
             },
         };
 
-        // Should not throw - empty keys after trim are silently excluded
+        var tagSets = new List<KeyValuePair<string, object?>[]>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (inst, ml) =>
+        {
+            if (inst.Meter.Name == meter.Name)
+            {
+                ml.EnableMeasurementEvents(inst);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((inst, value, tags, _) =>
+        {
+            tagSets.Add(tags.ToArray());
+        });
+        listener.Start();
+
         using var cache = new MeteredMemoryCache(inner, meter, options);
-        Assert.Equal(cacheName, cache.Name);
+
+        // Perform operation to emit metrics
+        cache.Set("key", "val");
+        cache.TryGetValue("key", out _);
+
+        // Record Observable instruments
+        listener.RecordObservableInstruments();
+
+        // Verify whitespace key is NOT in any tag set
+        Assert.NotEmpty(tagSets);
+        Assert.All(tagSets, tags =>
+            Assert.DoesNotContain(tags, t => t.Key.Trim() == ""));
+
+        // Verify valid-tag IS present
+        Assert.Contains(tagSets, tags =>
+            tags.Any(t => t.Key == "valid-tag" && (string?)t.Value == "value"));
     }
 
     [Fact]
@@ -310,8 +368,43 @@ public class CoverageGapTests
             },
         };
 
+        var tagSets = new List<KeyValuePair<string, object?>[]>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (inst, ml) =>
+        {
+            if (inst.Meter.Name == meter.Name)
+            {
+                ml.EnableMeasurementEvents(inst);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((inst, value, tags, _) =>
+        {
+            tagSets.Add(tags.ToArray());
+        });
+        listener.Start();
+
         using var cache = new MeteredMemoryCache(inner, meter, options);
-        Assert.Equal(cacheName, cache.Name);
+
+        // Perform operation to emit metrics
+        cache.TryGetValue("key", out _);
+
+        // Record Observable instruments
+        listener.RecordObservableInstruments();
+
+        // Verify cache.name tag has the CORRECT value (from CacheName, not AdditionalTags)
+        Assert.NotEmpty(tagSets);
+        Assert.All(tagSets, tags =>
+        {
+            var cacheNameTags = tags.Where(t => t.Key == "cache.name").ToList();
+            // Should have exactly one cache.name tag
+            Assert.Single(cacheNameTags);
+            // The value should be the constructor-specified name, not the duplicate
+            Assert.Equal(cacheName, (string?)cacheNameTags[0].Value);
+        });
+
+        // Verify env tag IS present
+        Assert.Contains(tagSets, tags =>
+            tags.Any(t => t.Key == "env" && (string?)t.Value == "test"));
     }
 
     #endregion
