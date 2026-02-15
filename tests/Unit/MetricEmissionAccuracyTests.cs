@@ -72,7 +72,8 @@ public class MetricEmissionAccuracyTests
         options2.AddExpirationToken(new CancellationChangeToken(cts2.Token));
         cache.Set("expiring-key2", "value2", options2);
 
-        // Scenario 3: Manual removal (excluded from eviction metrics per dotnet/runtime#124140)
+        // Scenario 3: Manual removal - excluded from eviction metrics per dotnet/runtime#124140
+        // (Evictions only count automatic removals: expiration, memory pressure, size limits)
         cache.Set("manual-remove-key", "value3");
 
         // Trigger evictions
@@ -275,8 +276,8 @@ public class MetricEmissionAccuracyTests
         Assert.True(intSuccess);
         Assert.Equal(42, intValue);
 
-        // Test type mismatch (returns false but underlying TryGetValue counts it as a hit since key exists)
-        // See: https://github.com/dotnet/runtime/issues/120273
+        // Test type mismatch - the underlying IMemoryCache.TryGetValue() returns true (key exists),
+        // triggering a "hit" metric, even though TryGetValue<T> returns false due to type mismatch.
         var typeMismatch = cache.TryGetValue<int>("string-key", out var mismatchValue);
         Assert.False(typeMismatch);
         Assert.Equal(0, mismatchValue); // default int
@@ -286,9 +287,9 @@ public class MetricEmissionAccuracyTests
         Assert.False(missing);
         Assert.Null(missingValue);
 
-        // Validate metrics: 3 hits (including type mismatch since key exists), 1 miss
-        // TryGetValue<T> extension method counts a hit whenever the key exists, even if the type doesn't match.
-        // See: https://github.com/dotnet/runtime/issues/120273
+        // Validate metrics: 3 hits (including type mismatch since key exists), 1 miss.
+        // TryGetValue<T> extension calls IMemoryCache.TryGetValue first (triggering hit/miss),
+        // then performs the type check - so a type mismatch still counts as a hit.
         Assert.Equal(3, harness.GetAggregatedCount("cache.requests", new KeyValuePair<string, object?>("cache.request.type", "hit")));
         Assert.Equal(1, harness.GetAggregatedCount("cache.requests", new KeyValuePair<string, object?>("cache.request.type", "miss")));
 
@@ -446,7 +447,7 @@ public class MetricEmissionAccuracyTests
             entry3.AddExpirationToken(new CancellationChangeToken(cts3.Token));
         }
 
-        // Trigger expirations (not manual Remove, which is excluded from eviction metrics per proposal)
+        // Trigger expirations (not manual Remove, which is excluded from eviction metrics per dotnet/runtime#124140)
         cts1.Cancel();
         cts2.Cancel();
         cts3.Cancel();

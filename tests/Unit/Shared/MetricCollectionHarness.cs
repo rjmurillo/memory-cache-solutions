@@ -122,12 +122,23 @@ internal sealed class MetricCollectionHarness : IDisposable
     /// </remarks>
     public void Collect()
     {
+        // NOTE: RecordObservableInstruments() invokes SetMeasurementEventCallback synchronously
+        // on the same thread, which re-acquires _lock. This is safe because C# Monitor locks
+        // are re-entrant by design.
         lock (_lock)
         {
             _measurements.Clear();
             _measurementsByInstrument.Clear();
             _aggregatedCounters.Clear();
-            _listener.RecordObservableInstruments();
+            try
+            {
+                _listener.RecordObservableInstruments();
+            }
+            catch (AggregateException ex) when (ex.InnerExceptions.All(e => e is ObjectDisposedException))
+            {
+                // Expected when cache is disposed before collection - not a failure.
+                // RecordObservableInstruments wraps all callback exceptions in AggregateException.
+            }
         }
     }
 
@@ -158,8 +169,8 @@ internal sealed class MetricCollectionHarness : IDisposable
         // GetMeasurements already calls Collect()
         return GetMeasurements(instrumentName)
             .Where(m => requiredTags.All(required =>
-                m.Tags.ContainsKey(required.Key) &&
-                Equals(m.Tags[required.Key], required.Value)))
+                m.Tags.TryGetValue(required.Key, out var tagValue) &&
+                Equals(tagValue, required.Value)))
             .ToList();
     }
 
@@ -186,13 +197,7 @@ internal sealed class MetricCollectionHarness : IDisposable
     /// </remarks>
     public void AssertMeasurementCount(string instrumentName, int expectedCount)
     {
-        // With Observable instruments, measurement count = number of unique tag sets,
-        // not number of operations. Assert on the aggregated value instead.
-        Collect();
-        lock (_lock)
-        {
-            Assert.Equal(expectedCount, _aggregatedCounters.GetValueOrDefault(instrumentName, 0));
-        }
+        AssertAggregatedCount(instrumentName, expectedCount);
     }
 
     /// <summary>
