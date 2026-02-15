@@ -744,7 +744,7 @@ public class ConcurrencyTests : IDisposable
             {
                 try
                 {
-                    await Task.Yield(); // Small delay to let evictions start
+                    await Task.Yield(); // Yield to scheduler; race timing is non-deterministic
                     cache.Dispose();
                 }
                 catch (Exception ex)

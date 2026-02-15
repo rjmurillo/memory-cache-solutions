@@ -24,9 +24,26 @@ namespace CacheImplementations;
 /// to ensure proper visibility across threads.
 /// </threadsafety>
 /// <remarks>
+/// <para>
 /// When <c>meterFactory</c> is <see langword="null"/>, this instance creates and owns a <see cref="Meter"/>.
 /// This creates a reference cycle: MeteredMemoryCache -> Meter -> Observable Instruments -> Callbacks -> MeteredMemoryCache.
 /// The <see cref="Dispose"/> method (or finalizer) MUST be called to break this cycle and release resources.
+/// </para>
+/// <para>
+/// <b>Design Decision - No ICacheStatisticsProvider Interface:</b>
+/// Dear future maintainer: We considered adding an <c>ICacheStatisticsProvider</c> interface
+/// for <see cref="GetCurrentStatistics"/>. We decided against it because:
+/// (1) BCL's <see cref="MemoryCache"/> exposes <c>GetCurrentStatistics()</c> directly without an interface;
+/// (2) We want this to be a "drop-in" replacement for BCL MemoryCache when .NET 11 adds native metrics
+/// per dotnet/runtime#124140 — adding extra interfaces creates API surface divergence;
+/// (3) Consumers who need the interface can create their own wrapper.
+/// </para>
+/// <para>
+/// <b>Design Decision - No ActivitySource/Distributed Tracing:</b>
+/// BCL <see cref="MemoryCache"/> uses <c>EventSource</c> ("Microsoft-Extensions-Caching-Memory")
+/// for performance counters, not <c>ActivitySource</c>. We follow that pattern to maintain
+/// BCL alignment. Applications can wrap cache calls with their own Activity spans if needed.
+/// </para>
 /// </remarks>
 [DebuggerDisplay("{Name}")]
 public sealed class MeteredMemoryCache : IMemoryCache
@@ -62,13 +79,9 @@ public sealed class MeteredMemoryCache : IMemoryCache
         {
             Dispose(disposing: false);
         }
-        catch (Exception ex)
+        catch
         {
-            // Finalizers must never throw. If disposal fails during finalization,
-            // we accept the resource leak as preferable to crashing the process.
-            // Log for diagnostic traceability using mechanisms that cannot throw.
-            System.Diagnostics.Debug.WriteLine(
-                $"[MeteredMemoryCache] Finalizer disposal failed for '{Name}': {ex.GetType().Name}: {ex.Message}");
+            // Finalizers must never throw. Best-effort disposal only.
         }
     }
 #pragma warning restore MA0055

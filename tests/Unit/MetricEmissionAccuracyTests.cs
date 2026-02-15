@@ -596,7 +596,7 @@ public class MetricEmissionAccuracyTests
 
         using var cache = new MeteredMemoryCache(inner, meter, cacheName: "overflow-test");
 
-        // Use reflection to set counter values near long.MaxValue to test boundary behavior
+        // Reflection: coupled to private field names. Update if fields are renamed.
         var cacheType = typeof(MeteredMemoryCache);
         var hitCountField = cacheType.GetField("_hitCount", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         var missCountField = cacheType.GetField("_missCount", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -641,7 +641,7 @@ public class MetricEmissionAccuracyTests
 
         using var cache = new MeteredMemoryCache(inner, meter, cacheName: "maxvalue-test");
 
-        // Set counter to exactly MaxValue
+        // Reflection: coupled to private field name. Update if field is renamed.
         var cacheType = typeof(MeteredMemoryCache);
         var hitCountField = cacheType.GetField("_hitCount", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
