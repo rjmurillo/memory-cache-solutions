@@ -584,7 +584,7 @@ public class MetricEmissionAccuracyTests
 
     /// <summary>
     /// Tests counter behavior near long.MaxValue boundary to validate overflow handling.
-    /// Per dotnet/runtime#124140: ~146 billion ops/sec sustained for 2 years would be needed to overflow.
+    /// Per dotnet/runtime#124140: ~146.2 billion ops/sec (~1.46 × 10^11 ops/sec) sustained for 2 years would be needed to overflow.
     /// While practically impossible, BCL code should test boundaries.
     /// </summary>
     [Fact]
