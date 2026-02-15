@@ -129,6 +129,18 @@ public class MeteredMemoryCacheTests
             }
         }
 
+        /// <summary>
+        /// Asserts that ALL measurements have the specified tag with the expected value.
+        /// Fails if the measurement list is empty (vacuous truth guard).
+        /// </summary>
+        public void AssertAllMeasurementsHaveTag(string tagKey, string expectedValue)
+        {
+            var measurements = Measurements;
+            Assert.NotEmpty(measurements);
+            Assert.All(measurements, m =>
+                Assert.Contains(m.Tags, t => t.Key == tagKey && (string?)t.Value == expectedValue));
+        }
+
         public void Dispose() => _listener.Dispose();
     }
 
@@ -214,9 +226,8 @@ public class MeteredMemoryCacheTests
         cache.Set("k", 42);
         cache.TryGetValue("k", out _); // hit
 
-        // At least one measurement should have the cache.name tag
-        Assert.Contains(true, listener.Measurements.Select(m =>
-            m.Tags.Any(tag => tag.Key == "cache.name" && (string?)tag.Value == "test-cache-name")));
+        // ALL measurements must carry the cache.name tag
+        listener.AssertAllMeasurementsHaveTag("cache.name", "test-cache-name");
     }
 
     [Fact]
@@ -860,15 +871,10 @@ public class MeteredMemoryCacheTests
         cache.Set("k", 100);
         cache.TryGetValue("k", out _); // hit
 
-        // Verify cache.name tag is present
-        Assert.Contains(true, listener.Measurements.Select(m =>
-            m.Tags.Any(tag => tag.Key == "cache.name" && (string?)tag.Value == "tagged-cache")));
-
-        // Verify additional tags are present
-        Assert.Contains(true, listener.Measurements.Select(m =>
-            m.Tags.Any(tag => tag.Key == "environment" && (string?)tag.Value == "test")));
-        Assert.Contains(true, listener.Measurements.Select(m =>
-            m.Tags.Any(tag => tag.Key == "region" && (string?)tag.Value == "us-west-2")));
+        // ALL measurements must carry each expected tag
+        listener.AssertAllMeasurementsHaveTag("cache.name", "tagged-cache");
+        listener.AssertAllMeasurementsHaveTag("environment", "test");
+        listener.AssertAllMeasurementsHaveTag("region", "us-west-2");
     }
 
     [Fact]
@@ -1025,8 +1031,7 @@ public class MeteredMemoryCacheTests
         Assert.Equal(1, listener.GetAggregatedCount("cache.requests", hitTag));
         Assert.Equal(1, listener.GetAggregatedCount("cache.requests", missTag));
 
-        Assert.Contains(true, listener.Measurements.Select(m =>
-            m.Tags.Any(tag => tag.Key == "cache.name" && (string?)tag.Value == "tryget-cache")));
+        listener.AssertAllMeasurementsHaveTag("cache.name", "tryget-cache");
     }
 
     [Fact]
@@ -1052,9 +1057,8 @@ public class MeteredMemoryCacheTests
         Assert.Equal(1, listener.GetAggregatedCount("cache.requests", hitTag));
         Assert.Equal(1, listener.GetAggregatedCount("cache.requests", missTag));
 
-        // Verify cache.name tag is present
-        Assert.Contains(true, listener.Measurements.Select(m =>
-            m.Tags.Any(tag => tag.Key == "cache.name" && (string?)tag.Value == "getorcreate-cache")));
+        // ALL measurements must carry cache.name tag
+        listener.AssertAllMeasurementsHaveTag("cache.name", "getorcreate-cache");
     }
 
     [Fact]
