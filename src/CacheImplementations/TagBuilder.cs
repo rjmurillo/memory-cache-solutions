@@ -42,6 +42,12 @@ internal static class TagBuilder
 #pragma warning disable S3267
         foreach (var kvp in additionalTags)
         {
+            // Guard against concurrent modifications that could add entries between the count and write passes
+            if (index >= tags.Length)
+            {
+                break;
+            }
+
             var normalizedKey = kvp.Key?.Trim();
             if (!string.IsNullOrEmpty(normalizedKey) && !string.Equals(normalizedKey, "cache.name", StringComparison.Ordinal))
             {
