@@ -23,7 +23,7 @@ public class MetricEmissionAccuracyTests
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.1"));
         using var harness = new MetricCollectionHarness(meter.Name, "cache.requests");
 
-        var cache = new MeteredMemoryCache(inner, meter, cacheName: "accuracy-test");
+        using var cache = new MeteredMemoryCache(inner, meter, cacheName: "accuracy-test");
 
         // Execute precise sequence: 3 misses, 5 hits
         cache.TryGetValue("key1", out _); // miss 1
@@ -43,12 +43,8 @@ public class MetricEmissionAccuracyTests
         // Validate exact counts
         Assert.Equal(5, harness.GetAggregatedCount("cache.requests", new KeyValuePair<string, object?>("cache.request.type", "hit")));
         Assert.Equal(3, harness.GetAggregatedCount("cache.requests", new KeyValuePair<string, object?>("cache.request.type", "miss")));
-        Assert.Equal(5, harness.GetAggregatedCount("cache.requests", new KeyValuePair<string, object?>("cache.request.type", "hit")));
-        Assert.Equal(3, harness.GetAggregatedCount("cache.requests", new KeyValuePair<string, object?>("cache.request.type", "miss")));
 
         // Validate all measurements have correct cache name tag
-        harness.AssertAllMeasurementsHaveTags("cache.requests",
-            new KeyValuePair<string, object?>("cache.name", "accuracy-test"));
         harness.AssertAllMeasurementsHaveTags("cache.requests",
             new KeyValuePair<string, object?>("cache.name", "accuracy-test"));
     }
@@ -60,7 +56,7 @@ public class MetricEmissionAccuracyTests
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.2"));
         using var harness = new MetricCollectionHarness(meter.Name, "cache.evictions");
 
-        var cache = new MeteredMemoryCache(inner, meter, cacheName: "eviction-test");
+        using var cache = new MeteredMemoryCache(inner, meter, cacheName: "eviction-test");
 
         // Create entries with different eviction scenarios
         using var cts1 = new CancellationTokenSource();
@@ -114,8 +110,8 @@ public class MetricEmissionAccuracyTests
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.3"));
         using var harness = new MetricCollectionHarness(meter.Name, "cache.requests");
 
-        var cache1 = new MeteredMemoryCache(inner1, meter, cacheName: "cache-alpha");
-        var cache2 = new MeteredMemoryCache(inner2, meter, cacheName: "cache-beta");
+        using var cache1 = new MeteredMemoryCache(inner1, meter, cacheName: "cache-alpha");
+        using var cache2 = new MeteredMemoryCache(inner2, meter, cacheName: "cache-beta");
 
         // Generate distinct patterns for each cache
         // Cache1: 2 misses, 3 hits
@@ -188,7 +184,7 @@ public class MetricEmissionAccuracyTests
             }
         };
 
-        var cache = new MeteredMemoryCache(inner, meter, options);
+        using var cache = new MeteredMemoryCache(inner, meter, options);
 
         // Generate metrics
         cache.TryGetValue("key", out _); // miss
@@ -223,7 +219,7 @@ public class MetricEmissionAccuracyTests
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.5"));
         using var harness = new MetricCollectionHarness(meter.Name, "cache.requests");
 
-        var cache = new MeteredMemoryCache(inner, meter, cacheName: "getorcreate-test");
+        using var cache = new MeteredMemoryCache(inner, meter, cacheName: "getorcreate-test");
 
         var factoryCallCount = 0;
         string TestFactory(ICacheEntry entry)
@@ -250,12 +246,8 @@ public class MetricEmissionAccuracyTests
         // Validate exact metric counts
         Assert.Equal(1, harness.GetAggregatedCount("cache.requests", new KeyValuePair<string, object?>("cache.request.type", "hit")));
         Assert.Equal(2, harness.GetAggregatedCount("cache.requests", new KeyValuePair<string, object?>("cache.request.type", "miss")));
-        Assert.Equal(1, harness.GetAggregatedCount("cache.requests", new KeyValuePair<string, object?>("cache.request.type", "hit")));
-        Assert.Equal(2, harness.GetAggregatedCount("cache.requests", new KeyValuePair<string, object?>("cache.request.type", "miss")));
 
         // Validate cache name tags
-        harness.AssertAllMeasurementsHaveTags("cache.requests",
-            new KeyValuePair<string, object?>("cache.name", "getorcreate-test"));
         harness.AssertAllMeasurementsHaveTags("cache.requests",
             new KeyValuePair<string, object?>("cache.name", "getorcreate-test"));
     }
@@ -267,7 +259,7 @@ public class MetricEmissionAccuracyTests
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.tryget.typed.validation"));
         using var harness = new MetricCollectionHarness(meter.Name, "cache.requests");
 
-        var cache = new MeteredMemoryCache(inner, meter, cacheName: "tryget-typed-test");
+        using var cache = new MeteredMemoryCache(inner, meter, cacheName: "tryget-typed-test");
 
         // Store different types
         cache.Set("string-key", "test-string");
@@ -303,8 +295,6 @@ public class MetricEmissionAccuracyTests
         // Validate cache name tags
         harness.AssertAllMeasurementsHaveTags("cache.requests",
             new KeyValuePair<string, object?>("cache.name", "tryget-typed-test"));
-        harness.AssertAllMeasurementsHaveTags("cache.requests",
-            new KeyValuePair<string, object?>("cache.name", "tryget-typed-test"));
     }
 
     [Fact]
@@ -314,7 +304,7 @@ public class MetricEmissionAccuracyTests
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.7"));
         using var harness = new MetricCollectionHarness(meter.Name, "cache.evictions");
 
-        var cache = new MeteredMemoryCache(inner, meter, cacheName: "createentry-test");
+        using var cache = new MeteredMemoryCache(inner, meter, cacheName: "createentry-test");
 
         // Create entry manually and dispose to trigger eviction
         using (var entry = cache.CreateEntry("manual-entry"))
@@ -370,7 +360,7 @@ public class MetricEmissionAccuracyTests
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.8"));
         using var harness = new MetricCollectionHarness(meter.Name, "cache.requests", "cache.evictions");
 
-        var cache = new MeteredMemoryCache(inner, meter, cacheName: "zero-test");
+        using var cache = new MeteredMemoryCache(inner, meter, cacheName: "zero-test");
 
         // Don't perform any cache operations
 
@@ -403,9 +393,9 @@ public class MetricEmissionAccuracyTests
             AdditionalTags = { ["service"] = "data-service", ["tier"] = "backend" }
         };
 
-        var cache1 = new MeteredMemoryCache(inner1, meter, options1);
-        var cache2 = new MeteredMemoryCache(inner2, meter, options2);
-        var cache3 = new MeteredMemoryCache(inner3, meter, cacheName: "simple-cache"); // Basic configuration
+        using var cache1 = new MeteredMemoryCache(inner1, meter, options1);
+        using var cache2 = new MeteredMemoryCache(inner2, meter, options2);
+        using var cache3 = new MeteredMemoryCache(inner3, meter, cacheName: "simple-cache"); // Basic configuration
 
         // Scenario 1: Different hit/miss patterns per cache
         // Cache1: 2 hits, 1 miss
@@ -552,7 +542,7 @@ public class MetricEmissionAccuracyTests
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.9"));
         using var harness = new MetricCollectionHarness(meter.Name, "cache.requests");
 
-        var cache = new MeteredMemoryCache(inner, meter, cacheName: "volume-test");
+        using var cache = new MeteredMemoryCache(inner, meter, cacheName: "volume-test");
 
         const int operationCount = 1000;
 

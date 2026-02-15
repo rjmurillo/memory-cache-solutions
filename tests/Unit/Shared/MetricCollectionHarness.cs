@@ -96,9 +96,13 @@ internal sealed class MetricCollectionHarness : IDisposable
             {
                 _measurements.Add(metricMeasurement);
 
-                if (!_measurementsByInstrument.ContainsKey(inst.Name))
-                    _measurementsByInstrument[inst.Name] = new List<MetricMeasurement>();
-                _measurementsByInstrument[inst.Name].Add(metricMeasurement);
+                if (!_measurementsByInstrument.TryGetValue(inst.Name, out var instrumentMeasurements))
+                {
+                    instrumentMeasurements = new List<MetricMeasurement>();
+                    _measurementsByInstrument[inst.Name] = instrumentMeasurements;
+                }
+
+                instrumentMeasurements.Add(metricMeasurement);
 
                 _aggregatedCounters[inst.Name] = _aggregatedCounters.GetValueOrDefault(inst.Name, 0) + measurement;
             }
@@ -123,8 +127,8 @@ internal sealed class MetricCollectionHarness : IDisposable
             _measurements.Clear();
             _measurementsByInstrument.Clear();
             _aggregatedCounters.Clear();
+            _listener.RecordObservableInstruments();
         }
-        _listener.RecordObservableInstruments();
     }
 
     /// <summary>
@@ -137,7 +141,9 @@ internal sealed class MetricCollectionHarness : IDisposable
         Collect();
         lock (_lock)
         {
-            return _measurementsByInstrument.GetValueOrDefault(instrumentName, new List<MetricMeasurement>()).ToArray();
+            return _measurementsByInstrument.TryGetValue(instrumentName, out var measurements)
+                ? measurements.ToArray()
+                : Array.Empty<MetricMeasurement>();
         }
     }
 
@@ -211,7 +217,7 @@ internal sealed class MetricCollectionHarness : IDisposable
             {
                 return true;
             }
-            await Task.Yield();
+            await Task.Delay(10, CancellationToken.None).ConfigureAwait(false);
         }
         return false;
     }
@@ -234,7 +240,7 @@ internal sealed class MetricCollectionHarness : IDisposable
             {
                 return true;
             }
-            await Task.Yield();
+            await Task.Delay(10, CancellationToken.None).ConfigureAwait(false);
         }
         return false;
     }
