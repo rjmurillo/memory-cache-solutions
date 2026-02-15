@@ -299,8 +299,13 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
         var tags = _tags;
 
         // Pre-allocate tag arrays with cache.request.type dimension per OTel conventions
-        var hitTags = tags.Append(new KeyValuePair<string, object?>("cache.request.type", "hit")).ToArray();
-        var missTags = tags.Append(new KeyValuePair<string, object?>("cache.request.type", "miss")).ToArray();
+        var hitTags = new KeyValuePair<string, object?>[tags.Length + 1];
+        tags.CopyTo(hitTags, 0);
+        hitTags[tags.Length] = new KeyValuePair<string, object?>("cache.request.type", "hit");
+
+        var missTags = new KeyValuePair<string, object?>[tags.Length + 1];
+        tags.CopyTo(missTags, 0);
+        missTags[tags.Length] = new KeyValuePair<string, object?>("cache.request.type", "miss");
 
         meter.CreateObservableCounter("cache.requests",
             () => new[]

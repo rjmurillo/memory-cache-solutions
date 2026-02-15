@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Runtime.CompilerServices;
 
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Primitives;
@@ -226,13 +227,10 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// <summary>
     /// Normalizes cache names to handle whitespace and prevent tag cardinality issues.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string NormalizeCacheName(string? cacheName)
     {
-        if (string.IsNullOrEmpty(cacheName))
-            return "Default";
-
-        var trimmed = cacheName.Trim();
-        return string.IsNullOrEmpty(trimmed) ? "Default" : trimmed;
+        return string.IsNullOrWhiteSpace(cacheName) ? "Default" : cacheName.Trim();
     }
 
     /// <summary>
@@ -244,8 +242,13 @@ public sealed class MeteredMemoryCache : IMemoryCache
         var tags = _tags;
 
         // Pre-allocate tag arrays with cache.request.type dimension per OTel conventions
-        var hitTags = tags.Append(new KeyValuePair<string, object?>("cache.request.type", "hit")).ToArray();
-        var missTags = tags.Append(new KeyValuePair<string, object?>("cache.request.type", "miss")).ToArray();
+        var hitTags = new KeyValuePair<string, object?>[tags.Length + 1];
+        tags.CopyTo(hitTags, 0);
+        hitTags[tags.Length] = new KeyValuePair<string, object?>("cache.request.type", "hit");
+
+        var missTags = new KeyValuePair<string, object?>[tags.Length + 1];
+        tags.CopyTo(missTags, 0);
+        missTags[tags.Length] = new KeyValuePair<string, object?>("cache.request.type", "miss");
 
         meter.CreateObservableCounter("cache.requests",
             () => new[]
