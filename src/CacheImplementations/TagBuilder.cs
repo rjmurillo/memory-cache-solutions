@@ -27,13 +27,10 @@ internal static class TagBuilder
 #pragma warning disable S3267 // Intentionally avoiding LINQ Where() allocation for performance
         foreach (var kvp in additionalTags)
         {
-            if (!string.Equals(kvp.Key, "cache.name", StringComparison.Ordinal))
+            var normalizedKey = kvp.Key?.Trim();
+            if (!string.IsNullOrEmpty(normalizedKey) && !string.Equals(normalizedKey, "cache.name", StringComparison.Ordinal))
             {
-                var normalizedKey = kvp.Key?.Trim();
-                if (!string.IsNullOrEmpty(normalizedKey))
-                {
-                    extraCount++;
-                }
+                extraCount++;
             }
         }
 #pragma warning restore S3267
@@ -45,13 +42,10 @@ internal static class TagBuilder
 #pragma warning disable S3267
         foreach (var kvp in additionalTags)
         {
-            if (!string.Equals(kvp.Key, "cache.name", StringComparison.Ordinal))
+            var normalizedKey = kvp.Key?.Trim();
+            if (!string.IsNullOrEmpty(normalizedKey) && !string.Equals(normalizedKey, "cache.name", StringComparison.Ordinal))
             {
-                var normalizedKey = kvp.Key?.Trim();
-                if (!string.IsNullOrEmpty(normalizedKey))
-                {
-                    tags[index++] = new KeyValuePair<string, object?>(normalizedKey, kvp.Value);
-                }
+                tags[index++] = new KeyValuePair<string, object?>(normalizedKey, kvp.Value);
             }
         }
 #pragma warning restore S3267
