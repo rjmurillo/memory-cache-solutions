@@ -271,6 +271,7 @@ internal sealed class MetricCollectionHarness : IDisposable
     {
         // GetMeasurements already calls Collect()
         var measurements = GetMeasurements(instrumentName);
+        Assert.NotEmpty(measurements);
         Assert.All(measurements, m =>
         {
             foreach (var requiredTag in requiredTags)
