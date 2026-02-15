@@ -581,4 +581,83 @@ public class MetricEmissionAccuracyTests
         Assert.All(allMeasurements.Where(m => m.Value > 0), m =>
             Assert.Equal("volume-test", m.Tags["cache.name"]));
     }
+
+    /// <summary>
+    /// Tests counter behavior near long.MaxValue boundary to validate overflow handling.
+    /// Per dotnet/runtime#124140: ~146 billion ops/sec sustained for 2 years would be needed to overflow.
+    /// While practically impossible, BCL code should test boundaries.
+    /// </summary>
+    [Fact]
+    public void CounterOverflowBoundary_ValidatesBehaviorNearMaxValue()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.overflow"));
+        using var harness = new MetricCollectionHarness(meter.Name, "cache.requests");
+
+        using var cache = new MeteredMemoryCache(inner, meter, cacheName: "overflow-test");
+
+        // Use reflection to set counter values near long.MaxValue to test boundary behavior
+        var cacheType = typeof(MeteredMemoryCache);
+        var hitCountField = cacheType.GetField("_hitCount", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var missCountField = cacheType.GetField("_missCount", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        Assert.NotNull(hitCountField);
+        Assert.NotNull(missCountField);
+
+        // Set counters near max value (leaving room for a few increments before overflow)
+        const long nearMaxValue = long.MaxValue - 10;
+        hitCountField.SetValue(cache, nearMaxValue);
+        missCountField.SetValue(cache, nearMaxValue);
+
+        // Perform operations - counters increment normally (no overflow yet)
+        cache.Set("key1", "value1");
+        cache.TryGetValue("key1", out _); // hit - increments to nearMaxValue + 1
+        cache.TryGetValue("nonexistent", out _); // miss - increments to nearMaxValue + 1
+
+        // Verify counters increment correctly near the boundary (no overflow at this point)
+        var hitCount = (long)hitCountField.GetValue(cache)!;
+        var missCount = (long)missCountField.GetValue(cache)!;
+
+        // Values should be nearMaxValue + 1 (still below MaxValue, no overflow)
+        Assert.Equal(nearMaxValue + 1, hitCount);
+        Assert.Equal(nearMaxValue + 1, missCount);
+
+        // Verify metrics can still be collected without exceptions
+        var stats = cache.GetCurrentStatistics();
+        Assert.Equal(nearMaxValue + 1, stats.TotalHits);
+        Assert.Equal(nearMaxValue + 1, stats.TotalMisses);
+    }
+
+    /// <summary>
+    /// Tests that counter increment at exact MaxValue produces overflow (wrap to negative).
+    /// Documents the expected behavior for BCL compliance review.
+    /// </summary>
+    [Fact]
+    public void CounterAtMaxValue_Increment_WrapsToNegative()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.accuracy.maxvalue"));
+        using var harness = new MetricCollectionHarness(meter.Name, "cache.requests");
+
+        using var cache = new MeteredMemoryCache(inner, meter, cacheName: "maxvalue-test");
+
+        // Set counter to exactly MaxValue
+        var cacheType = typeof(MeteredMemoryCache);
+        var hitCountField = cacheType.GetField("_hitCount", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        Assert.NotNull(hitCountField);
+        hitCountField.SetValue(cache, long.MaxValue);
+
+        // Perform one more hit - this will cause overflow
+        cache.Set("key", "value");
+        cache.TryGetValue("key", out _);
+
+        // Verify wrap-around behavior
+        var hitCount = (long)hitCountField.GetValue(cache)!;
+        Assert.Equal(long.MinValue, hitCount); // Standard overflow: MaxValue + 1 = MinValue
+
+        // Document that GetCurrentStatistics returns the wrapped value
+        var stats = cache.GetCurrentStatistics();
+        Assert.Equal(long.MinValue, stats.TotalHits);
+    }
 }

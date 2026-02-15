@@ -792,8 +792,8 @@ public class MeteredMemoryCacheTests
     [Fact]
     public void GetOrCreate_RaceConditionScenario_OnlyCountsMissWhenFactoryRuns()
     {
-        // This test demonstrates the race condition in GetOrCreate where miss counter
-        // is incremented even when the factory doesn't actually run due to concurrent cache population
+        // This test validates that GetOrCreate correctly records a hit (not a miss) when
+        // the value already exists in the cache and the factory is not invoked.
 
         using var inner = new MemoryCache(new MemoryCacheOptions());
         using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.miss.race"));
@@ -804,10 +804,10 @@ public class MeteredMemoryCacheTests
         var factoryRunCount = 0;
         var key = "race-condition-key";
 
-        // Pre-populate the cache to simulate the race condition scenario
+        // Pre-populate the cache so GetOrCreate finds the value
         inner.Set(key, "pre-existing-value");
 
-        // Call GetOrCreate - this should NOT increment miss counter since factory won't run
+        // Call GetOrCreate - factory should NOT run since value exists
         var result = cache.GetOrCreate(key, entry =>
         {
             Interlocked.Increment(ref factoryRunCount);
@@ -818,22 +818,16 @@ public class MeteredMemoryCacheTests
         Assert.Equal(0, factoryRunCount);
         Assert.Equal("pre-existing-value", result);
 
-        // The current implementation incorrectly counts this as a miss
-        // because it increments miss counter before checking if factory actually runs
-        // This test documents the race condition that needs to be fixed
-
         var missTag = new KeyValuePair<string, object?>("cache.request.type", "miss");
         var hitTag = new KeyValuePair<string, object?>("cache.request.type", "hit");
 
-        // With the current implementation, this will show 1 miss even though no factory ran
-        // After the fix, this should show 0 misses since the value was already cached
+        // GetOrCreate calls TryGetValue first, which should be a hit since value is pre-populated.
+        // This test validates that the hit is recorded correctly (no spurious misses).
         var missCount = listener.GetAggregatedCount("cache.requests", missTag);
-
-        // With the fix implemented, miss count should be 0 since factory didn't run
-        Assert.Equal(0, missCount);
-
-        // Verify we got a hit instead since the value was already in cache
         var hitCount = listener.GetAggregatedCount("cache.requests", hitTag);
+
+        // Expected: exactly 0 misses (value found on first TryGetValue), exactly 1 hit
+        Assert.Equal(0, missCount);
         Assert.Equal(1, hitCount);
     }
 
