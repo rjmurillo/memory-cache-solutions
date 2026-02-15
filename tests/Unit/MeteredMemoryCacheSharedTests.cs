@@ -79,8 +79,8 @@ public class MeteredMemoryCacheSharedTests : MeteredCacheTestBase<MeteredCacheTe
         Assert.Equal(1, harness.GetAggregatedCount("cache.requests", hitTag));
         Assert.Equal(1, harness.GetAggregatedCount("cache.requests", missTag));
 
-        Assert.Contains(true, harness.AllMeasurements.Select(m =>
-            m.Tags.Any(tag => tag.Key == "cache.name" && (string?)tag.Value == "tryget-cache")));
+        harness.AssertAllMeasurementsHaveTags("cache.requests",
+            new KeyValuePair<string, object?>("cache.name", "tryget-cache"));
     }
 
     /// <summary>
@@ -108,9 +108,8 @@ public class MeteredMemoryCacheSharedTests : MeteredCacheTestBase<MeteredCacheTe
         Assert.Equal(1, harness.GetAggregatedCount("cache.requests", hitTag));
         Assert.Equal(1, harness.GetAggregatedCount("cache.requests", missTag));
 
-        // Verify cache.name tag is present
-        Assert.Contains(true, harness.AllMeasurements.Select(m =>
-            m.Tags.Any(tag => tag.Key == "cache.name" && (string?)tag.Value == "getorcreate-cache")));
+        harness.AssertAllMeasurementsHaveTags("cache.requests",
+            new KeyValuePair<string, object?>("cache.name", "getorcreate-cache"));
     }
 
     /// <summary>
@@ -132,15 +131,13 @@ public class MeteredMemoryCacheSharedTests : MeteredCacheTestBase<MeteredCacheTe
         subject.Cache.Set("k", 100);
         subject.Cache.TryGetValue("k", out _); // hit
 
-        // Verify cache.name tag is present
-        Assert.Contains(true, harness.AllMeasurements.Select(m =>
-            m.Tags.Any(tag => tag.Key == "cache.name" && (string?)tag.Value == "tagged-cache")));
+        harness.AssertAllMeasurementsHaveTags("cache.requests",
+            new KeyValuePair<string, object?>("cache.name", "tagged-cache"));
 
-        // Verify additional tags are present
-        Assert.Contains(true, harness.AllMeasurements.Select(m =>
-            m.Tags.Any(tag => tag.Key == "environment" && (string?)tag.Value == "test")));
-        Assert.Contains(true, harness.AllMeasurements.Select(m =>
-            m.Tags.Any(tag => tag.Key == "region" && (string?)tag.Value == "us-west-2")));
+        // Verify additional tags are present on all measurements
+        harness.AssertAllMeasurementsHaveTags("cache.requests",
+            new KeyValuePair<string, object?>("environment", "test"),
+            new KeyValuePair<string, object?>("region", "us-west-2"));
     }
 
     /// <summary>
