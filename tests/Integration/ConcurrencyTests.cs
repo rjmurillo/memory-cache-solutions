@@ -565,6 +565,315 @@ public class ConcurrencyTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// Tests concurrent Dispose() and TryGetValue() operations to validate disposal thread-safety.
+    /// </summary>
+    [Fact]
+    public async Task ConcurrentDisposeAndTryGetValue_ShouldNotThrowOrCorrupt()
+    {
+        // Arrange
+        const int iterations = 100;
+        var exceptions = new ConcurrentBag<Exception>();
+
+        for (int iteration = 0; iteration < iterations; iteration++)
+        {
+            using var inner = new MemoryCache(new MemoryCacheOptions());
+            using var meter = new Meter(SharedUtilities.GetUniqueMeterName($"test.dispose.race.{iteration}"));
+
+            var cache = new MeteredMemoryCache(inner, meter, $"dispose-race-{iteration}");
+
+            // Pre-populate cache with entries
+            for (int i = 0; i < 50; i++)
+            {
+                cache.Set($"key-{i}", $"value-{i}");
+            }
+
+            var disposeTask = Task.Run(() =>
+            {
+                try
+                {
+                    cache.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    exceptions.Add(ex);
+                }
+            });
+
+            var operationTasks = Enumerable.Range(0, 10).Select(threadId =>
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        for (int i = 0; i < 20; i++)
+                        {
+                            try
+                            {
+                                cache.TryGetValue($"key-{i}", out _);
+                            }
+                            catch (ObjectDisposedException)
+                            {
+                                // Expected - cache was disposed during operation
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        exceptions.Add(ex);
+                    }
+                })).ToArray();
+
+            await Task.WhenAll(operationTasks.Concat(new[] { disposeTask }));
+        }
+
+        // Assert: No unexpected exceptions
+        var unexpectedExceptions = exceptions.Where(e => e is not ObjectDisposedException).ToList();
+        Assert.Empty(unexpectedExceptions);
+    }
+
+    /// <summary>
+    /// Tests concurrent Dispose() and Set() operations to validate disposal thread-safety for write operations.
+    /// </summary>
+    [Fact]
+    public async Task ConcurrentDisposeAndSet_ShouldNotThrowOrCorrupt()
+    {
+        // Arrange
+        const int iterations = 100;
+        var exceptions = new ConcurrentBag<Exception>();
+
+        for (int iteration = 0; iteration < iterations; iteration++)
+        {
+            using var inner = new MemoryCache(new MemoryCacheOptions());
+            using var meter = new Meter(SharedUtilities.GetUniqueMeterName($"test.dispose.set.{iteration}"));
+
+            var cache = new MeteredMemoryCache(inner, meter, $"dispose-set-{iteration}");
+
+            var disposeTask = Task.Run(() =>
+            {
+                try
+                {
+                    cache.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    exceptions.Add(ex);
+                }
+            });
+
+            var operationTasks = Enumerable.Range(0, 10).Select(threadId =>
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        for (int i = 0; i < 20; i++)
+                        {
+                            try
+                            {
+                                cache.Set($"key-{threadId}-{i}", $"value-{i}");
+                            }
+                            catch (ObjectDisposedException)
+                            {
+                                // Expected - cache was disposed during operation
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        exceptions.Add(ex);
+                    }
+                })).ToArray();
+
+            await Task.WhenAll(operationTasks.Concat(new[] { disposeTask }));
+        }
+
+        // Assert: No unexpected exceptions
+        var unexpectedExceptions = exceptions.Where(e => e is not ObjectDisposedException).ToList();
+        Assert.Empty(unexpectedExceptions);
+    }
+
+    /// <summary>
+    /// Tests Dispose() during eviction callback execution to validate callback thread-safety.
+    /// </summary>
+    [Fact]
+    public async Task DisposeDuringEvictionCallback_ShouldNotThrowOrDeadlock()
+    {
+        // Arrange
+        const int iterations = 50;
+        var exceptions = new ConcurrentBag<Exception>();
+
+        for (int iteration = 0; iteration < iterations; iteration++)
+        {
+            using var inner = new MemoryCache(new MemoryCacheOptions());
+            using var meter = new Meter(SharedUtilities.GetUniqueMeterName($"test.dispose.eviction.{iteration}"));
+
+            var cache = new MeteredMemoryCache(inner, meter, $"eviction-dispose-{iteration}");
+
+            // Set up entries with eviction triggers
+            var cancellationTokenSources = new List<CancellationTokenSource>();
+            for (int i = 0; i < 20; i++)
+            {
+                var cts = new CancellationTokenSource();
+                cancellationTokenSources.Add(cts);
+
+                var options = new MemoryCacheEntryOptions();
+                options.AddExpirationToken(new CancellationChangeToken(cts.Token));
+                cache.Set($"evict-key-{i}", $"value-{i}", options);
+            }
+
+            // Trigger all evictions simultaneously
+            var evictionTask = Task.Run(() =>
+            {
+                try
+                {
+                    foreach (var cts in cancellationTokenSources)
+                    {
+                        cts.Cancel();
+                    }
+
+                    // Force eviction processing
+                    inner.Compact(0.0);
+                }
+                catch (Exception ex)
+                {
+                    exceptions.Add(ex);
+                }
+            });
+
+            // Dispose while evictions are being processed
+            var disposeTask = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Yield(); // Yield to scheduler; race timing is non-deterministic
+                    cache.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    exceptions.Add(ex);
+                }
+            });
+
+            // Wait with timeout to detect deadlocks
+            await Task.WhenAll(evictionTask, disposeTask)
+                .WaitAsync(TimeSpan.FromSeconds(5));
+
+            // Cleanup
+            foreach (var cts in cancellationTokenSources)
+            {
+                cts.Dispose();
+            }
+        }
+
+        // Assert: No unexpected exceptions (ObjectDisposedException is acceptable)
+        var unexpectedExceptions = exceptions.Where(e => e is not ObjectDisposedException).ToList();
+        Assert.Empty(unexpectedExceptions);
+    }
+
+    /// <summary>
+    /// Tests Dispose() during GetOrCreate factory execution to validate factory thread-safety.
+    /// </summary>
+    [Fact]
+    public async Task DisposeDuringGetOrCreateFactory_ShouldNotCorruptState()
+    {
+        // Arrange
+        const int iterations = 50;
+        var exceptions = new ConcurrentBag<Exception>();
+
+        for (int iteration = 0; iteration < iterations; iteration++)
+        {
+            using var inner = new MemoryCache(new MemoryCacheOptions());
+            using var meter = new Meter(SharedUtilities.GetUniqueMeterName($"test.dispose.factory.{iteration}"));
+
+            var cache = new MeteredMemoryCache(inner, meter, $"factory-dispose-{iteration}");
+            using var factoryStarted = new ManualResetEventSlim(false);
+            using var continueFactory = new ManualResetEventSlim(false);
+
+            var getOrCreateTask = Task.Run(() =>
+            {
+                try
+                {
+                    cache.GetOrCreate("slow-key", entry =>
+                    {
+                        factoryStarted.Set();
+                        continueFactory.Wait(TimeSpan.FromMilliseconds(100)); // Wait briefly
+                        return "factory-value";
+                    });
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Expected if disposed during factory execution
+                }
+                catch (Exception ex)
+                {
+                    exceptions.Add(ex);
+                }
+            });
+
+            var disposeTask = Task.Run(() =>
+            {
+                try
+                {
+                    factoryStarted.Wait(TimeSpan.FromMilliseconds(50)); // Wait for factory to start
+                    cache.Dispose();
+                    continueFactory.Set(); // Let factory continue
+                }
+                catch (Exception ex)
+                {
+                    exceptions.Add(ex);
+                }
+            });
+
+            await Task.WhenAll(getOrCreateTask, disposeTask).WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        // Assert: No unexpected exceptions
+        Assert.Empty(exceptions);
+    }
+
+    /// <summary>
+    /// Tests multiple concurrent Dispose() calls to validate idempotent disposal.
+    /// </summary>
+    [Fact]
+    public async Task MultipleConcurrentDisposeCalls_ShouldBeIdempotent()
+    {
+        // Arrange
+        const int iterations = 100;
+        var exceptions = new ConcurrentBag<Exception>();
+
+        for (int iteration = 0; iteration < iterations; iteration++)
+        {
+            using var inner = new MemoryCache(new MemoryCacheOptions());
+            using var meter = new Meter(SharedUtilities.GetUniqueMeterName($"test.dispose.concurrent.{iteration}"));
+
+            var cache = new MeteredMemoryCache(inner, meter, $"concurrent-dispose-{iteration}");
+
+            // Pre-populate cache
+            for (int i = 0; i < 10; i++)
+            {
+                cache.Set($"key-{i}", $"value-{i}");
+            }
+
+            // Launch multiple concurrent Dispose calls
+            var disposeTasks = Enumerable.Range(0, 20).Select(_ =>
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        cache.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        exceptions.Add(ex);
+                    }
+                })).ToArray();
+
+            await Task.WhenAll(disposeTasks);
+        }
+
+        // Assert: No exceptions from concurrent Dispose calls
+        Assert.Empty(exceptions);
+    }
+
     // Helper Methods
 
     private (IHost Host, List<Metric> ExportedItems) CreateHostWithMetrics(string cacheName)

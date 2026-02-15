@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace CacheImplementations;
 
 /// <summary>
@@ -10,7 +12,8 @@ internal static class TagBuilder
     /// Builds a pre-allocated tag array for Observable instrument callbacks.
     /// </summary>
     /// <param name="cacheName">The normalized cache name (must not be null or empty).</param>
-    /// <param name="additionalTags">Optional additional tags to include. The "cache.name" key is automatically deduplicated.</param>
+    /// <param name="additionalTags">Optional additional tags to include. The "cache.name" key is automatically deduplicated.
+    /// A defensive copy (frozen) is made to prevent post-construction mutations from affecting the cache.</param>
     /// <returns>A pre-allocated array of tags with "cache.name" as the first entry.</returns>
     internal static KeyValuePair<string, object?>[] BuildTags(
         string cacheName,
@@ -22,10 +25,14 @@ internal static class TagBuilder
             return [new KeyValuePair<string, object?>("cache.name", cacheName)];
         }
 
+        // Create a frozen snapshot to protect against concurrent modification of the source dictionary.
+        // This ensures stable iteration even if the caller modifies AdditionalTags after calling this method.
+        var frozenTags = additionalTags.ToFrozenDictionary(StringComparer.Ordinal);
+
         // Count eligible additional tags to allocate exact-sized array
         int extraCount = 0;
 #pragma warning disable S3267 // Intentionally avoiding LINQ Where() allocation for performance
-        foreach (var kvp in additionalTags)
+        foreach (var kvp in frozenTags)
         {
             var normalizedKey = kvp.Key?.Trim();
             if (!string.IsNullOrEmpty(normalizedKey) && !string.Equals(normalizedKey, "cache.name", StringComparison.Ordinal))
@@ -40,14 +47,8 @@ internal static class TagBuilder
 
         int index = 1;
 #pragma warning disable S3267
-        foreach (var kvp in additionalTags)
+        foreach (var kvp in frozenTags)
         {
-            // Guard against concurrent modifications that could add entries between the count and write passes
-            if (index >= tags.Length)
-            {
-                break;
-            }
-
             var normalizedKey = kvp.Key?.Trim();
             if (!string.IsNullOrEmpty(normalizedKey) && !string.Equals(normalizedKey, "cache.name", StringComparison.Ordinal))
             {

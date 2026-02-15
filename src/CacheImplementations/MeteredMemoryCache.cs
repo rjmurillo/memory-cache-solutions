@@ -16,6 +16,35 @@ namespace CacheImplementations;
 ///  - cache.entries (<see cref="ObservableUpDownCounter{T}"/>)
 ///  - cache.estimated_size (<see cref="ObservableGauge{T}"/>) when the inner cache is a <see cref="MemoryCache"/> with statistics tracking enabled.
 /// </summary>
+/// <threadsafety>
+/// This class is thread-safe for concurrent cache operations.
+/// All metrics are updated atomically using <see cref="Interlocked"/> operations.
+/// Observable instrument callbacks may execute on different threads and may observe
+/// intermediate states during disposal. The disposal check uses <see cref="Volatile.Read"/>
+/// to ensure proper visibility across threads.
+/// </threadsafety>
+/// <remarks>
+/// <para>
+/// When <c>meterFactory</c> is <see langword="null"/>, this instance creates and owns a <see cref="Meter"/>.
+/// This creates a reference cycle: MeteredMemoryCache -> Meter -> Observable Instruments -> Callbacks -> MeteredMemoryCache.
+/// The <see cref="Dispose"/> method (or finalizer) MUST be called to break this cycle and release resources.
+/// </para>
+/// <para>
+/// <b>Design Decision - No ICacheStatisticsProvider Interface:</b>
+/// Dear future maintainer: We considered adding an <c>ICacheStatisticsProvider</c> interface
+/// for <see cref="GetCurrentStatistics"/>. We decided against it because:
+/// (1) BCL's <see cref="MemoryCache"/> exposes <c>GetCurrentStatistics()</c> directly without an interface;
+/// (2) We want this to be a "drop-in" replacement for BCL MemoryCache when .NET 11 adds native metrics
+/// per dotnet/runtime#124140 — adding extra interfaces creates API surface divergence;
+/// (3) Consumers who need the interface can create their own wrapper.
+/// </para>
+/// <para>
+/// <b>Design Decision - No ActivitySource/Distributed Tracing:</b>
+/// BCL <see cref="MemoryCache"/> uses <c>EventSource</c> ("Microsoft-Extensions-Caching-Memory")
+/// for performance counters, not <c>ActivitySource</c>. We follow that pattern to maintain
+/// BCL alignment. Applications can wrap cache calls with their own Activity spans if needed.
+/// </para>
+/// </remarks>
 [DebuggerDisplay("{Name}")]
 public sealed class MeteredMemoryCache : IMemoryCache
 {
@@ -33,6 +62,31 @@ public sealed class MeteredMemoryCache : IMemoryCache
     private long _entryCount;
 
     private int _disposed;
+
+    /// <summary>
+    /// Finalizer that breaks the circular reference chain when <see cref="Dispose"/> was not called.
+    /// </summary>
+    /// <remarks>
+    /// When <c>meterFactory</c> is <see langword="null"/>, this instance owns a <see cref="Meter"/> which creates
+    /// a circular reference: MeteredMemoryCache -> Meter -> Observable Instruments -> Callbacks -> MeteredMemoryCache.
+    /// The finalizer ensures this managed reference cycle is broken for eventual garbage collection.
+    /// Note: Finalizers must never throw, so this wraps disposal in a try-catch.
+    /// </remarks>
+#pragma warning disable MA0055 // Finalizer required to break circular reference when meterFactory is null
+    ~MeteredMemoryCache()
+    {
+        try
+        {
+            Dispose(disposing: false);
+        }
+        catch
+        {
+            // Finalizers must never throw. Best-effort disposal only.
+            // Use GetHashCode() instead of Name - accessing managed properties during finalization is unsafe.
+            Debug.WriteLine($"[MeteredMemoryCache] Finalizer disposal failed for instance {GetHashCode():X8}");
+        }
+    }
+#pragma warning restore MA0055
 
     /// <summary>
     /// Gets the logical name of this cache instance. Defaults to <c>"Default"</c> when no explicit name is provided.
@@ -171,6 +225,9 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// <returns><see langword="true"/> if the key was found in the cache; otherwise, <see langword="false"/>.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when this <see cref="MeteredMemoryCache"/> instance has been disposed.</exception>
+    /// <remarks>
+    /// Postcondition: Exactly one of <c>_hitCount</c> or <c>_missCount</c> is atomically incremented by 1.
+    /// </remarks>
     public bool TryGetValue(object key, out object? value)
     {
         ArgumentNullException.ThrowIfNull(key);
@@ -194,6 +251,10 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// <returns>The newly created <see cref="ICacheEntry"/> instance with pre-registered eviction tracking.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when this <see cref="MeteredMemoryCache"/> instance has been disposed.</exception>
+    /// <remarks>
+    /// Postcondition: Returned entry has an eviction callback registered. When the entry is disposed
+    /// (committed to the cache), <c>_entryCount</c> is atomically incremented by exactly 1.
+    /// </remarks>
     public ICacheEntry CreateEntry(object key)
     {
         ArgumentNullException.ThrowIfNull(key);
@@ -341,17 +402,36 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// </summary>
     public void Dispose()
     {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Releases resources used by this instance.
+    /// </summary>
+    /// <param name="disposing">
+    /// <see langword="true"/> if called from <see cref="Dispose()"/>;
+    /// <see langword="false"/> if called from the finalizer.
+    /// </param>
+    private void Dispose(bool disposing)
+    {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
             return;
 
-        // Dispose the owned meter first to unregister Observable instruments
-        // and break the reference chain (Meter → Instruments → Callbacks → this)
+        // Dispose the owned meter to unregister Observable instruments
+        // and break the reference chain (Meter -> Instruments -> Callbacks -> this).
+        // This must run even during finalization (disposing=false) because the finalizer
+        // exists specifically to break this circular reference when Dispose() is not called.
+        // Meter.Dispose() is safe to call during finalization as it only unregisters instruments.
         _ownedMeter?.Dispose();
 
-        if (_disposeInner)
+        // Dispose other managed resources only when called from Dispose().
+        // During finalization, these objects may be shared and should not be disposed.
+        if (disposing && _disposeInner)
         {
             _inner.Dispose();
         }
+        // No unmanaged resources to release
     }
 
     /// <summary>
