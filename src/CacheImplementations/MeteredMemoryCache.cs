@@ -223,6 +223,9 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// <returns><see langword="true"/> if the key was found in the cache; otherwise, <see langword="false"/>.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when this <see cref="MeteredMemoryCache"/> instance has been disposed.</exception>
+    /// <remarks>
+    /// Postcondition: Exactly one of <c>_hitCount</c> or <c>_missCount</c> is atomically incremented by 1.
+    /// </remarks>
     public bool TryGetValue(object key, out object? value)
     {
         ArgumentNullException.ThrowIfNull(key);
@@ -246,6 +249,10 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// <returns>The newly created <see cref="ICacheEntry"/> instance with pre-registered eviction tracking.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when this <see cref="MeteredMemoryCache"/> instance has been disposed.</exception>
+    /// <remarks>
+    /// Postcondition: Returned entry has an eviction callback registered. When the entry is disposed
+    /// (committed to the cache), <c>_entryCount</c> is atomically incremented by exactly 1.
+    /// </remarks>
     public ICacheEntry CreateEntry(object key)
     {
         ArgumentNullException.ThrowIfNull(key);
