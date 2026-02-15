@@ -82,6 +82,8 @@ public sealed class MeteredMemoryCache : IMemoryCache
         catch
         {
             // Finalizers must never throw. Best-effort disposal only.
+            // Use GetHashCode() instead of Name - accessing managed properties during finalization is unsafe.
+            Debug.WriteLine($"[MeteredMemoryCache] Finalizer disposal failed for instance {GetHashCode():X8}");
         }
     }
 #pragma warning restore MA0055
