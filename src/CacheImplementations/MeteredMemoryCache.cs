@@ -396,19 +396,18 @@ public sealed class MeteredMemoryCache : IMemoryCache
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
             return;
 
-        if (disposing)
+        // Dispose the owned meter to unregister Observable instruments
+        // and break the reference chain (Meter -> Instruments -> Callbacks -> this).
+        // This must run even during finalization (disposing=false) because the finalizer
+        // exists specifically to break this circular reference when Dispose() is not called.
+        // Meter.Dispose() is safe to call during finalization as it only unregisters instruments.
+        _ownedMeter?.Dispose();
+
+        // Dispose other managed resources only when called from Dispose().
+        // During finalization, these objects may be shared and should not be disposed.
+        if (disposing && _disposeInner)
         {
-            // Dispose managed resources only when called from Dispose()
-            // During finalization, managed objects may have already been collected
-
-            // Dispose the owned meter first to unregister Observable instruments
-            // and break the reference chain (Meter -> Instruments -> Callbacks -> this)
-            _ownedMeter?.Dispose();
-
-            if (_disposeInner)
-            {
-                _inner.Dispose();
-            }
+            _inner.Dispose();
         }
         // No unmanaged resources to release
     }
