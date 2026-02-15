@@ -32,9 +32,6 @@ public sealed class MeteredMemoryCache : IMemoryCache
     private long _evictionCount;
     private long _entryCount;
 
-    // Pre-allocated array for cache.requests observable callback (avoids per-poll allocation)
-    private readonly Measurement<long>[] _requestMeasurements = new Measurement<long>[2];
-
     private int _disposed;
 
     /// <summary>
@@ -254,11 +251,10 @@ public sealed class MeteredMemoryCache : IMemoryCache
         missTags[tags.Length] = new KeyValuePair<string, object?>("cache.request.type", "miss");
 
         meter.CreateObservableCounter("cache.requests",
-            () =>
+            () => new[]
             {
-                _requestMeasurements[0] = new Measurement<long>(Interlocked.Read(ref _hitCount), hitTags);
-                _requestMeasurements[1] = new Measurement<long>(Interlocked.Read(ref _missCount), missTags);
-                return _requestMeasurements;
+                new Measurement<long>(Interlocked.Read(ref _hitCount), hitTags),
+                new Measurement<long>(Interlocked.Read(ref _missCount), missTags),
             },
             unit: "{requests}",
             description: "Total number of cache lookup operations.");
