@@ -223,8 +223,11 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// Gets current cache statistics using atomic reads, similar to <see cref="MemoryCache.GetCurrentStatistics()"/>.
     /// </summary>
     /// <returns>A <see cref="CacheStatistics"/> instance containing current cache metrics.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when this <see cref="MeteredMemoryCache"/> instance has been disposed.</exception>
     public CacheStatistics GetCurrentStatistics()
     {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+
         return new CacheStatistics
         {
             TotalHits = Interlocked.Read(ref _hitCount),
