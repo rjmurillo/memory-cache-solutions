@@ -18,6 +18,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     private readonly bool _disposeInner;
     private readonly Meter? _ownedMeter;
     private readonly string _cacheName;
+    private readonly KeyValuePair<string, object?>[] _tags;
 
     // Atomic counters for high-performance metrics
     private long _hitCount;
@@ -54,6 +55,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
         _inner = innerCache;
         _disposeInner = disposeInner;
         _cacheName = NormalizeCacheName(cacheName);
+        _tags = TagBuilder.BuildTags(_cacheName, null);
 
         if (enableMetrics)
         {
@@ -82,8 +84,78 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
         _inner = innerCache;
         _disposeInner = disposeInner;
         _cacheName = NormalizeCacheName(cacheName);
+        _tags = TagBuilder.BuildTags(_cacheName, null);
 
         // Create meter - if factory is null, we own the meter and must dispose it
+        if (enableMetrics)
+        {
+            Meter meter;
+            if (meterFactory is not null)
+            {
+                meter = meterFactory.Create(MeterName);
+                _ownedMeter = null;
+            }
+            else
+            {
+                meter = new Meter(MeterName);
+                _ownedMeter = meter;
+            }
+
+            RegisterObservableInstruments(meter);
+        }
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="OptimizedMeteredMemoryCache"/> using the options pattern for advanced configuration.
+    /// </summary>
+    /// <param name="innerCache">The underlying <see cref="IMemoryCache"/> instance to decorate.</param>
+    /// <param name="meter">The <see cref="Meter"/> instance used to create metric counters.</param>
+    /// <param name="options">The <see cref="MeteredMemoryCacheOptions"/> containing cache name, disposal behavior, and additional tags.</param>
+    /// <param name="enableMetrics">Whether to enable metric collection. When <see langword="false"/>, no metrics are collected.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="innerCache"/>, <paramref name="meter"/>, or <paramref name="options"/> is <see langword="null"/>.</exception>
+    public OptimizedMeteredMemoryCache(
+        IMemoryCache innerCache,
+        Meter meter,
+        MeteredMemoryCacheOptions options,
+        bool enableMetrics = true)
+    {
+        ArgumentNullException.ThrowIfNull(innerCache);
+        ArgumentNullException.ThrowIfNull(meter);
+        ArgumentNullException.ThrowIfNull(options);
+
+        _inner = innerCache;
+        _disposeInner = options.DisposeInner;
+        _cacheName = NormalizeCacheName(options.CacheName);
+        _tags = TagBuilder.BuildTags(_cacheName, options.AdditionalTags);
+
+        if (enableMetrics)
+        {
+            RegisterObservableInstruments(meter);
+        }
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="OptimizedMeteredMemoryCache"/> using an <see cref="IMeterFactory"/> and the options pattern.
+    /// </summary>
+    /// <param name="innerCache">The underlying <see cref="IMemoryCache"/> instance to decorate.</param>
+    /// <param name="meterFactory">The <see cref="IMeterFactory"/> used to create the <see cref="Meter"/> instance. If <see langword="null"/>, a fallback meter is created and owned by this instance.</param>
+    /// <param name="options">The <see cref="MeteredMemoryCacheOptions"/> containing cache name, disposal behavior, and additional tags.</param>
+    /// <param name="enableMetrics">Whether to enable metric collection. When <see langword="false"/>, no metrics are collected.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="innerCache"/> or <paramref name="options"/> is <see langword="null"/>.</exception>
+    public OptimizedMeteredMemoryCache(
+        IMemoryCache innerCache,
+        IMeterFactory? meterFactory,
+        MeteredMemoryCacheOptions options,
+        bool enableMetrics = true)
+    {
+        ArgumentNullException.ThrowIfNull(innerCache);
+        ArgumentNullException.ThrowIfNull(options);
+
+        _inner = innerCache;
+        _disposeInner = options.DisposeInner;
+        _cacheName = NormalizeCacheName(options.CacheName);
+        _tags = TagBuilder.BuildTags(_cacheName, options.AdditionalTags);
+
         if (enableMetrics)
         {
             Meter meter;
@@ -159,25 +231,7 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
         // Entry count is incremented when the entry is committed (disposed), not when created.
         // This prevents inflated counts when entries are created but never committed.
 
-        // Register eviction callback
-        entry.RegisterPostEvictionCallback(static (key, value, reason, state) =>
-        {
-            var cache = (OptimizedMeteredMemoryCache)state!;
-
-            // Guard: no metric updates after disposal
-            if (Volatile.Read(ref cache._disposed) != 0)
-            {
-                return;
-            }
-
-            // Per dotnet/runtime#124140: evictions exclude explicit user removals and replacements.
-            if (reason != EvictionReason.Removed && reason != EvictionReason.Replaced)
-            {
-                Interlocked.Increment(ref cache._evictionCount);
-            }
-
-            Interlocked.Decrement(ref cache._entryCount);
-        }, this);
+        RegisterEvictionCallback(entry, this);
 
         return new TrackingCacheEntry(entry, this);
     }
@@ -208,17 +262,41 @@ public sealed class OptimizedMeteredMemoryCache : IMemoryCache
     }
 
     /// <summary>
+    /// Registers a post-eviction callback to track cache evictions atomically.
+    /// </summary>
+    private static void RegisterEvictionCallback(ICacheEntry entry, OptimizedMeteredMemoryCache self)
+    {
+        entry.RegisterPostEvictionCallback(static (_, _, reason, state) =>
+        {
+            var cache = (OptimizedMeteredMemoryCache)state!;
+
+            // Guard: no metric updates after disposal
+            if (Volatile.Read(ref cache._disposed) != 0)
+            {
+                return;
+            }
+
+            // Per dotnet/runtime#124140: evictions exclude explicit user removals and replacements.
+            if (reason != EvictionReason.Removed && reason != EvictionReason.Replaced)
+            {
+                Interlocked.Increment(ref cache._evictionCount);
+            }
+
+            Interlocked.Decrement(ref cache._entryCount);
+        }, self);
+    }
+
+    /// <summary>
     /// The meter name used per dotnet/runtime#124140.
     /// </summary>
-    internal const string MeterName = "Microsoft.Extensions.Caching.Memory";
+    public const string MeterName = "Microsoft.Extensions.Caching.Memory";
 
     /// <summary>
     /// Registers Observable instruments that poll atomic counters on demand.
     /// </summary>
     private void RegisterObservableInstruments(Meter meter)
     {
-        // _cacheName is always non-empty (NormalizeCacheName returns "Default" for null/empty/whitespace)
-        var tags = new[] { new KeyValuePair<string, object?>("cache.name", _cacheName) };
+        var tags = _tags;
 
         // Pre-allocate tag arrays with cache.request.type dimension per OTel conventions
         var hitTags = tags.Append(new KeyValuePair<string, object?>("cache.request.type", "hit")).ToArray();

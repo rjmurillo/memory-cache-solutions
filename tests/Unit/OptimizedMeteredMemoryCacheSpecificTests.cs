@@ -501,4 +501,136 @@ public class OptimizedMeteredMemoryCacheSpecificTests
 
         Assert.False(cache.TryGetValue("key1", out _));
     }
+
+    [Fact]
+    public void Constructor_WithMeterAndOptions_InitializesCorrectly()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.meteroptions"));
+        var options = new MeteredMemoryCacheOptions
+        {
+            CacheName = SharedUtilities.GetUniqueCacheName("meter-options-test"),
+            DisposeInner = false,
+            AdditionalTags = new Dictionary<string, object?> { ["environment"] = "test" }
+        };
+
+        using var cache = new OptimizedMeteredMemoryCache(inner, meter, options);
+
+        Assert.Equal(options.CacheName, cache.Name);
+    }
+
+    [Fact]
+    public void Constructor_WithMeterFactoryAndOptions_InitializesCorrectly()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        var options = new MeteredMemoryCacheOptions
+        {
+            CacheName = SharedUtilities.GetUniqueCacheName("factory-options-test"),
+            DisposeInner = false,
+        };
+
+        // null meterFactory should create an owned meter
+        using var cache = new OptimizedMeteredMemoryCache(inner, (IMeterFactory?)null, options);
+
+        Assert.Equal(options.CacheName, cache.Name);
+    }
+
+    [Fact]
+    public void Constructor_WithMeterAndNullOptions_ThrowsArgumentNullException()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.nulloptions"));
+
+        Assert.Throws<ArgumentNullException>(() =>
+            new OptimizedMeteredMemoryCache(inner, meter, (MeteredMemoryCacheOptions)null!));
+    }
+
+    [Fact]
+    public void Constructor_WithMeterFactoryAndNullOptions_ThrowsArgumentNullException()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+
+        Assert.Throws<ArgumentNullException>(() =>
+            new OptimizedMeteredMemoryCache(inner, (IMeterFactory?)null, (MeteredMemoryCacheOptions)null!));
+    }
+
+    [Fact]
+    public void Constructor_WithOptionsAndMetricsDisabled_SkipsInstrumentRegistration()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.optionsdisabled"));
+        var options = new MeteredMemoryCacheOptions
+        {
+            CacheName = SharedUtilities.GetUniqueCacheName("disabled-options-test"),
+        };
+
+        using var cache = new OptimizedMeteredMemoryCache(inner, meter, options, enableMetrics: false);
+
+        // Should still track stats even without instruments
+        cache.TryGetValue("miss", out _);
+        var stats = cache.GetCurrentStatistics();
+        Assert.Equal(1, stats.TotalMisses);
+    }
+
+    [Fact]
+    public void Constructor_WithOptions_AdditionalTagsFlowToMetrics()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.addltags"));
+        var options = new MeteredMemoryCacheOptions
+        {
+            CacheName = SharedUtilities.GetUniqueCacheName("tags-test"),
+            AdditionalTags = new Dictionary<string, object?>
+            {
+                ["environment"] = "staging",
+                ["region"] = "us-west-2"
+            }
+        };
+
+        using var cache = new OptimizedMeteredMemoryCache(inner, meter, options);
+
+        var emittedTags = new List<KeyValuePair<string, object?>[]>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (inst, meterListener) =>
+        {
+            if (inst.Meter.Name == meter.Name && inst.Name.StartsWith("cache."))
+            {
+                meterListener.EnableMeasurementEvents(inst);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((inst, measurement, tags, state) =>
+        {
+            emittedTags.Add(tags.ToArray());
+        });
+        listener.Start();
+
+        cache.TryGetValue("miss", out _);
+        listener.RecordObservableInstruments();
+
+        Assert.NotEmpty(emittedTags);
+        var tagArray = emittedTags[0];
+        Assert.Contains(tagArray, t => t.Key == "cache.name" && (string?)t.Value == options.CacheName);
+        Assert.Contains(tagArray, t => t.Key == "environment" && (string?)t.Value == "staging");
+        Assert.Contains(tagArray, t => t.Key == "region" && (string?)t.Value == "us-west-2");
+    }
+
+    [Fact]
+    public void MeterName_IsPublicConst()
+    {
+        // Verify MeterName is publicly accessible and has the correct value
+        Assert.Equal("Microsoft.Extensions.Caching.Memory", OptimizedMeteredMemoryCache.MeterName);
+    }
+
+    [Fact]
+    public void Constructor_WithOptions_DisposeInnerTrue_DisposesInner()
+    {
+        var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.optionsdispose"));
+        var options = new MeteredMemoryCacheOptions { DisposeInner = true };
+
+        var cache = new OptimizedMeteredMemoryCache(inner, meter, options);
+        cache.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => inner.TryGetValue("test", out _));
+    }
 }
