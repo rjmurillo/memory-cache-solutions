@@ -9,7 +9,6 @@ High‑quality experimental patterns & decorators built on top of `IMemoryCache`
 - [Components Overview](#components-overview)
 - [Quick Start](#quick-start)
 - [MeteredMemoryCache](#meteredmemorycache)
-- [OptimizedMeteredMemoryCache](#optimizedmeteredmemorycache)
 - [Implementation Details](#implementation-details)
 - [Choosing an Approach](#choosing-an-approach)
 - [Benchmarks & Performance](#benchmarks--performance)
@@ -19,10 +18,9 @@ High‑quality experimental patterns & decorators built on top of `IMemoryCache`
 
 ## Components Overview
 
-| Component                     | Purpose                                                                                      | Concurrency Control                                  | Async Support              | Extra Features                                                                       |
-| ----------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------ |
-| `MeteredMemoryCache`          | Emits OpenTelemetry / .NET `System.Diagnostics.Metrics` counters for hits, misses, evictions | Thread-safe counter operations with dimensional tags | N/A (sync like base cache) | Named caches, custom tags, service collection extensions, options pattern validation |
-| `OptimizedMeteredMemoryCache` | High-performance metrics decorator using atomic operations for minimal overhead              | `Interlocked` atomic operations for counters         | N/A (sync like base cache) | Periodic metric publishing, `GetCurrentStatistics()`, &lt;5% performance overhead    |
+| Component            | Purpose                                                                                      | Concurrency Control                                         | Async Support              | Extra Features                                                                                                 |
+| -------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `MeteredMemoryCache` | Emits OpenTelemetry / .NET `System.Diagnostics.Metrics` counters for hits, misses, evictions | Thread-safe atomic counter operations with dimensional tags | N/A (sync like base cache) | Named caches, custom tags, `GetCurrentStatistics()`, service collection extensions, options pattern validation |
 
 > These implementations favor clarity & demonstrable patterns over feature breadth. They are intentionally small and suitable as a starting point for production adaptation.
 
@@ -102,23 +100,10 @@ var metered = new MeteredMemoryCache(new MemoryCache(new MemoryCacheOptions()), 
 
 metered.Set("answer", 42);
 if (metered.TryGet<int>("answer", out var v)) { /* use v */ }
-```
-
-For high-performance scenarios, use `OptimizedMeteredMemoryCache` with atomic operations:
-
-```csharp
-var meter = new Meter("app.cache");
-var optimized = new OptimizedMeteredMemoryCache(
-    new MemoryCache(new MemoryCacheOptions()),
-    meter,
-    cacheName: "user-cache");
 
 // Get real-time statistics
-var stats = optimized.GetCurrentStatistics();
+var stats = metered.GetCurrentStatistics();
 Console.WriteLine($"Hit ratio: {stats.HitRatio:F2}%");
-
-// Periodic metric publishing (call from background service)
-optimized.PublishMetrics();
 ```
 
 Counters exposed:
@@ -153,8 +138,9 @@ builder.Services.AddOpenTelemetry()
 - **Named Cache Support**: Dimensional metrics with `cache.name` tags
 - **Service Collection Extensions**: Easy DI integration
 - **Options Pattern**: Configurable behavior with validation
-- **Minimal Overhead**: 15-40ns per operation
-- **Thread-Safe**: Lock-free counter operations
+- **Minimal Overhead**: Uses atomic `Interlocked` operations for thread-safe counting
+- **Thread-Safe**: Lock-free atomic operations
+- **Real-time Statistics**: `GetCurrentStatistics()` for immediate metrics access
 
 ### Emitted Metrics
 
@@ -168,101 +154,36 @@ For detailed usage, configuration, and examples, see the [MeteredMemoryCache Usa
 
 ---
 
-## OptimizedMeteredMemoryCache
-
-The `OptimizedMeteredMemoryCache` is a high-performance alternative to `MeteredMemoryCache` that uses atomic operations (`Interlocked`) instead of `Counter<T>` for minimal overhead. Inspired by the performance patterns used in `HybridCache` and `MemoryCache.GetCurrentStatistics()`.
-
-### OptimizedMeteredMemoryCache Performance Benefits
-
-- **Ultra-low overhead**: &lt;5% performance impact vs raw `MemoryCache`
-- **Atomic operations**: Uses `Interlocked.Increment` for thread-safe counting
-- **Periodic publishing**: Batches metric emission to reduce per-operation cost
-- **Real-time statistics**: `GetCurrentStatistics()` method for immediate metrics access
-
-### OptimizedMeteredMemoryCache Quick Setup
-
-```csharp
-var meter = new Meter("app.cache");
-var optimized = new OptimizedMeteredMemoryCache(
-    new MemoryCache(new MemoryCacheOptions()),
-    meter,
-    cacheName: "user-cache",
-    enableMetrics: true);
-
-// Get real-time statistics
-var stats = optimized.GetCurrentStatistics();
-Console.WriteLine($"Hit ratio: {stats.HitRatio:F2}%");
-
-// Periodic metric publishing (call from background service)
-optimized.PublishMetrics();
-```
-
-### OptimizedMeteredMemoryCache Key Features
-
-- **Works with any implementation**: Provides observability for any and all `IMemoryCache` implementations
-- **Atomic Counters**: `Interlocked` operations for minimal overhead
-- **Periodic Publishing**: `PublishMetrics()` method for batched metric emission
-- **Real-time Statistics**: `GetCurrentStatistics()` for immediate metrics access
-- **Optional Metrics**: Can disable metrics entirely for maximum performance
-- **Thread-Safe**: Lock-free atomic operations
-
-### When to Use OptimizedMeteredMemoryCache
-
-- **High-throughput scenarios**: When cache operations are in the critical path
-- **Performance-sensitive applications**: Where every nanosecond matters
-- **Real-time monitoring**: When you need immediate access to cache statistics
-- **Background metric publishing**: When you can batch metric emission
-
-### Performance Comparison
-
-Based on benchmarks, `OptimizedMeteredMemoryCache` shows:
-
-- **25-63ns per operation** (vs higher overhead with `Counter<T>`)
-- **Minimal memory allocation** during cache operations
-- **Competitive with FastCache** for high-performance scenarios
-
-For detailed performance analysis, see [Performance Optimization Recommendations](docs/PerformanceOptimizationRecommendations.md).
-
----
-
 ## Implementation Details & Semantics
 
 ### MeteredMemoryCache Implementation
 
-- Adds minimal instrumentation overhead (~1 counter add per op) while preserving `IMemoryCache` API.
+- Adds minimal instrumentation overhead (~1 atomic increment per op) while preserving `IMemoryCache` API.
+- Uses `Interlocked` atomic operations for thread-safe, lock-free counting.
 - Eviction metric is emitted from a post‑eviction callback automatically registered on each created entry.
+- Provides `GetCurrentStatistics()` for real-time metrics access, similar to `MemoryCache.GetCurrentStatistics()`.
 - Includes convenience `TryGet<T>` & `GetOrCreate<T>` wrappers emitting structured counters.
 - Use when you need visibility (hit ratio, churn) without adopting a full external caching layer.
-
-### OptimizedMeteredMemoryCache Implementation
-
-- High-performance alternative using atomic operations (`Interlocked.Increment`) instead of `Counter<T>`.
-- Provides `GetCurrentStatistics()` method for real-time metrics access, similar to `MemoryCache.GetCurrentStatistics()`.
-- Supports periodic metric publishing via `PublishMetrics()` to reduce per-operation overhead.
-- Can disable metrics entirely (`enableMetrics: false`) for maximum performance scenarios.
-- Use when performance is critical and you can batch metric emission or need real-time statistics.
 
 ---
 
 ## Choosing an Approach
 
-| Scenario                                                                     | Recommended                                                                               |
-| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Need metrics (hit ratio, eviction reasons) with minimal overhead             | `MeteredMemoryCache`                                                                      |
-| Need metrics with ultra-low overhead (&lt;5% impact) or real-time statistics | `OptimizedMeteredMemoryCache` (atomic operations, periodic publishing)                    |
-| Need single-flight (cache stampede protection) for .NET 9+                   | **[Microsoft HybridCache](https://devblogs.microsoft.com/dotnet/hybrid-cache-is-now-ga)** |
-| Need single-flight with richer features or .NET < 9                          | **[FusionCache](https://github.com/ZiggyCreatures/FusionCache)**                          |
+| Scenario                                                         | Recommended                                                                               |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Need metrics (hit ratio, eviction reasons) with minimal overhead | `MeteredMemoryCache`                                                                      |
+| Need single-flight (cache stampede protection) for .NET 9+       | **[Microsoft HybridCache](https://devblogs.microsoft.com/dotnet/hybrid-cache-is-now-ga)** |
+| Need single-flight with richer features or .NET < 9              | **[FusionCache](https://github.com/ZiggyCreatures/FusionCache)**                          |
 
 ---
 
 ## Concurrency, Cancellation & Failure Notes
 
-| Component                   | Cancellation Behavior                                                                                                         | Failure Behavior                                                                                                              |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| MeteredMemoryCache          | N/A (no async).                                                                                                               | Eviction reasons recorded regardless.                                                                                         |
-| OptimizedMeteredMemoryCache | N/A (no async).                                                                                                               | Eviction reasons recorded regardless; atomic counters remain consistent.                                                      |
-| HybridCache                 | See [HybridCache documentation](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/hybrid?view=aspnetcore-9.0) | See [HybridCache documentation](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/hybrid?view=aspnetcore-9.0) |
-| FusionCache                 | See [FusionCache documentation](https://github.com/ZiggyCreatures/FusionCache)                                                | See [FusionCache documentation](https://github.com/ZiggyCreatures/FusionCache)                                                |
+| Component          | Cancellation Behavior                                                                                                         | Failure Behavior                                                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| MeteredMemoryCache | N/A (no async).                                                                                                               | Eviction reasons recorded regardless; atomic counters remain consistent.                                                      |
+| HybridCache        | See [HybridCache documentation](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/hybrid?view=aspnetcore-9.0) | See [HybridCache documentation](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/hybrid?view=aspnetcore-9.0) |
+| FusionCache        | See [FusionCache documentation](https://github.com/ZiggyCreatures/FusionCache)                                                | See [FusionCache documentation](https://github.com/ZiggyCreatures/FusionCache)                                                |
 
 ---
 
@@ -276,8 +197,7 @@ dotnet run -c Release -p tests/Benchmarks/Benchmarks.csproj
 
 Interpretation guidance:
 
-- `OptimizedMeteredMemoryCache` shows &lt;5% overhead vs raw `MemoryCache` (25-63ns per operation).
-- `MeteredMemoryCache` shows higher overhead due to `Counter<T>` operations.
+- `MeteredMemoryCache` uses atomic `Interlocked` operations for &lt;5% overhead vs raw `MemoryCache`.
 
 > Always benchmark within your workload; microbenchmarks do not capture memory pressure, GC, or production contention levels.
 

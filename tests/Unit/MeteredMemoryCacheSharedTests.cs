@@ -1,13 +1,14 @@
 using System.Diagnostics.Metrics;
 using CacheImplementations;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Primitives;
 using Unit.Shared;
 
 namespace Unit;
 
 /// <summary>
 /// Shared tests for MeteredMemoryCache using the common test framework.
-/// These tests run the same scenarios as OptimizedMeteredMemoryCache for consistency validation.
+/// Shared test scenarios for MeteredMemoryCache consistency validation.
 /// </summary>
 public class MeteredMemoryCacheSharedTests : MeteredCacheTestBase<MeteredCacheTestSubject>
 {
@@ -143,14 +144,21 @@ public class MeteredMemoryCacheSharedTests : MeteredCacheTestBase<MeteredCacheTe
     }
 
     /// <summary>
-    /// Tests that MeteredMemoryCache doesn't support GetCurrentStatistics.
+    /// Tests that MeteredMemoryCache supports GetCurrentStatistics.
     /// </summary>
     [Fact]
-    public void GetCurrentStatistics_NotSupported_ReturnsNull()
+    public void GetCurrentStatistics_ReturnsStatistics()
     {
         using var subject = CreateTestSubject();
-        var stats = subject.GetCurrentStatistics();
-        Assert.Null(stats);
+        subject.Cache.TryGetValue("miss", out _);
+        subject.Cache.Set("hit", "value");
+        subject.Cache.TryGetValue("hit", out _);
+
+        var stats = subject.GetCurrentStatistics() as CacheStatistics;
+        Assert.NotNull(stats);
+        Assert.Equal(1, stats.TotalHits);
+        Assert.Equal(1, stats.TotalMisses);
+        Assert.Equal(1, stats.CurrentEntryCount);
     }
 
     /// <summary>
@@ -165,5 +173,107 @@ public class MeteredMemoryCacheSharedTests : MeteredCacheTestBase<MeteredCacheTe
         subject.PublishMetrics();
 
         Assert.True(true, "PublishMetrics completed without throwing");
+    }
+
+    /// <summary>
+    /// Tests GetCurrentStatistics after multiple operations returns correct counts.
+    /// </summary>
+    [Fact]
+    public void GetCurrentStatistics_AfterOperations_ReturnsCorrectCounts()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.counts"));
+        using var cache = new MeteredMemoryCache(inner, meter, "count-test");
+
+        cache.TryGetValue("miss1", out _);
+        cache.TryGetValue("miss2", out _);
+        cache.Set("key1", "value1");
+        cache.Set("key2", "value2");
+        cache.TryGetValue("key1", out _);
+        cache.TryGetValue("key2", out _);
+        cache.TryGetValue("key1", out _);
+
+        var stats = cache.GetCurrentStatistics();
+
+        Assert.Equal(3, stats.TotalHits);
+        Assert.Equal(2, stats.TotalMisses);
+        Assert.Equal(2, stats.CurrentEntryCount);
+        Assert.Equal(60.0, stats.HitRatio, 1);
+    }
+
+    /// <summary>
+    /// Tests HitRatio edge cases.
+    /// </summary>
+    [Fact]
+    public void HitRatio_EdgeCases_HandlesCorrectly()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.ratio"));
+        using var cache = new MeteredMemoryCache(inner, meter);
+
+        var stats1 = cache.GetCurrentStatistics();
+        Assert.Equal(0, stats1.HitRatio);
+
+        cache.TryGetValue("miss", out _);
+        var stats2 = cache.GetCurrentStatistics();
+        Assert.Equal(0, stats2.HitRatio);
+
+        cache.Set("hit", "value");
+        cache.TryGetValue("hit", out _);
+        var stats3 = cache.GetCurrentStatistics();
+        Assert.Equal(50.0, stats3.HitRatio, 1);
+
+        using var freshCache = new MeteredMemoryCache(new MemoryCache(new MemoryCacheOptions()), meter);
+        freshCache.Set("hit", "value");
+        freshCache.TryGetValue("hit", out _);
+        var stats4 = freshCache.GetCurrentStatistics();
+        Assert.Equal(100.0, stats4.HitRatio, 1);
+    }
+
+    /// <summary>
+    /// Tests eviction callback registration and statistics tracking.
+    /// </summary>
+    [Fact]
+    public async Task CreateEntry_RegistersEvictionCallback()
+    {
+        using var inner = new MemoryCache(new MemoryCacheOptions());
+        using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.callback"));
+        using var cache = new MeteredMemoryCache(inner, meter, SharedUtilities.GetUniqueCacheName("callback-test"));
+
+        var evictionCount = 0;
+        var evictionSignal = new TaskCompletionSource<bool>();
+
+        var cts = new CancellationTokenSource();
+        cache.Set("evict-key", "evict-value", new MemoryCacheEntryOptions
+        {
+            ExpirationTokens = { new CancellationChangeToken(cts.Token) },
+            PostEvictionCallbacks =
+            {
+                new PostEvictionCallbackRegistration
+                {
+                    EvictionCallback = (key, value, reason, state) =>
+                    {
+                        Interlocked.Increment(ref evictionCount);
+                        evictionSignal.TrySetResult(true);
+                    }
+                }
+            }
+        });
+
+        var statsBeforeEviction = cache.GetCurrentStatistics();
+        Assert.Equal(1, statsBeforeEviction.CurrentEntryCount);
+
+        cts.Cancel();
+
+        await evictionSignal.Task.WaitAsync(TestTimeouts.Short);
+
+        var statsAfterEviction = await TestSynchronization.WaitForConditionAsync(
+            () => cache.GetCurrentStatistics(),
+            stats => Volatile.Read(ref evictionCount) > 0 && stats.TotalEvictions >= 1,
+            TestTimeouts.Short);
+
+        Assert.True(Volatile.Read(ref evictionCount) >= 1, "Eviction callback should have been triggered");
+        Assert.True(statsAfterEviction.TotalEvictions >= 1, "Eviction count should be updated in statistics");
+        Assert.True(statsAfterEviction.CurrentEntryCount <= 0, "Entry count should decrease after eviction");
     }
 }

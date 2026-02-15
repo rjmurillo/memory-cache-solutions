@@ -220,6 +220,22 @@ public sealed class MeteredMemoryCache : IMemoryCache
     }
 
     /// <summary>
+    /// Gets current cache statistics using atomic reads, similar to <see cref="MemoryCache.GetCurrentStatistics()"/>.
+    /// </summary>
+    /// <returns>A <see cref="CacheStatistics"/> instance containing current cache metrics.</returns>
+    public CacheStatistics GetCurrentStatistics()
+    {
+        return new CacheStatistics
+        {
+            TotalHits = Interlocked.Read(ref _hitCount),
+            TotalMisses = Interlocked.Read(ref _missCount),
+            TotalEvictions = Interlocked.Read(ref _evictionCount),
+            CurrentEntryCount = Interlocked.Read(ref _entryCount),
+            EstimatedSize = _inner is MemoryCache mc ? mc.GetCurrentStatistics()?.CurrentEstimatedSize : null,
+        };
+    }
+
+    /// <summary>
     /// The meter name used per dotnet/runtime#124140.
     /// </summary>
     public const string MeterName = "Microsoft.Extensions.Caching.Memory";

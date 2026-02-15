@@ -91,18 +91,12 @@ public sealed class MeteredCacheTestSubject : IMeteredCacheTestSubject
     }
 
     /// <summary>
-    /// Gets the current cache statistics if supported by the implementation.
+    /// Gets the current cache statistics.
     /// </summary>
-    /// <returns>Always returns <see langword="null"/> since <see cref="MeteredMemoryCache"/> doesn't support statistics retrieval.</returns>
-    /// <remarks>
-    /// The original <see cref="MeteredMemoryCache"/> implementation doesn't provide
-    /// a way to retrieve current statistics. Metrics are published immediately
-    /// to OpenTelemetry counters on each operation.
-    /// </remarks>
+    /// <returns>A <see cref="CacheStatistics"/> instance containing current cache metrics.</returns>
     public object? GetCurrentStatistics()
     {
-        // MeteredMemoryCache doesn't support GetCurrentStatistics
-        return null;
+        return _cache.GetCurrentStatistics();
     }
 
     /// <summary>

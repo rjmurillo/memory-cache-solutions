@@ -2,7 +2,7 @@ namespace CacheImplementations;
 
 /// <summary>
 /// Internal helper for building pre-allocated tag arrays for Observable instrument callbacks.
-/// Shared by <see cref="MeteredMemoryCache"/> and <see cref="OptimizedMeteredMemoryCache"/> to avoid duplication.
+/// Used by <see cref="MeteredMemoryCache"/> to build instrument tags.
 /// </summary>
 internal static class TagBuilder
 {

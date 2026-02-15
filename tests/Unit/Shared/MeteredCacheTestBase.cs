@@ -1,5 +1,4 @@
 using System.Diagnostics.Metrics;
-using CacheImplementations;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Primitives;
 
@@ -410,30 +409,9 @@ public abstract class MeteredCacheTestBase<TTestSubject>
 
         if (subject.MetricsEnabled)
         {
-            // For OptimizedMeteredMemoryCache, check statistics first
-            if (subject.GetCurrentStatistics() is CacheStatistics stats)
-            {
-                // If eviction was tracked in statistics, it should be publishable
-                if (stats.TotalEvictions > 0)
-                {
-                    var evictionRecorded = await harness.WaitForMetricAsync("cache.evictions", 1, TimeSpan.FromSeconds(5));
-                    Assert.True(evictionRecorded, "Expected eviction to be recorded within timeout");
-                    Assert.True(harness.AggregatedCounters.TryGetValue("cache.evictions", out var ev) && ev >= 1);
-                }
-                else
-                {
-                    // Skip eviction validation for OptimizedMeteredMemoryCache if no evictions were tracked
-                    // This may happen due to timing differences in callback execution
-                    Assert.True(true, "OptimizedMeteredMemoryCache eviction tracking may have timing differences");
-                }
-            }
-            else
-            {
-                // Fallback for MeteredMemoryCache that doesn't support GetCurrentStatistics
-                var evictionRecorded = await harness.WaitForMetricAsync("cache.evictions", 1, TimeSpan.FromSeconds(5));
-                Assert.True(evictionRecorded, "Expected eviction to be recorded within timeout");
-                Assert.True(harness.AggregatedCounters.TryGetValue("cache.evictions", out var ev) && ev >= 1);
-            }
+            var evictionRecorded = await harness.WaitForMetricAsync("cache.evictions", 1, TimeSpan.FromSeconds(5));
+            Assert.True(evictionRecorded, "Expected eviction to be recorded within timeout");
+            Assert.True(harness.AggregatedCounters.TryGetValue("cache.evictions", out var ev) && ev >= 1);
         }
     }
 
