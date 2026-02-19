@@ -18,7 +18,7 @@ namespace Unit.Shared;
 /// </para>
 /// <para>
 /// The class includes an OpenTelemetry-backed <see cref="MetricCollectionHarness"/> for capturing and
-/// validating metrics via <c>InMemoryExporter</c>, making it easy to verify that cache implementations
+/// validating metrics via <see cref="OpenTelemetry.Exporter.InMemoryExporter{T}"/>, making it easy to verify that cache implementations
 /// correctly emit the expected metrics with proper tags and values.
 /// </para>
 /// <para>

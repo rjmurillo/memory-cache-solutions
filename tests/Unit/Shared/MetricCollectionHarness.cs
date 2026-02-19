@@ -7,14 +7,14 @@ using OpenTelemetry.Metrics;
 namespace Unit.Shared;
 
 /// <summary>
-/// Metric collection harness backed by the OpenTelemetry <c>InMemoryExporter</c>.
+/// Metric collection harness backed by the OpenTelemetry <see cref="OpenTelemetry.Exporter.InMemoryExporter{T}"/>.
 /// Provides detailed validation capabilities for testing accurate metric emission
 /// from metered cache implementations using industry-standard tooling.
 /// </summary>
 /// <remarks>
 /// <para>
 /// This harness creates an OpenTelemetry <see cref="MeterProvider"/> configured with
-/// <see cref="InMemoryExporter{T}"/> to capture metrics emitted by cache implementations.
+/// <see cref="OpenTelemetry.Exporter.InMemoryExporter{T}"/> to capture metrics emitted by cache implementations.
 /// It replaces the previous hand-rolled <see cref="MeterListener"/>-based approach with
 /// the canonical OTel testing pattern, ensuring metrics are collected and aggregated
 /// exactly as they would be in production pipelines.
@@ -44,7 +44,7 @@ internal sealed class MetricCollectionHarness : IDisposable
     private Dictionary<string, long> _aggregatedCounters = new();
     private Dictionary<string, long> _baselineMeasurements = new();
     private readonly object _lock = new();
-    private bool _disposed;
+    private int _disposed; // 0 = active, 1 = disposed; use Volatile/Interlocked for cross-thread visibility
 
     /// <summary>
     /// Gets all captured metric measurements after taking a fresh snapshot.
@@ -203,7 +203,9 @@ internal sealed class MetricCollectionHarness : IDisposable
     public async Task<bool> WaitForMetricAsync(string instrumentName, int expectedCount, TimeSpan timeout)
     {
         ThrowIfDisposed();
-        const int maxIterations = 2000; // Safety cap: 2000 × 10 ms = 20 s max
+        const int delayMs = 10;
+        const int maxSafetyIterations = 2000; // Upper bound regardless of timeout
+        int maxIterations = Math.Min((int)(timeout.TotalMilliseconds / delayMs) + 1, maxSafetyIterations);
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         int iteration = 0;
 
@@ -222,7 +224,7 @@ internal sealed class MetricCollectionHarness : IDisposable
                 return true;
             }
 
-            await Task.Delay(10, CancellationToken.None).ConfigureAwait(false);
+            await Task.Delay(delayMs, CancellationToken.None).ConfigureAwait(false);
         }
 
         return false;
@@ -239,7 +241,9 @@ internal sealed class MetricCollectionHarness : IDisposable
     public async Task<bool> WaitForMetricWithTagsAsync(string instrumentName, int expectedCount, TimeSpan timeout, params KeyValuePair<string, object?>[] requiredTags)
     {
         ThrowIfDisposed();
-        const int maxIterations = 2000;
+        const int delayMs = 10;
+        const int maxSafetyIterations = 2000;
+        int maxIterations = Math.Min((int)(timeout.TotalMilliseconds / delayMs) + 1, maxSafetyIterations);
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         int iteration = 0;
 
@@ -252,7 +256,7 @@ internal sealed class MetricCollectionHarness : IDisposable
                 return true;
             }
 
-            await Task.Delay(10, CancellationToken.None).ConfigureAwait(false);
+            await Task.Delay(delayMs, CancellationToken.None).ConfigureAwait(false);
         }
 
         return false;
@@ -333,12 +337,11 @@ internal sealed class MetricCollectionHarness : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (_disposed)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
         }
 
-        _disposed = true;
         _meterProvider.Dispose();
     }
 
@@ -352,7 +355,7 @@ internal sealed class MetricCollectionHarness : IDisposable
 
         try
         {
-            _meterProvider.ForceFlush();
+            _meterProvider.ForceFlush(10_000); // 10 s safety cap for test environments
         }
         catch (AggregateException ex) when (ex.InnerExceptions.All(e => e is ObjectDisposedException))
         {
@@ -434,7 +437,7 @@ internal sealed class MetricCollectionHarness : IDisposable
 
     private void ThrowIfDisposed()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
     }
 
     /// <summary>
