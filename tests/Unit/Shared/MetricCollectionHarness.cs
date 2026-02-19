@@ -42,6 +42,7 @@ internal sealed class MetricCollectionHarness : IDisposable
     private List<MetricMeasurement> _measurements = new();
     private Dictionary<string, List<MetricMeasurement>> _measurementsByInstrument = new();
     private Dictionary<string, long> _aggregatedCounters = new();
+    private Dictionary<string, long> _baselineCounters = new();
     private readonly object _lock = new();
     private bool _disposed;
 
@@ -201,12 +202,14 @@ internal sealed class MetricCollectionHarness : IDisposable
     /// <returns><see langword="true"/> if the metric reached the expected value; otherwise, <see langword="false"/>.</returns>
     public async Task<bool> WaitForMetricAsync(string instrumentName, int expectedCount, TimeSpan timeout)
     {
+        ThrowIfDisposed();
         const int maxIterations = 2000; // Safety cap: 2000 × 10 ms = 20 s max
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         int iteration = 0;
 
         while (stopwatch.Elapsed < timeout && iteration++ < maxIterations)
         {
+            ThrowIfDisposed();
             long currentValue;
             lock (_lock)
             {
@@ -293,13 +296,27 @@ internal sealed class MetricCollectionHarness : IDisposable
     }
 
     /// <summary>
-    /// Resets the harness by clearing all captured measurements and aggregated counters.
+    /// Resets the harness by clearing all captured measurements and recording the current
+    /// cumulative counter values as a baseline. Subsequent counter values returned will be
+    /// relative to this baseline.
     /// </summary>
+    /// <remarks>
+    /// Because the harness uses cumulative temporality, a true reset of the underlying
+    /// OpenTelemetry SDK state is not possible without recreating the <see cref="MeterProvider"/>.
+    /// This method stores the current cumulative values as a baseline and subtracts them from
+    /// future reads, effectively simulating a reset.
+    /// </remarks>
     public void Reset()
     {
         ThrowIfDisposed();
         lock (_lock)
         {
+            CollectUnsafe();
+            foreach (var kvp in _aggregatedCounters)
+            {
+                _baselineCounters[kvp.Key] = _baselineCounters.GetValueOrDefault(kvp.Key, 0) + kvp.Value;
+            }
+
             _measurements.Clear();
             _measurementsByInstrument.Clear();
             _aggregatedCounters.Clear();
@@ -400,6 +417,11 @@ internal sealed class MetricCollectionHarness : IDisposable
                 list.Add(measurement);
                 counters[metric.Name] = counters.GetValueOrDefault(metric.Name, 0) + value;
             }
+        }
+
+        foreach (var key in counters.Keys.ToList())
+        {
+            counters[key] -= _baselineCounters.GetValueOrDefault(key, 0);
         }
 
         _measurements = measurements;
