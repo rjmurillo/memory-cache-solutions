@@ -42,7 +42,6 @@ internal sealed class MetricCollectionHarness : IDisposable
     private List<MetricMeasurement> _measurements = new();
     private Dictionary<string, List<MetricMeasurement>> _measurementsByInstrument = new();
     private Dictionary<string, long> _aggregatedCounters = new();
-    private Dictionary<string, long> _baselineCounters = new();
     private Dictionary<string, long> _baselineMeasurements = new();
     private readonly object _lock = new();
     private bool _disposed;
@@ -320,11 +319,6 @@ internal sealed class MetricCollectionHarness : IDisposable
                 var key = GetMeasurementKey(measurement.InstrumentName, measurement.Tags);
                 var existingBaseline = _baselineMeasurements.GetValueOrDefault(key, 0);
                 _baselineMeasurements[key] = measurement.Value + existingBaseline;
-            }
-
-            foreach (var kvp in _aggregatedCounters)
-            {
-                _baselineCounters[kvp.Key] = _baselineCounters.GetValueOrDefault(kvp.Key, 0) + kvp.Value;
             }
 
             _measurements.Clear();
