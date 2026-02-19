@@ -43,6 +43,7 @@ internal sealed class MetricCollectionHarness : IDisposable
     private Dictionary<string, List<MetricMeasurement>> _measurementsByInstrument = new();
     private Dictionary<string, long> _aggregatedCounters = new();
     private Dictionary<string, long> _baselineCounters = new();
+    private Dictionary<string, long> _baselineMeasurements = new();
     private readonly object _lock = new();
     private bool _disposed;
 
@@ -238,6 +239,7 @@ internal sealed class MetricCollectionHarness : IDisposable
     /// <returns><see langword="true"/> if the metric reached the expected value; otherwise, <see langword="false"/>.</returns>
     public async Task<bool> WaitForMetricWithTagsAsync(string instrumentName, int expectedCount, TimeSpan timeout, params KeyValuePair<string, object?>[] requiredTags)
     {
+        ThrowIfDisposed();
         const int maxIterations = 2000;
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         int iteration = 0;
@@ -312,6 +314,14 @@ internal sealed class MetricCollectionHarness : IDisposable
         lock (_lock)
         {
             CollectUnsafe();
+
+            foreach (var measurement in _measurements)
+            {
+                var key = GetMeasurementKey(measurement.InstrumentName, measurement.Tags);
+                var existingBaseline = _baselineMeasurements.GetValueOrDefault(key, 0);
+                _baselineMeasurements[key] = measurement.Value + existingBaseline;
+            }
+
             foreach (var kvp in _aggregatedCounters)
             {
                 _baselineCounters[kvp.Key] = _baselineCounters.GetValueOrDefault(kvp.Key, 0) + kvp.Value;
@@ -387,10 +397,10 @@ internal sealed class MetricCollectionHarness : IDisposable
                     tagDict[tag.Key] = tag.Value;
                 }
 
-                long value;
+                long rawValue;
                 try
                 {
-                    value = point.GetSumLong();
+                    rawValue = point.GetSumLong();
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException)
                 {
@@ -400,10 +410,14 @@ internal sealed class MetricCollectionHarness : IDisposable
                         ex);
                 }
 
+                var tagsReadOnly = new ReadOnlyDictionary<string, object?>(tagDict);
+                var measurementKey = GetMeasurementKey(metric.Name, tagsReadOnly);
+                var adjustedValue = rawValue - _baselineMeasurements.GetValueOrDefault(measurementKey, 0);
+
                 var measurement = new MetricMeasurement(
                     metric.Name,
-                    value,
-                    new ReadOnlyDictionary<string, object?>(tagDict),
+                    adjustedValue,
+                    tagsReadOnly,
                     point.EndTime.UtcDateTime);
 
                 measurements.Add(measurement);
@@ -415,13 +429,8 @@ internal sealed class MetricCollectionHarness : IDisposable
                 }
 
                 list.Add(measurement);
-                counters[metric.Name] = counters.GetValueOrDefault(metric.Name, 0) + value;
+                counters[metric.Name] = counters.GetValueOrDefault(metric.Name, 0) + adjustedValue;
             }
-        }
-
-        foreach (var key in counters.Keys.ToList())
-        {
-            counters[key] -= _baselineCounters.GetValueOrDefault(key, 0);
         }
 
         _measurements = measurements;
@@ -432,6 +441,24 @@ internal sealed class MetricCollectionHarness : IDisposable
     private void ThrowIfDisposed()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+    }
+
+    /// <summary>
+    /// Creates a unique key for a measurement based on instrument name and tags.
+    /// Used for tracking per-tag-combination baselines.
+    /// </summary>
+    /// <param name="instrumentName">The name of the instrument.</param>
+    /// <param name="tags">The tags associated with the measurement.</param>
+    /// <returns>A unique string key combining the instrument name and sorted tags.</returns>
+    private static string GetMeasurementKey(string instrumentName, IReadOnlyDictionary<string, object?> tags)
+    {
+        if (tags.Count == 0)
+        {
+            return instrumentName;
+        }
+
+        var sortedTags = string.Join("|", tags.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}"));
+        return $"{instrumentName}|{sortedTags}";
     }
 }
 
