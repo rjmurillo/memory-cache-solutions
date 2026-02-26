@@ -17,8 +17,8 @@ namespace Unit.Shared;
 /// designed to be inherited by concrete test classes that test specific cache implementations.
 /// </para>
 /// <para>
-/// The class includes a sophisticated <see cref="MetricCollectionHarness"/> for capturing and
-/// validating OpenTelemetry metrics, making it easy to verify that cache implementations
+/// The class includes an OpenTelemetry-backed <see cref="MetricCollectionHarness"/> for capturing and
+/// validating metrics via <see cref="OpenTelemetry.Exporter.InMemoryExporter{T}"/>, making it easy to verify that cache implementations
 /// correctly emit the expected metrics with proper tags and values.
 /// </para>
 /// <para>

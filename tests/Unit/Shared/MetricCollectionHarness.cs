@@ -1,32 +1,50 @@
+using System.Collections.ObjectModel;
 using System.Diagnostics.Metrics;
+
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
 
 namespace Unit.Shared;
 
 /// <summary>
-/// Enhanced metric collection harness that provides detailed validation capabilities
-/// for testing accurate metric emission from metered cache implementations.
+/// Metric collection harness backed by the OpenTelemetry <see cref="OpenTelemetry.Exporter.InMemoryExporter{T}"/>.
+/// Provides detailed validation capabilities for testing accurate metric emission
+/// from metered cache implementations using industry-standard tooling.
 /// </summary>
 /// <remarks>
 /// <para>
-/// This harness captures OpenTelemetry metrics emitted by cache implementations and provides
-/// comprehensive validation utilities. It's thread-safe and designed to work with the
-/// .NET metrics system to capture counter measurements with their associated tags.
+/// This harness creates an OpenTelemetry <see cref="MeterProvider"/> configured with
+/// <see cref="OpenTelemetry.Exporter.InMemoryExporter{T}"/> to capture metrics emitted by cache implementations.
+/// It replaces the previous hand-rolled <see cref="MeterListener"/>-based approach with
+/// the canonical OTel testing pattern, ensuring metrics are collected and aggregated
+/// exactly as they would be in production pipelines.
 /// </para>
 /// <para>
-/// The harness automatically aggregates counter values and provides filtering capabilities
-/// by instrument name and meter name, making it easy to validate specific metric emissions
-/// in complex test scenarios.
+/// The harness uses cumulative temporality so that each <see cref="Collect"/> call
+/// produces a complete snapshot of all aggregated metric points. Filtering by
+/// instrument name is performed at query time rather than via Views, keeping setup simple.
+/// </para>
+/// <para>
+/// <b>Thread safety:</b> All public methods serialise through <see cref="_lock"/>.
+/// Methods that need a fresh snapshot call <see cref="CollectUnsafe"/> while already
+/// holding the lock, avoiding the TOCTOU window that would exist if <see cref="Collect"/>
+/// released the lock before the caller re-acquired it.
 /// </para>
 /// </remarks>
 internal sealed class MetricCollectionHarness : IDisposable
 {
-    private readonly MeterListener _listener = new();
-    private readonly List<MetricMeasurement> _measurements = new();
-    private readonly Dictionary<string, List<MetricMeasurement>> _measurementsByInstrument = new();
-    private readonly Dictionary<string, long> _aggregatedCounters = new();
+    private readonly List<Metric> _exportedMetrics = new();
+    private readonly MeterProvider _meterProvider;
     private readonly string[] _instrumentNames;
-    private readonly string? _meterNameFilter;
-    private readonly object _lock = new object();
+
+    // Cached snapshot populated on each CollectUnsafe() call.
+    // All reads and writes are guarded by _lock.
+    private List<MetricMeasurement> _measurements = new();
+    private Dictionary<string, List<MetricMeasurement>> _measurementsByInstrument = new();
+    private Dictionary<string, long> _aggregatedCounters = new();
+    private Dictionary<string, long> _baselineMeasurements = new();
+    private readonly object _lock = new();
+    private int _disposed; // 0 = active, 1 = disposed; use Volatile/Interlocked for cross-thread visibility
 
     /// <summary>
     /// Gets all captured metric measurements after taking a fresh snapshot.
@@ -36,9 +54,10 @@ internal sealed class MetricCollectionHarness : IDisposable
     {
         get
         {
-            Collect();
+            ThrowIfDisposed();
             lock (_lock)
             {
+                CollectUnsafe();
                 return _measurements.ToArray();
             }
         }
@@ -52,9 +71,10 @@ internal sealed class MetricCollectionHarness : IDisposable
     {
         get
         {
-            Collect();
+            ThrowIfDisposed();
             lock (_lock)
             {
+                CollectUnsafe();
                 return new Dictionary<string, long>(_aggregatedCounters);
             }
         }
@@ -76,69 +96,47 @@ internal sealed class MetricCollectionHarness : IDisposable
     public MetricCollectionHarness(string? meterNameFilter, params string[] instrumentNames)
     {
         _instrumentNames = instrumentNames;
-        _meterNameFilter = meterNameFilter;
 
-        _listener.InstrumentPublished = (inst, listener) =>
+        var builder = Sdk.CreateMeterProviderBuilder();
+
+        if (meterNameFilter != null)
         {
-            if (instrumentNames.Contains(inst.Name) &&
-                (_meterNameFilter == null || inst.Meter.Name == _meterNameFilter))
-            {
-                listener.EnableMeasurementEvents(inst);
-            }
-        };
-
-        _listener.SetMeasurementEventCallback<long>((inst, measurement, tags, state) =>
+            builder.AddMeter(meterNameFilter);
+        }
+        else
         {
-            var tagDict = tags.ToArray().ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-            var metricMeasurement = new MetricMeasurement(inst.Name, measurement, tagDict, DateTime.UtcNow);
+            // Wildcard – capture all meters
+            builder.AddMeter("*");
+        }
 
-            lock (_lock)
-            {
-                _measurements.Add(metricMeasurement);
+        builder.AddInMemoryExporter(_exportedMetrics);
 
-                if (!_measurementsByInstrument.TryGetValue(inst.Name, out var instrumentMeasurements))
-                {
-                    instrumentMeasurements = new List<MetricMeasurement>();
-                    _measurementsByInstrument[inst.Name] = instrumentMeasurements;
-                }
-
-                instrumentMeasurements.Add(metricMeasurement);
-
-                _aggregatedCounters[inst.Name] = _aggregatedCounters.GetValueOrDefault(inst.Name, 0) + measurement;
-            }
-        });
-        _listener.Start();
+        _meterProvider = builder.Build()
+            ?? throw new InvalidOperationException(
+                "MeterProvider.Build() returned null. " +
+                $"Meter filter: '{meterNameFilter ?? "*"}', " +
+                $"Instruments: [{string.Join(", ", instrumentNames)}].");
     }
 
     /// <summary>
-    /// Takes a fresh snapshot of all Observable instrument values.
-    /// Clears previous measurements and records current absolute values.
+    /// Takes a fresh snapshot by flushing the OpenTelemetry pipeline.
     /// </summary>
     /// <remarks>
-    /// Observable instruments (ObservableCounter, ObservableUpDownCounter, ObservableGauge) report
-    /// absolute accumulated values, not deltas. This method clears accumulated data first, then
-    /// records fresh values so that aggregation (ADD) produces correct totals.
-    /// Safe to call multiple times — each call produces an idempotent snapshot.
+    /// <see cref="MeterProvider.ForceFlush(int)"/> triggers the metric reader to invoke
+    /// Observable instrument callbacks and export the current cumulative values into
+    /// <see cref="_exportedMetrics"/>. The exported list is cleared before flushing so
+    /// that only the latest snapshot is retained. The entire clear→flush→rebuild
+    /// sequence is serialised under <see cref="_lock"/> because <c>ForceFlush</c> is
+    /// synchronous and the <c>InMemoryExporter</c> writes to <see cref="_exportedMetrics"/>
+    /// on the calling thread. Safe to call multiple times — each call produces an
+    /// idempotent snapshot.
     /// </remarks>
     public void Collect()
     {
-        // NOTE: RecordObservableInstruments() invokes SetMeasurementEventCallback synchronously
-        // on the same thread, which re-acquires _lock. This is safe because C# Monitor locks
-        // are re-entrant by design.
+        ThrowIfDisposed();
         lock (_lock)
         {
-            _measurements.Clear();
-            _measurementsByInstrument.Clear();
-            _aggregatedCounters.Clear();
-            try
-            {
-                _listener.RecordObservableInstruments();
-            }
-            catch (AggregateException ex) when (ex.InnerExceptions.All(e => e is ObjectDisposedException))
-            {
-                // Expected when cache is disposed before collection - not a failure.
-                // RecordObservableInstruments wraps all callback exceptions in AggregateException.
-            }
+            CollectUnsafe();
         }
     }
 
@@ -149,9 +147,10 @@ internal sealed class MetricCollectionHarness : IDisposable
     /// <returns>A read-only list of measurements for the specified instrument.</returns>
     public IReadOnlyList<MetricMeasurement> GetMeasurements(string instrumentName)
     {
-        Collect();
+        ThrowIfDisposed();
         lock (_lock)
         {
+            CollectUnsafe();
             return _measurementsByInstrument.TryGetValue(instrumentName, out var measurements)
                 ? measurements.ToArray()
                 : Array.Empty<MetricMeasurement>();
@@ -166,7 +165,6 @@ internal sealed class MetricCollectionHarness : IDisposable
     /// <returns>A read-only list of measurements that match the tag criteria.</returns>
     public IReadOnlyList<MetricMeasurement> GetMeasurementsWithTags(string instrumentName, params KeyValuePair<string, object?>[] requiredTags)
     {
-        // GetMeasurements already calls Collect()
         return GetMeasurements(instrumentName)
             .Where(m => requiredTags.All(required =>
                 m.Tags.TryGetValue(required.Key, out var tagValue) &&
@@ -182,7 +180,6 @@ internal sealed class MetricCollectionHarness : IDisposable
     /// <returns>The sum of all measurement values that match the tag criteria.</returns>
     public long GetAggregatedCount(string instrumentName, params KeyValuePair<string, object?>[] requiredTags)
     {
-        // GetMeasurementsWithTags already calls Collect() via GetMeasurements
         return GetMeasurementsWithTags(instrumentName, requiredTags).Sum(m => m.Value);
     }
 
@@ -191,10 +188,6 @@ internal sealed class MetricCollectionHarness : IDisposable
     /// </summary>
     /// <param name="instrumentName">The name of the instrument to check.</param>
     /// <param name="expectedCount">The expected aggregated value.</param>
-    /// <remarks>
-    /// With Observable instruments, each instrument reports one measurement per tag set
-    /// per collection. This asserts the total value, not the number of callback invocations.
-    /// </remarks>
     public void AssertMeasurementCount(string instrumentName, int expectedCount)
     {
         AssertAggregatedCount(instrumentName, expectedCount);
@@ -209,21 +202,31 @@ internal sealed class MetricCollectionHarness : IDisposable
     /// <returns><see langword="true"/> if the metric reached the expected value; otherwise, <see langword="false"/>.</returns>
     public async Task<bool> WaitForMetricAsync(string instrumentName, int expectedCount, TimeSpan timeout)
     {
+        ThrowIfDisposed();
+        const int delayMs = 10;
+        const int maxSafetyIterations = 2000; // Upper bound regardless of timeout
+        int maxIterations = Math.Min((int)(timeout.TotalMilliseconds / delayMs) + 1, maxSafetyIterations);
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        while (stopwatch.Elapsed < timeout)
+        int iteration = 0;
+
+        while (stopwatch.Elapsed < timeout && iteration++ < maxIterations)
         {
-            Collect();
+            ThrowIfDisposed();
             long currentValue;
             lock (_lock)
             {
+                CollectUnsafe();
                 currentValue = _aggregatedCounters.GetValueOrDefault(instrumentName, 0);
             }
+
             if (currentValue >= expectedCount)
             {
                 return true;
             }
-            await Task.Delay(10, CancellationToken.None).ConfigureAwait(false);
+
+            await Task.Delay(delayMs, CancellationToken.None).ConfigureAwait(false);
         }
+
         return false;
     }
 
@@ -237,16 +240,25 @@ internal sealed class MetricCollectionHarness : IDisposable
     /// <returns><see langword="true"/> if the metric reached the expected value; otherwise, <see langword="false"/>.</returns>
     public async Task<bool> WaitForMetricWithTagsAsync(string instrumentName, int expectedCount, TimeSpan timeout, params KeyValuePair<string, object?>[] requiredTags)
     {
+        ThrowIfDisposed();
+        const int delayMs = 10;
+        const int maxSafetyIterations = 2000;
+        int maxIterations = Math.Min((int)(timeout.TotalMilliseconds / delayMs) + 1, maxSafetyIterations);
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        while (stopwatch.Elapsed < timeout)
+        int iteration = 0;
+
+        while (stopwatch.Elapsed < timeout && iteration++ < maxIterations)
         {
+            // GetMeasurementsWithTags calls GetMeasurements which calls CollectUnsafe under lock
             var currentValue = GetMeasurementsWithTags(instrumentName, requiredTags).Sum(m => m.Value);
             if (currentValue >= expectedCount)
             {
                 return true;
             }
-            await Task.Delay(10, CancellationToken.None).ConfigureAwait(false);
+
+            await Task.Delay(delayMs, CancellationToken.None).ConfigureAwait(false);
         }
+
         return false;
     }
 
@@ -258,9 +270,10 @@ internal sealed class MetricCollectionHarness : IDisposable
     /// <exception cref="Xunit.Sdk.EqualException">Thrown when the actual total doesn't match the expected total.</exception>
     public void AssertAggregatedCount(string instrumentName, long expectedTotal)
     {
-        Collect();
+        ThrowIfDisposed();
         lock (_lock)
         {
+            CollectUnsafe();
             Assert.Equal(expectedTotal, _aggregatedCounters.GetValueOrDefault(instrumentName, 0));
         }
     }
@@ -274,7 +287,6 @@ internal sealed class MetricCollectionHarness : IDisposable
     /// <exception cref="Xunit.Sdk.EqualException">Thrown when a tag value doesn't match the expected value.</exception>
     public void AssertAllMeasurementsHaveTags(string instrumentName, params KeyValuePair<string, object?>[] requiredTags)
     {
-        // GetMeasurements already calls Collect()
         var measurements = GetMeasurements(instrumentName);
         Assert.NotEmpty(measurements);
         Assert.All(measurements, m =>
@@ -289,26 +301,162 @@ internal sealed class MetricCollectionHarness : IDisposable
     }
 
     /// <summary>
-    /// Resets the harness by clearing all captured measurements and aggregated counters.
+    /// Resets the harness by clearing all captured measurements and recording the current
+    /// cumulative counter values as a baseline. Subsequent counter values returned will be
+    /// relative to this baseline.
     /// </summary>
     /// <remarks>
-    /// This method is useful for reusing a harness across multiple test scenarios
-    /// within the same test method.
+    /// Because the harness uses cumulative temporality, a true reset of the underlying
+    /// OpenTelemetry SDK state is not possible without recreating the <see cref="MeterProvider"/>.
+    /// This method stores the current cumulative values as a baseline and subtracts them from
+    /// future reads, effectively simulating a reset.
     /// </remarks>
     public void Reset()
     {
+        ThrowIfDisposed();
         lock (_lock)
         {
+            CollectUnsafe();
+
+            foreach (var measurement in _measurements)
+            {
+                var key = GetMeasurementKey(measurement.InstrumentName, measurement.Tags);
+                var existingBaseline = _baselineMeasurements.GetValueOrDefault(key, 0);
+                _baselineMeasurements[key] = measurement.Value + existingBaseline;
+            }
+
             _measurements.Clear();
             _measurementsByInstrument.Clear();
             _aggregatedCounters.Clear();
+            _exportedMetrics.Clear();
         }
     }
 
     /// <summary>
-    /// Disposes the harness and stops metric collection.
+    /// Disposes the harness and the underlying <see cref="MeterProvider"/>.
     /// </summary>
-    public void Dispose() => _listener.Dispose();
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        _meterProvider.Dispose();
+    }
+
+    /// <summary>
+    /// Flushes the OTel pipeline and rebuilds the snapshot.
+    /// Must be called while holding <see cref="_lock"/>.
+    /// </summary>
+    private void CollectUnsafe()
+    {
+        _exportedMetrics.Clear();
+
+        try
+        {
+            _meterProvider.ForceFlush(10_000); // 10 s safety cap for test environments
+        }
+        catch (AggregateException ex) when (ex.InnerExceptions.All(e => e is ObjectDisposedException))
+        {
+            // Expected when cache is disposed before collection.
+        }
+        catch (ObjectDisposedException)
+        {
+            // Expected when cache is disposed before collection.
+        }
+
+        RebuildSnapshotUnsafe();
+    }
+
+    /// <summary>
+    /// Rebuilds the internal measurement/aggregation caches from the exported OTel metrics.
+    /// Must be called while holding <see cref="_lock"/>.
+    /// </summary>
+    private void RebuildSnapshotUnsafe()
+    {
+        var measurements = new List<MetricMeasurement>();
+        var byInstrument = new Dictionary<string, List<MetricMeasurement>>();
+        var counters = new Dictionary<string, long>();
+
+        foreach (var metric in _exportedMetrics)
+        {
+            if (_instrumentNames.Length > 0 && !_instrumentNames.Contains(metric.Name))
+            {
+                continue;
+            }
+
+            foreach (ref readonly var point in metric.GetMetricPoints())
+            {
+                var tagDict = new Dictionary<string, object?>();
+                foreach (var tag in point.Tags)
+                {
+                    tagDict[tag.Key] = tag.Value;
+                }
+
+                long rawValue;
+                try
+                {
+                    rawValue = point.GetSumLong();
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException)
+                {
+                    throw new InvalidOperationException(
+                        $"Cannot read sum for instrument '{metric.Name}' (MetricType={metric.MetricType}). " +
+                        "MetricCollectionHarness only supports Counter/ObservableCounter instruments with long values.",
+                        ex);
+                }
+
+                var tagsReadOnly = new ReadOnlyDictionary<string, object?>(tagDict);
+                var measurementKey = GetMeasurementKey(metric.Name, tagsReadOnly);
+                var adjustedValue = rawValue - _baselineMeasurements.GetValueOrDefault(measurementKey, 0);
+
+                var measurement = new MetricMeasurement(
+                    metric.Name,
+                    adjustedValue,
+                    tagsReadOnly,
+                    point.EndTime.UtcDateTime);
+
+                measurements.Add(measurement);
+
+                if (!byInstrument.TryGetValue(metric.Name, out var list))
+                {
+                    list = new List<MetricMeasurement>();
+                    byInstrument[metric.Name] = list;
+                }
+
+                list.Add(measurement);
+                counters[metric.Name] = counters.GetValueOrDefault(metric.Name, 0) + adjustedValue;
+            }
+        }
+
+        _measurements = measurements;
+        _measurementsByInstrument = byInstrument;
+        _aggregatedCounters = counters;
+    }
+
+    private void ThrowIfDisposed()
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+    }
+
+    /// <summary>
+    /// Creates a unique key for a measurement based on instrument name and tags.
+    /// Used for tracking per-tag-combination baselines.
+    /// </summary>
+    /// <param name="instrumentName">The name of the instrument.</param>
+    /// <param name="tags">The tags associated with the measurement.</param>
+    /// <returns>A unique string key combining the instrument name and sorted tags.</returns>
+    private static string GetMeasurementKey(string instrumentName, IReadOnlyDictionary<string, object?> tags)
+    {
+        if (tags.Count == 0)
+        {
+            return instrumentName;
+        }
+
+        var sortedTags = string.Join("|", tags.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}"));
+        return $"{instrumentName}|{sortedTags}";
+    }
 }
 
 /// <summary>
