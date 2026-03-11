@@ -302,7 +302,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// <summary>
     /// The meter name used per dotnet/runtime#124140.
     /// </summary>
-    public const string MeterName = "Microsoft.Extensions.Caching.Memory";
+    public const string MeterName = "Microsoft.Extensions.Caching.Memory.MemoryCache";
 
     /// <summary>
     /// Normalizes cache names to handle whitespace and prevent tag cardinality issues.
