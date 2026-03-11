@@ -508,23 +508,22 @@ public static class CacheConfigurationExtensions
 
 ```promql
 # Cache hit rate by domain
-rate(cache_hits_total[5m]) /
-(rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
+sum(rate(cache_requests_total{cache_request_type="hit"}[5m])) by (cache_name) /
+sum(rate(cache_requests_total[5m])) by (cache_name)
 * 100
 
 # Top cache consumers by operation rate
 topk(10,
-  rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])
-) by (cache_name)
+  sum(rate(cache_requests_total[5m])) by (cache_name)
+)
 
-# Eviction rate by cache and reason
-rate(cache_evictions_total[5m]) by (cache_name, reason)
+# Eviction rate by cache
+sum(rate(cache_evictions_total[5m])) by (cache_name)
 
 # Cache efficiency comparison
 (
-  rate(cache_hits_total{cache_name=~"user.*"}[5m]) /
-  (rate(cache_hits_total{cache_name=~"user.*"}[5m]) +
-   rate(cache_misses_total{cache_name=~"user.*"}[5m]))
+  sum(rate(cache_requests_total{cache_name=~"user.*",cache_request_type="hit"}[5m])) /
+  sum(rate(cache_requests_total{cache_name=~"user.*"}[5m]))
 ) * 100
 ```
 
@@ -564,8 +563,8 @@ groups:
       - alert: LowCacheHitRate
         expr: |
           (
-            rate(cache_hits_total[5m]) / 
-            (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
+            sum(rate(cache_requests_total{cache_request_type="hit"}[5m])) by (cache_name) /
+            sum(rate(cache_requests_total[5m])) by (cache_name)
           ) < 0.5
         for: 5m
         labels:
@@ -586,9 +585,8 @@ groups:
       - alert: CacheSpecificHitRate
         expr: |
           (
-            rate(cache_hits_total{cache_name=~"user\..*"}[5m]) / 
-            (rate(cache_hits_total{cache_name=~"user\..*"}[5m]) + 
-             rate(cache_misses_total{cache_name=~"user\..*"}[5m]))
+            sum(rate(cache_requests_total{cache_name=~"user\..*",cache_request_type="hit"}[5m])) /
+            sum(rate(cache_requests_total{cache_name=~"user\..*"}[5m]))
           ) < 0.7
         for: 5m
         labels:

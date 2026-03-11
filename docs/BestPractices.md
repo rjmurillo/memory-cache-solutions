@@ -252,17 +252,16 @@ Create comprehensive dashboards with these panels:
 Cache_Performance:
   panels:
     - title: "Hit/Miss Rate"
-      query: "rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))"
+      query: "sum(rate(cache_requests_total{cache_request_type=\"hit\"}[5m])) / sum(rate(cache_requests_total[5m]))"
 
     - title: "Cache Operations/sec"
-      query: "rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])"
+      query: "sum(rate(cache_requests_total[5m]))"
 
-    - title: "Evictions by Reason"
-      query: "rate(cache_evictions_total[5m])"
-      group_by: "reason"
+    - title: "Eviction Rate"
+      query: "sum(rate(cache_evictions_total[5m])) by (cache_name)"
 
     - title: "Cache Performance by Name"
-      query: "rate(cache_hits_total[5m])"
+      query: "rate(cache_requests_total{cache_request_type=\"hit\"}[5m])"
       group_by: "cache_name"
 ```
 
@@ -276,7 +275,7 @@ groups:
   - name: cache_alerts
     rules:
       - alert: CacheHitRateLow
-        expr: rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) < 0.7
+        expr: sum(rate(cache_requests_total{cache_request_type="hit"}[5m])) / sum(rate(cache_requests_total[5m])) < 0.7
         for: 5m
         annotations:
           summary: "Cache hit rate is below 70%"
@@ -492,9 +491,8 @@ public async Task Cache_EmitsCorrectMetrics()
     cache.TryGetValue("missing", out _); // Miss
 
     // Assert
-    // Verify hit and miss metrics were emitted
-    Assert.That(exportedItems, Has.Some.Property("Name").EqualTo("cache_hits_total"));
-    Assert.That(exportedItems, Has.Some.Property("Name").EqualTo("cache_misses_total"));
+    // Verify cache.requests metrics were emitted (with cache.request.type = hit and miss)
+    Assert.That(exportedItems, Has.Some.Property("Name").EqualTo("cache.requests"));
 }
 ```
 

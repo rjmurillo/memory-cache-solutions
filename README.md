@@ -106,11 +106,12 @@ var stats = metered.GetCurrentStatistics();
 Console.WriteLine($"Hit ratio: {stats.HitRatio:F2}%");
 ```
 
-Counters exposed:
+Instruments exposed:
 
-- `cache_hits_total`
-- `cache_misses_total`
-- `cache_evictions_total` (tag: `reason` = `Expired|TokenExpired|Capacity|Removed|Replaced|...`)
+- `cache.requests` (ObservableCounter, tag: `cache.request.type` = `hit` or `miss`)
+- `cache.evictions` (ObservableCounter)
+- `cache.entries` (ObservableUpDownCounter)
+- `cache.estimated_size` (ObservableGauge, conditional on `SizeLimit` being set)
 
 Consume with `MeterListener`, OpenTelemetry Metrics SDK, or any compatible exporter.
 
@@ -129,7 +130,7 @@ builder.Services.AddNamedMeteredMemoryCache("user-cache");
 // Configure OpenTelemetry
 builder.Services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
-        .AddMeter("CacheImplementations.MeteredMemoryCache")
+        .AddMeter("Microsoft.Extensions.Caching.Memory.MemoryCache")
         .AddOtlpExporter());
 ```
 
@@ -144,11 +145,12 @@ builder.Services.AddOpenTelemetry()
 
 ### Emitted Metrics
 
-| Metric                  | Description                 | Tags                   |
-| ----------------------- | --------------------------- | ---------------------- |
-| `cache_hits_total`      | Successful cache retrievals | `cache.name`           |
-| `cache_misses_total`    | Cache key not found         | `cache.name`           |
-| `cache_evictions_total` | Items removed from cache    | `cache.name`, `reason` |
+| Metric                  | Type                     | Description                 | Tags                                  |
+| ----------------------- | ------------------------ | --------------------------- | ------------------------------------- |
+| `cache.requests`        | ObservableCounter        | Cache lookup operations     | `cache.name`, `cache.request.type`    |
+| `cache.evictions`       | ObservableCounter        | Cache evictions             | `cache.name`                          |
+| `cache.entries`         | ObservableUpDownCounter  | Current entry count         | `cache.name`                          |
+| `cache.estimated_size`  | ObservableGauge          | Estimated cache size        | `cache.name`                          |
 
 For detailed usage, configuration, and examples, see the [MeteredMemoryCache Usage Guide](docs/MeteredMemoryCache.md).
 

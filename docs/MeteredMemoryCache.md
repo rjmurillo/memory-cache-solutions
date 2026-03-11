@@ -27,22 +27,16 @@ MeteredMemoryCache is a decorator for `IMemoryCache` that automatically emits Op
 
 ### Emitted Metrics
 
-| Metric Name             | Type    | Description                        | Tags                              |
-| ----------------------- | ------- | ---------------------------------- | --------------------------------- |
-| `cache_hits_total`      | Counter | Number of successful cache lookups | `cache.name` (optional)           |
-| `cache_misses_total`    | Counter | Number of failed cache lookups     | `cache.name` (optional)           |
-| `cache_evictions_total` | Counter | Number of cache evictions          | `cache.name` (optional), `reason` |
+| Metric Name             | Type                    | Description                        | Tags                                            |
+| ----------------------- | ----------------------- | ---------------------------------- | ----------------------------------------------- |
+| `cache.requests`        | ObservableCounter       | Number of cache lookup operations  | `cache.name`, `cache.request.type` (hit or miss) |
+| `cache.evictions`       | ObservableCounter       | Number of cache evictions          | `cache.name`                                     |
+| `cache.entries`         | ObservableUpDownCounter | Current number of cache entries    | `cache.name`                                     |
+| `cache.estimated_size`  | ObservableGauge         | Estimated size of the cache        | `cache.name`                                     |
 
-#### Eviction Reasons
+#### Eviction Tracking
 
-The `reason` tag on `cache_evictions_total` corresponds to `EvictionReason` enum values:
-
-- `None` - Not evicted
-- `Removed` - Explicitly removed
-- `Replaced` - Replaced by newer entry
-- `Expired` - Expired based on time
-- `TokenExpired` - Expired based on cancellation token
-- `Capacity` - Evicted due to cache size limits
+The `cache.evictions` instrument counts all evictions regardless of reason (`Removed`, `Replaced`, `Expired`, `TokenExpired`, `Capacity`). The eviction reason is **not** emitted as a metric tag.
 
 ## Quick Start
 
@@ -496,10 +490,10 @@ public class CacheService
     {
         if (_cache.TryGetValue(key, out var value))
         {
-            _metrics.Increment("cache.hits");
+            _metrics.Increment("cache.requests", new("cache.request.type", "hit"));
             return (T)value;
         }
-        _metrics.Increment("cache.misses");
+        _metrics.Increment("cache.requests", new("cache.request.type", "miss"));
         return default(T);
     }
 
@@ -549,24 +543,22 @@ If you've built a custom cache wrapper for metrics, MeteredMemoryCache provides 
 public class InstrumentedCache : IMemoryCache
 {
     private readonly IMemoryCache _inner;
-    private readonly Counter<long> _hitCounter;
-    private readonly Counter<long> _missCounter;
+    private readonly Counter<long> _requestCounter;
 
     public InstrumentedCache(IMemoryCache inner, IMeterFactory meterFactory)
     {
         _inner = inner;
         var meter = meterFactory.Create("MyApp.Cache");
-        _hitCounter = meter.CreateCounter<long>("cache_hits");
-        _missCounter = meter.CreateCounter<long>("cache_misses");
+        _requestCounter = meter.CreateCounter<long>("cache.requests");
     }
 
     public bool TryGetValue(object key, out object? value)
     {
         var result = _inner.TryGetValue(key, out value);
         if (result)
-            _hitCounter.Add(1);
+            _requestCounter.Add(1, new("cache.request.type", "hit"));
         else
-            _missCounter.Add(1);
+            _requestCounter.Add(1, new("cache.request.type", "miss"));
         return result;
     }
 
@@ -639,13 +631,13 @@ var result = cache.GetOrCreate("key", entry =>
 
 ### Metric Name Migration
 
-| Old Metric        | New Metric              | Notes                                        |
-| ----------------- | ----------------------- | -------------------------------------------- |
-| `cache.hits`      | `cache_hits_total`      | Counter, follows OTel conventions            |
-| `cache.misses`    | `cache_misses_total`    | Counter, follows OTel conventions            |
-| `cache.sets`      | N/A                     | Tracked via eviction callbacks instead       |
-| `cache.evictions` | `cache_evictions_total` | Counter with `reason` tag                    |
-| `cache.size`      | N/A                     | Not available through IMemoryCache interface |
+| Old Metric        | New Metric              | Notes                                              |
+| ----------------- | ----------------------- | -------------------------------------------------- |
+| `cache.hits`      | `cache.requests`        | ObservableCounter with `cache.request.type`=`hit`  |
+| `cache.misses`    | `cache.requests`        | ObservableCounter with `cache.request.type`=`miss` |
+| `cache.sets`      | N/A                     | Tracked via eviction callbacks instead             |
+| `cache.evictions` | `cache.evictions`       | ObservableCounter                                  |
+| `cache.size`      | `cache.estimated_size`  | ObservableGauge (when SizeLimit is set)            |
 
 ### Performance Migration Notes
 

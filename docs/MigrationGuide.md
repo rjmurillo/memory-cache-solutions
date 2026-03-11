@@ -62,14 +62,13 @@ var cacheInventory = new[]
 ### 2. Identify Current Metrics
 
 ```csharp
-// List existing metrics being collected
+// Standard metrics emitted by MeteredMemoryCache
 var currentMetrics = new[]
 {
-    "cache_hits_total",
-    "cache_misses_total",
-    "cache_size_bytes",
-    "cache_evictions_total",
-    "cache_operation_duration_ms"
+    "cache.requests",
+    "cache.evictions",
+    "cache.entries",
+    "cache.estimated_size",
 };
 ```
 
@@ -229,15 +228,13 @@ public class InstrumentedMemoryCache : IMemoryCache
 {
     private readonly IMemoryCache _inner;
     private readonly IMetrics _metrics;
-    private readonly Counter<long> _hitCounter;
-    private readonly Counter<long> _missCounter;
+    private readonly Counter<long> _requestCounter;
 
     public InstrumentedMemoryCache(IMemoryCache inner, IMetrics metrics)
     {
         _inner = inner;
         _metrics = metrics;
-        _hitCounter = _metrics.CreateCounter<long>("cache_hits_total");
-        _missCounter = _metrics.CreateCounter<long>("cache_misses_total");
+        _requestCounter = _metrics.CreateCounter<long>("cache.requests");
     }
 
     public bool TryGetValue(object key, out object value)
@@ -246,11 +243,11 @@ public class InstrumentedMemoryCache : IMemoryCache
 
         if (result)
         {
-            _hitCounter.Add(1);
+            _requestCounter.Add(1, new("cache.request.type", "hit"));
         }
         else
         {
-            _missCounter.Add(1);
+            _requestCounter.Add(1, new("cache.request.type", "miss"));
         }
 
         return result;
@@ -295,9 +292,10 @@ services.AddNamedMeteredMemoryCache("main-cache",
        configure: options =>
        {
            // MeteredMemoryCache uses standard OpenTelemetry names:
-           // - cache_hits_total
-           // - cache_misses_total
-           // - cache_evictions_total
+           // - cache.requests (with cache.request.type = hit or miss)
+           // - cache.evictions
+           // - cache.entries
+           // - cache.estimated_size
        });
    ```
 
@@ -309,8 +307,8 @@ services.AddNamedMeteredMemoryCache("main-cache",
    rate(my_cache_misses[5m])
 
    # After (standard names)
-   rate(cache_hits_total{cache_name="main-cache"}[5m])
-   rate(cache_misses_total{cache_name="main-cache"}[5m])
+   rate(cache_requests_total{cache_name="main-cache",cache_request_type="hit"}[5m])
+   rate(cache_requests_total{cache_name="main-cache",cache_request_type="miss"}[5m])
    ```
 
 4. **Preserve Historical Data**
@@ -318,7 +316,7 @@ services.AddNamedMeteredMemoryCache("main-cache",
    # Union query to bridge historical and new data
    (
      rate(my_cache_hits[5m]) or
-     rate(cache_hits_total{cache_name="main-cache"}[5m])
+     rate(cache_requests_total{cache_name="main-cache",cache_request_type="hit"}[5m])
    )
    ```
 
@@ -811,8 +809,8 @@ public async Task MigrationValidation_MetricsAreEmitted()
 
     // Assert
     var metrics = exportedItems.ToArray();
-    Assert.Contains(metrics, m => m.Name == "cache_hits_total");
-    Assert.Contains(metrics, m => m.Name == "cache_misses_total");
+    // cache.requests emitted with cache.request.type = hit and miss
+    Assert.Contains(metrics, m => m.Name == "cache.requests");
 }
 ```
 

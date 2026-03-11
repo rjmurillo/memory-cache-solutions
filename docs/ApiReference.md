@@ -168,8 +168,8 @@ Implementation of `IMemoryCache.TryGetValue` that records hit/miss metrics.
 
 **Metrics Emitted:**
 
-- `cache_hits_total` (if value found)
-- `cache_misses_total` (if value not found)
+- `cache.requests` with `cache.request.type`=`hit` (if value found)
+- `cache.requests` with `cache.request.type`=`miss` (if value not found)
 
 #### CreateEntry(object)
 
@@ -192,7 +192,7 @@ Creates a cache entry and registers an eviction callback to record eviction metr
 
 **Metrics Emitted:**
 
-- `cache_evictions_total` (when the entry is later evicted)
+- `cache.evictions` (when the entry is later evicted)
 
 **Example:**
 
@@ -221,7 +221,7 @@ Removes an item from the cache. If the item exists, its eviction callback will r
 
 **Metrics Emitted:**
 
-- `cache_evictions_total` (if the key existed and had an eviction callback)
+- `cache.evictions` (if the key existed and had an eviction callback)
 
 #### Dispose()
 
@@ -394,31 +394,33 @@ services.DecorateMemoryCacheWithMetrics("main-cache", "MyApp.Cache", options =>
 
 ## Metrics Emitted
 
-MeteredMemoryCache emits three types of metrics following OpenTelemetry conventions:
+MeteredMemoryCache emits four instruments following OpenTelemetry conventions:
 
-### cache_hits_total
+### cache.requests
 
-- **Type:** Counter<long>
-- **Description:** Total number of cache hits
+- **Type:** ObservableCounter
+- **Description:** Total number of cache lookup operations
 - **Emitted by:** `TryGetValue` (and extension methods that call it: `TryGetValue<T>`, `Get<T>`, `GetOrCreate<T>`, etc.)
-- **Tags:** `cache.name` (if specified), additional tags from options
+- **Tags:** `cache.name` (if specified), `cache.request.type` (`hit` or `miss`), additional tags from options
 
-### cache_misses_total
+### cache.evictions
 
-- **Type:** Counter<long>
-- **Description:** Total number of cache misses
-- **Emitted by:** `TryGetValue` (and extension methods that call it: `TryGetValue<T>`, `Get<T>`, `GetOrCreate<T>`, etc.)
-- **Tags:** `cache.name` (if specified), additional tags from options
-
-### cache_evictions_total
-
-- **Type:** Counter<long>
+- **Type:** ObservableCounter
 - **Description:** Total number of cache evictions
-- **Emitted by:** Eviction callbacks registered by `CreateEntry` (called by extension methods like `Set<T>`, `GetOrCreate<T>`, etc.)
-- **Tags:**
-  - `cache.name` (if specified)
-  - `reason` - The eviction reason (Removed, Replaced, Expired, TokenExpired, Capacity)
-  - Additional tags from options
+- **Emitted by:** Eviction callback registered via `CreateEntry`
+- **Tags:** `cache.name` (if specified), additional tags from options
+
+### cache.entries
+
+- **Type:** ObservableUpDownCounter
+- **Description:** Current number of entries in the cache
+- **Tags:** `cache.name` (if specified), additional tags from options
+
+### cache.estimated_size
+
+- **Type:** ObservableGauge
+- **Description:** Estimated size of the cache (only emitted when `SizeLimit` is set)
+- **Tags:** `cache.name` (if specified), additional tags from options
 
 ### Metric Tags
 
@@ -426,7 +428,6 @@ All metrics include dimensional tags for filtering and aggregation:
 
 - **cache.name**: The logical name of the cache (if specified)
 - **Additional tags**: Custom tags specified in `MeteredMemoryCacheOptions.AdditionalTags`
-- **reason** (evictions only): The reason for eviction as a string representation of `EvictionReason` enum
 
 ## Exception Reference
 

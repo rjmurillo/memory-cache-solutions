@@ -67,18 +67,25 @@ builder.Services.AddOpenTelemetry()
 **Sample Prometheus Output:**
 
 ```prometheus
-# HELP cache_hits_total Number of cache hits
-# TYPE cache_hits_total counter
-cache_hits_total{cache_name="user-cache"} 1547
-
-# HELP cache_misses_total Number of cache misses
-# TYPE cache_misses_total counter
-cache_misses_total{cache_name="user-cache"} 423
+# HELP cache_requests_total Number of cache lookup operations
+# TYPE cache_requests_total counter
+cache_requests_total{cache_name="user-cache",cache_request_type="hit"} 1547
+cache_requests_total{cache_name="user-cache",cache_request_type="miss"} 423
 
 # HELP cache_evictions_total Number of cache evictions
 # TYPE cache_evictions_total counter
-cache_evictions_total{cache_name="user-cache",reason="Capacity"} 89
+cache_evictions_total{cache_name="user-cache"} 89
+
+# HELP cache_entries Current number of cache entries
+# TYPE cache_entries gauge
+cache_entries{cache_name="user-cache"} 1035
+
+# HELP cache_estimated_size Estimated size of the cache
+# TYPE cache_estimated_size gauge
+cache_estimated_size{cache_name="user-cache"} 524288
 ```
+
+> **Note:** `cache_estimated_size` only appears when `SizeLimit` is configured on the underlying `MemoryCacheOptions`.
 
 ### 2. OTLP Exporter (OpenTelemetry Protocol)
 
@@ -252,10 +259,10 @@ builder.Services.AddOpenTelemetry()
 ```csharp
 builder.Services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
-        .AddMeter("MyApp.Cache")
-        .AddView("cache_hits_total", new ExplicitBucketHistogramConfiguration
+        .AddMeter("Microsoft.Extensions.Caching.Memory.MemoryCache")
+        .AddView("cache.requests", new MetricStreamConfiguration
         {
-            Boundaries = new[] { 0, 5, 10, 25, 50, 75, 100, 250, 500, 1000 }
+            TagKeys = new[] { "cache.name", "cache.request.type" }
         })
         .AddPrometheusExporter());
 ```
@@ -465,8 +472,8 @@ groups:
       - alert: HighCacheMissRate
         expr: |
           (
-            rate(cache_misses_total[5m]) / 
-            (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
+            sum(rate(cache_requests_total{cache_request_type="miss"}[5m])) /
+            sum(rate(cache_requests_total[5m]))
           ) > 0.5
         for: 2m
         labels:
@@ -489,18 +496,18 @@ groups:
 
 ```promql
 # Cache Hit Rate
-rate(cache_hits_total[5m]) /
-(rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
+sum(rate(cache_requests_total{cache_request_type="hit"}[5m])) /
+sum(rate(cache_requests_total[5m]))
 
 # Cache Operations Per Second
-rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])
+sum(rate(cache_requests_total[5m]))
 
-# Eviction Rate by Reason
-rate(cache_evictions_total[5m]) by (reason)
+# Eviction Rate
+rate(cache_evictions_total[5m])
 
 # Cache Efficiency (hits per operation)
-increase(cache_hits_total[1h]) /
-(increase(cache_hits_total[1h]) + increase(cache_misses_total[1h]))
+sum(increase(cache_requests_total{cache_request_type="hit"}[1h])) /
+sum(increase(cache_requests_total[1h]))
 ```
 
 ## Troubleshooting

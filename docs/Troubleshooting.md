@@ -250,10 +250,9 @@ public class MetricsTestHarness
         // Verify metrics were collected
         _meterProvider.ForceFlush(TimeSpan.FromSeconds(1));
 
-        var hits = _measurements.Where(m => m.Name == "cache_hits_total").Sum(m => m.Value);
-        var misses = _measurements.Where(m => m.Name == "cache_misses_total").Sum(m => m.Value);
+        var requests = _measurements.Where(m => m.Name == "cache.requests").Sum(m => m.Value);
 
-        Console.WriteLine($"Hits: {hits}, Misses: {misses}");
+        Console.WriteLine($"Total requests: {requests}");
     }
 }
 ```
