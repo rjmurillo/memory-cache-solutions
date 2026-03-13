@@ -496,18 +496,18 @@ groups:
 
 ```promql
 # Cache Hit Rate
-sum(rate(cache_requests_total{cache_request_type="hit"}[5m])) /
-sum(rate(cache_requests_total[5m]))
+sum(rate(cache_requests_total{cache_request_type="hit"}[5m])) by (cache_name) /
+sum(rate(cache_requests_total[5m])) by (cache_name)
 
 # Cache Operations Per Second
-sum(rate(cache_requests_total[5m]))
+sum(rate(cache_requests_total[5m])) by (cache_name)
 
 # Eviction Rate
-rate(cache_evictions_total[5m])
+sum(rate(cache_evictions_total[5m])) by (cache_name)
 
 # Cache Efficiency (hits per operation)
-sum(increase(cache_requests_total{cache_request_type="hit"}[1h])) /
-sum(increase(cache_requests_total[1h]))
+sum(increase(cache_requests_total{cache_request_type="hit"}[1h])) by (cache_name) /
+sum(increase(cache_requests_total[1h])) by (cache_name)
 ```
 
 ## Troubleshooting

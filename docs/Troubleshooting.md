@@ -251,8 +251,18 @@ public class MetricsTestHarness
         _meterProvider.ForceFlush(TimeSpan.FromSeconds(1));
 
         var requests = _measurements.Where(m => m.Name == "cache.requests").Sum(m => m.Value);
-
         Console.WriteLine($"Total requests: {requests}");
+
+        // Split by cache.request.type to diagnose hit/miss ratio
+        var hits = _measurements
+            .Where(m => m.Name == "cache.requests"
+                && m.Tags.Any(t => t.Key == "cache.request.type" && t.Value?.ToString() == "hit"))
+            .Sum(m => m.Value);
+        var misses = _measurements
+            .Where(m => m.Name == "cache.requests"
+                && m.Tags.Any(t => t.Key == "cache.request.type" && t.Value?.ToString() == "miss"))
+            .Sum(m => m.Value);
+        Console.WriteLine($"Hits: {hits}, Misses: {misses}, Hit Rate: {(hits + misses > 0 ? (double)hits / (hits + misses) : 0):P1}");
     }
 }
 ```

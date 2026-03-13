@@ -238,11 +238,11 @@ var cache = new MeteredMemoryCache(innerCache, nullMeter);
 
 **A:** Essential metrics to track:
 
-1. **Hit Rate**: `sum(rate(cache_requests_total{cache_request_type="hit"}[5m])) / sum(rate(cache_requests_total[5m]))`
+1. **Hit Rate**: `sum(rate(cache_requests_total{cache_request_type="hit"}[5m])) by (cache_name) / sum(rate(cache_requests_total[5m])) by (cache_name)`
 
    - Target: >80%, Alert: <70%
 
-2. **Operations per Second**: `sum(rate(cache_requests_total[5m]))`
+2. **Operations per Second**: `sum(rate(cache_requests_total[5m])) by (cache_name)`
 
    - Monitor for traffic patterns and capacity planning
 

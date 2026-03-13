@@ -807,10 +807,21 @@ public async Task MigrationValidation_MetricsAreEmitted()
     // Force metrics collection
     meterProvider?.ForceFlush(TimeSpan.FromSeconds(5));
 
-    // Assert
+    // Assert — verify cache.requests with both hit and miss types per BCL spec
     var metrics = exportedItems.ToArray();
-    // cache.requests emitted with cache.request.type = hit and miss
     Assert.Contains(metrics, m => m.Name == "cache.requests");
+
+    // Verify cache.request.type dimension carries both "hit" and "miss" values
+    var requestTypes = metrics
+        .Where(m => m.Name == "cache.requests")
+        .SelectMany(m => m.GetMetricPoints())
+        .SelectMany(p => p.Tags)
+        .Where(t => t.Key == "cache.request.type")
+        .Select(t => t.Value?.ToString())
+        .Distinct()
+        .ToList();
+    Assert.Contains("hit", requestTypes);
+    Assert.Contains("miss", requestTypes);
 }
 ```
 

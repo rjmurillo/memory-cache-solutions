@@ -252,17 +252,16 @@ Create comprehensive dashboards with these panels:
 Cache_Performance:
   panels:
     - title: "Hit/Miss Rate"
-      query: "sum(rate(cache_requests_total{cache_request_type=\"hit\"}[5m])) / sum(rate(cache_requests_total[5m]))"
+      query: "sum(rate(cache_requests_total{cache_request_type=\"hit\"}[5m])) by (cache_name) / sum(rate(cache_requests_total[5m])) by (cache_name)"
 
     - title: "Cache Operations/sec"
-      query: "sum(rate(cache_requests_total[5m]))"
+      query: "sum(rate(cache_requests_total[5m])) by (cache_name)"
 
     - title: "Eviction Rate"
       query: "sum(rate(cache_evictions_total[5m])) by (cache_name)"
 
     - title: "Cache Performance by Name"
-      query: "rate(cache_requests_total{cache_request_type=\"hit\"}[5m])"
-      group_by: "cache_name"
+      query: "sum(rate(cache_requests_total{cache_request_type=\"hit\"}[5m])) by (cache_name)"
 ```
 
 ### Alerting Rules
@@ -490,9 +489,19 @@ public async Task Cache_EmitsCorrectMetrics()
     cache.TryGetValue("key", out _); // Hit
     cache.TryGetValue("missing", out _); // Miss
 
-    // Assert
-    // Verify cache.requests metrics were emitted (with cache.request.type = hit and miss)
-    Assert.That(exportedItems, Has.Some.Property("Name").EqualTo("cache.requests"));
+    // Assert — verify both hit and miss types are present per BCL spec
+    var requestMetrics = exportedItems.Where(m => m.Name == "cache.requests").ToList();
+    Assert.That(requestMetrics, Is.Not.Empty, "cache.requests metric should be emitted");
+
+    // BCL spec requires cache.request.type dimension with "hit" and "miss" values
+    var tags = requestMetrics.SelectMany(m => m.GetMetricPoints())
+        .SelectMany(p => p.Tags)
+        .Where(t => t.Key == "cache.request.type")
+        .Select(t => t.Value?.ToString())
+        .Distinct()
+        .ToList();
+    Assert.That(tags, Does.Contain("hit"), "cache.requests should include hit type");
+    Assert.That(tags, Does.Contain("miss"), "cache.requests should include miss type");
 }
 ```
 
