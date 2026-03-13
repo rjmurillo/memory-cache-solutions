@@ -85,7 +85,7 @@ cache_entries{cache_name="user-cache"} 1035
 cache_estimated_size{cache_name="user-cache"} 524288
 ```
 
-> **Note:** `cache_estimated_size` only appears when `SizeLimit` is configured on the underlying `MemoryCacheOptions`.
+> **Note:** `cache_estimated_size` only appears when the inner cache is a `MemoryCache` with `TrackStatistics` enabled (i.e., `GetCurrentStatistics()` returns non-null). `SizeLimit` and entry sizes affect whether the value is meaningful/non-zero.
 
 ### 2. OTLP Exporter (OpenTelemetry Protocol)
 

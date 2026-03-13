@@ -111,7 +111,7 @@ Instruments exposed:
 - `cache.requests` (ObservableCounter, tag: `cache.request.type` = `hit` or `miss`)
 - `cache.evictions` (ObservableCounter)
 - `cache.entries` (ObservableUpDownCounter)
-- `cache.estimated_size` (ObservableGauge, conditional on `SizeLimit` being set)
+- `cache.estimated_size` (ObservableGauge, emitted when inner cache has statistics tracking enabled via `TrackStatistics`)
 
 Consume with `MeterListener`, OpenTelemetry Metrics SDK, or any compatible exporter.
 

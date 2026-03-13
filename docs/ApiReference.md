@@ -401,32 +401,32 @@ MeteredMemoryCache emits four instruments following OpenTelemetry conventions:
 - **Type:** ObservableCounter
 - **Description:** Total number of cache lookup operations
 - **Emitted by:** `TryGetValue` (and extension methods that call it: `TryGetValue<T>`, `Get<T>`, `GetOrCreate<T>`, etc.)
-- **Tags:** `cache.name` (if specified), `cache.request.type` (`hit` or `miss`), additional tags from options
+- **Tags:** `cache.name` (always present; defaults to `"Default"`), `cache.request.type` (`hit` or `miss`), additional tags from options
 
 ### cache.evictions
 
 - **Type:** ObservableCounter
-- **Description:** Total number of cache evictions
+- **Description:** Total number of automatic cache evictions (excludes explicit `Removed` and `Replaced`)
 - **Emitted by:** Eviction callback registered via `CreateEntry`
-- **Tags:** `cache.name` (if specified), additional tags from options
+- **Tags:** `cache.name` (always present; defaults to `"Default"`), additional tags from options
 
 ### cache.entries
 
 - **Type:** ObservableUpDownCounter
 - **Description:** Current number of entries in the cache
-- **Tags:** `cache.name` (if specified), additional tags from options
+- **Tags:** `cache.name` (always present; defaults to `"Default"`), additional tags from options
 
 ### cache.estimated_size
 
 - **Type:** ObservableGauge
-- **Description:** Estimated size of the cache (only emitted when `SizeLimit` is set)
-- **Tags:** `cache.name` (if specified), additional tags from options
+- **Description:** Estimated size of the cache (emitted when inner cache has `TrackStatistics` enabled)
+- **Tags:** `cache.name` (always present; defaults to `"Default"`), additional tags from options
 
 ### Metric Tags
 
 All metrics include dimensional tags for filtering and aggregation:
 
-- **cache.name**: The logical name of the cache (if specified)
+- **cache.name**: The logical name of the cache (always emitted; defaults to `"Default"` when no explicit name is provided)
 - **Additional tags**: Custom tags specified in `MeteredMemoryCacheOptions.AdditionalTags`
 
 ## Exception Reference

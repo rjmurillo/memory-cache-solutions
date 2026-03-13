@@ -36,7 +36,7 @@ MeteredMemoryCache is a decorator for `IMemoryCache` that automatically emits Op
 
 #### Eviction Tracking
 
-The `cache.evictions` instrument counts all evictions regardless of reason (`Removed`, `Replaced`, `Expired`, `TokenExpired`, `Capacity`). The eviction reason is **not** emitted as a metric tag.
+The `cache.evictions` instrument counts automatic evictions only — those with reasons `Expired`, `TokenExpired`, and `Capacity`. Explicit user removals (`Removed`) and replacements (`Replaced`) are **not** counted. The eviction reason is **not** emitted as a metric tag.
 
 ## Quick Start
 
