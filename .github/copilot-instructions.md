@@ -682,8 +682,8 @@ When using `TestListener` or `MetricCollectionHarness`, pass the actual meter na
 ```csharp
 // ✅ CORRECT - Use the actual meter name for filtering
 using var meter = new Meter(SharedUtilities.GetUniqueMeterName("test.metered.cache"));
-using var listener = new TestListener(meter.Name, "cache_hits_total", "cache_misses_total");
-using var harness = new MetricCollectionHarness(meter.Name, "cache_hits_total", "cache_misses_total");
+using var listener = new TestListener(meter.Name, "cache.requests");
+using var harness = new MetricCollectionHarness(meter.Name, "cache.requests");
 ```
 
 ### Enforcement Rules
@@ -980,7 +980,7 @@ public async Task Cache_Eviction_EmitsMetrics_Reliably()
     var evictionSignal = new TaskCompletionSource<bool>();
 
     // Set up metric listener before operations
-    using var listener = new TestListener(meterName, "cache_evictions_total");
+    using var listener = new TestListener(meterName, "cache.evictions");
 
     // First entry
     cache.Set("key1", "value1", new MemoryCacheEntryOptions
@@ -1007,7 +1007,7 @@ public async Task Cache_Eviction_EmitsMetrics_Reliably()
 
     // Wait for metrics to be available
     var metrics = await TestSynchronization.WaitForConditionAsync(
-        () => listener.GetMeasurements("cache_evictions_total"),
+        () => listener.GetMeasurements("cache.evictions"),
         m => m.Count > 0,
         TestTimeouts.Medium);
 

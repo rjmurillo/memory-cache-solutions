@@ -62,14 +62,13 @@ var cacheInventory = new[]
 ### 2. Identify Current Metrics
 
 ```csharp
-// List existing metrics being collected
+// Standard metrics emitted by MeteredMemoryCache
 var currentMetrics = new[]
 {
-    "cache_hits_total",
-    "cache_misses_total",
-    "cache_size_bytes",
-    "cache_evictions_total",
-    "cache_operation_duration_ms"
+    "cache.requests",
+    "cache.evictions",
+    "cache.entries",
+    "cache.estimated_size",
 };
 ```
 
@@ -229,15 +228,13 @@ public class InstrumentedMemoryCache : IMemoryCache
 {
     private readonly IMemoryCache _inner;
     private readonly IMetrics _metrics;
-    private readonly Counter<long> _hitCounter;
-    private readonly Counter<long> _missCounter;
+    private readonly Counter<long> _requestCounter;
 
     public InstrumentedMemoryCache(IMemoryCache inner, IMetrics metrics)
     {
         _inner = inner;
         _metrics = metrics;
-        _hitCounter = _metrics.CreateCounter<long>("cache_hits_total");
-        _missCounter = _metrics.CreateCounter<long>("cache_misses_total");
+        _requestCounter = _metrics.CreateCounter<long>("cache.requests");
     }
 
     public bool TryGetValue(object key, out object value)
@@ -246,11 +243,11 @@ public class InstrumentedMemoryCache : IMemoryCache
 
         if (result)
         {
-            _hitCounter.Add(1);
+            _requestCounter.Add(1, new("cache.request.type", "hit"));
         }
         else
         {
-            _missCounter.Add(1);
+            _requestCounter.Add(1, new("cache.request.type", "miss"));
         }
 
         return result;
@@ -295,9 +292,10 @@ services.AddNamedMeteredMemoryCache("main-cache",
        configure: options =>
        {
            // MeteredMemoryCache uses standard OpenTelemetry names:
-           // - cache_hits_total
-           // - cache_misses_total
-           // - cache_evictions_total
+           // - cache.requests (with cache.request.type = hit or miss)
+           // - cache.evictions
+           // - cache.entries
+           // - cache.estimated_size
        });
    ```
 
@@ -309,8 +307,8 @@ services.AddNamedMeteredMemoryCache("main-cache",
    rate(my_cache_misses[5m])
 
    # After (standard names)
-   rate(cache_hits_total{cache_name="main-cache"}[5m])
-   rate(cache_misses_total{cache_name="main-cache"}[5m])
+   rate(cache_requests_total{cache_name="main-cache",cache_request_type="hit"}[5m])
+   rate(cache_requests_total{cache_name="main-cache",cache_request_type="miss"}[5m])
    ```
 
 4. **Preserve Historical Data**
@@ -318,7 +316,7 @@ services.AddNamedMeteredMemoryCache("main-cache",
    # Union query to bridge historical and new data
    (
      rate(my_cache_hits[5m]) or
-     rate(cache_hits_total{cache_name="main-cache"}[5m])
+     rate(cache_requests_total{cache_name="main-cache",cache_request_type="hit"}[5m])
    )
    ```
 
@@ -809,10 +807,21 @@ public async Task MigrationValidation_MetricsAreEmitted()
     // Force metrics collection
     meterProvider?.ForceFlush(TimeSpan.FromSeconds(5));
 
-    // Assert
+    // Assert — verify cache.requests with both hit and miss types per BCL spec
     var metrics = exportedItems.ToArray();
-    Assert.Contains(metrics, m => m.Name == "cache_hits_total");
-    Assert.Contains(metrics, m => m.Name == "cache_misses_total");
+    Assert.Contains(metrics, m => m.Name == "cache.requests");
+
+    // Verify cache.request.type dimension carries both "hit" and "miss" values
+    var requestTypes = metrics
+        .Where(m => m.Name == "cache.requests")
+        .SelectMany(m => m.GetMetricPoints())
+        .SelectMany(p => p.Tags)
+        .Where(t => t.Key == "cache.request.type")
+        .Select(t => t.Value?.ToString())
+        .Distinct()
+        .ToList();
+    Assert.Contains("hit", requestTypes);
+    Assert.Contains("miss", requestTypes);
 }
 ```
 
@@ -911,11 +920,11 @@ public void RawCache() => _rawCache.TryGetValue("key", out _);
 [Benchmark]
 public void MeteredCache() => _meteredCache.TryGetValue("key", out _);
 
-// Expected overhead: ~100ns per operation
+// Expected overhead: minimal (~5-15ns from Interlocked operations,
+// zero from metrics — all instruments are Observable)
 // If higher, check for:
 // 1. Excessive tag allocation
 // 2. Frequent meter lookups
-// 3. Inefficient metric emission
 ```
 
 ### Issue 3: Memory Leaks
@@ -1009,7 +1018,7 @@ counter.Add(1); // Should appear in console output
 
 ### Memory Impact
 
-- **Per Instance**: ~200 bytes (3 counters + tags)
+- **Per Instance**: ~200 bytes (4 instruments + tags)
 - **Per Operation**: 0 additional allocations on hot path
 - **Tag Storage**: 64 bytes per unique cache name
 
@@ -1036,7 +1045,7 @@ public class MigrationBenchmark
         _rawCache = new MemoryCache(new MemoryCacheOptions());
 
         var meter = new Meter("Benchmark.Cache");
-        _meteredCache = new MeteredMemoryCache(_rawCache, meter, "test-cache");
+        _meteredCache = new MeteredMemoryCache(new MemoryCache(new MemoryCacheOptions()), meter, "test-cache");
 
         // Pre-populate for hit scenarios
         for (int i = 0; i < 100; i++)

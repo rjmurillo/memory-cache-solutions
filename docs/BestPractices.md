@@ -252,18 +252,16 @@ Create comprehensive dashboards with these panels:
 Cache_Performance:
   panels:
     - title: "Hit/Miss Rate"
-      query: "rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))"
+      query: "sum(rate(cache_requests_total{cache_request_type=\"hit\"}[5m])) by (cache_name) / sum(rate(cache_requests_total[5m])) by (cache_name)"
 
     - title: "Cache Operations/sec"
-      query: "rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])"
+      query: "sum(rate(cache_requests_total[5m])) by (cache_name)"
 
-    - title: "Evictions by Reason"
-      query: "rate(cache_evictions_total[5m])"
-      group_by: "reason"
+    - title: "Eviction Rate"
+      query: "sum(rate(cache_evictions_total[5m])) by (cache_name)"
 
     - title: "Cache Performance by Name"
-      query: "rate(cache_hits_total[5m])"
-      group_by: "cache_name"
+      query: "sum(rate(cache_requests_total{cache_request_type=\"hit\"}[5m])) by (cache_name)"
 ```
 
 ### Alerting Rules
@@ -276,7 +274,7 @@ groups:
   - name: cache_alerts
     rules:
       - alert: CacheHitRateLow
-        expr: rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) < 0.7
+        expr: sum(rate(cache_requests_total{cache_request_type="hit"}[5m])) by (cache_name) / sum(rate(cache_requests_total[5m])) by (cache_name) < 0.7
         for: 5m
         annotations:
           summary: "Cache hit rate is below 70%"
@@ -491,10 +489,19 @@ public async Task Cache_EmitsCorrectMetrics()
     cache.TryGetValue("key", out _); // Hit
     cache.TryGetValue("missing", out _); // Miss
 
-    // Assert
-    // Verify hit and miss metrics were emitted
-    Assert.That(exportedItems, Has.Some.Property("Name").EqualTo("cache_hits_total"));
-    Assert.That(exportedItems, Has.Some.Property("Name").EqualTo("cache_misses_total"));
+    // Assert — verify both hit and miss types are present per BCL spec
+    var requestMetrics = exportedItems.Where(m => m.Name == "cache.requests").ToList();
+    Assert.That(requestMetrics, Is.Not.Empty, "cache.requests metric should be emitted");
+
+    // BCL spec requires cache.request.type dimension with "hit" and "miss" values
+    var tags = requestMetrics.SelectMany(m => m.GetMetricPoints())
+        .SelectMany(p => p.Tags)
+        .Where(t => t.Key == "cache.request.type")
+        .Select(t => t.Value?.ToString())
+        .Distinct()
+        .ToList();
+    Assert.That(tags, Does.Contain("hit"), "cache.requests should include hit type");
+    Assert.That(tags, Does.Contain("miss"), "cache.requests should include miss type");
 }
 ```
 
@@ -515,7 +522,7 @@ public class CachePerformanceBenchmark
     {
         _rawCache = new MemoryCache(new MemoryCacheOptions());
         var meter = new Meter("benchmark");
-        _meteredCache = new MeteredMemoryCache(_rawCache, meter);
+        _meteredCache = new MeteredMemoryCache(new MemoryCache(new MemoryCacheOptions()), meter);
     }
 
     [Benchmark(Baseline = true)]

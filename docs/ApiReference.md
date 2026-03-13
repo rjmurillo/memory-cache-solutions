@@ -31,12 +31,12 @@ public sealed class MeteredMemoryCache : IMemoryCache, IDisposable
 #### Name
 
 ```csharp
-public string? Name { get; }
+public string Name { get; }
 ```
 
-Gets the logical name of this cache instance, if provided during construction.
+Gets the logical name of this cache instance. Defaults to `"Default"` when no explicit name is provided.
 
-**Returns:** The cache name or `null` if no name was specified.
+**Returns:** The cache name (never null).
 
 ### Constructors
 
@@ -104,6 +104,71 @@ var options = new MeteredMemoryCacheOptions
 var meteredCache = new MeteredMemoryCache(innerCache, meter, options);
 ```
 
+#### MeteredMemoryCache(IMemoryCache, IMeterFactory?, string?, bool)
+
+```csharp
+public MeteredMemoryCache(
+    IMemoryCache innerCache,
+    IMeterFactory? meterFactory,
+    string? cacheName = null,
+    bool disposeInner = false)
+```
+
+Creates a new MeteredMemoryCache instance using an `IMeterFactory` to create the meter. The meter is created using the `MeterName` constant. If `meterFactory` is null, an owned `Meter` is created internally.
+
+**Parameters:**
+
+- `innerCache` - The underlying IMemoryCache implementation to decorate
+- `meterFactory` - The factory for creating the Meter instance (if null, an owned Meter is created)
+- `cacheName` - Optional logical name for the cache (used in metrics tags)
+- `disposeInner` - Whether to dispose the inner cache when this instance is disposed
+
+**Exceptions:**
+
+- `ArgumentNullException` - Thrown when `innerCache` is null
+
+**Example:**
+
+```csharp
+var innerCache = new MemoryCache(new MemoryCacheOptions());
+IMeterFactory meterFactory = sp.GetRequiredService<IMeterFactory>();
+var meteredCache = new MeteredMemoryCache(innerCache, meterFactory, "user-cache", true);
+```
+
+#### MeteredMemoryCache(IMemoryCache, IMeterFactory?, IEnumerable\<KeyValuePair\<string, object?\>\>?, string?, bool)
+
+```csharp
+public MeteredMemoryCache(
+    IMemoryCache innerCache,
+    IMeterFactory? meterFactory,
+    IEnumerable<KeyValuePair<string, object?>>? additionalTags = null,
+    string? cacheName = null,
+    bool disposeInner = false)
+```
+
+Creates a new MeteredMemoryCache instance using an `IMeterFactory` with additional tags. The meter is created using the `MeterName` constant. If `meterFactory` is null, an owned `Meter` is created internally.
+
+**Parameters:**
+
+- `innerCache` - The underlying IMemoryCache implementation to decorate
+- `meterFactory` - The factory for creating the Meter instance (if null, an owned Meter is created)
+- `additionalTags` - Additional tags to include in all emitted metrics
+- `cacheName` - Optional logical name for the cache (used in metrics tags)
+- `disposeInner` - Whether to dispose the inner cache when this instance is disposed
+
+**Exceptions:**
+
+- `ArgumentNullException` - Thrown when `innerCache` is null
+
+**Example:**
+
+```csharp
+var innerCache = new MemoryCache(new MemoryCacheOptions());
+IMeterFactory meterFactory = sp.GetRequiredService<IMeterFactory>();
+var tags = new[] { KeyValuePair.Create<string, object?>("environment", "production") };
+var meteredCache = new MeteredMemoryCache(innerCache, meterFactory, tags, "user-cache", true);
+```
+
 ### Usage with Extension Methods
 
 `MeteredMemoryCache` implements the `IMemoryCache` interface and works seamlessly with all extension methods from `Microsoft.Extensions.Caching.Memory.CacheExtensions`. Metrics are automatically tracked for all operations.
@@ -168,8 +233,8 @@ Implementation of `IMemoryCache.TryGetValue` that records hit/miss metrics.
 
 **Metrics Emitted:**
 
-- `cache_hits_total` (if value found)
-- `cache_misses_total` (if value not found)
+- `cache.requests` with `cache.request.type`=`hit` (if value found)
+- `cache.requests` with `cache.request.type`=`miss` (if value not found)
 
 #### CreateEntry(object)
 
@@ -192,7 +257,7 @@ Creates a cache entry and registers an eviction callback to record eviction metr
 
 **Metrics Emitted:**
 
-- `cache_evictions_total` (when the entry is later evicted)
+- `cache.evictions` (when the entry is later evicted)
 
 **Example:**
 
@@ -208,7 +273,7 @@ entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
 public void Remove(object key)
 ```
 
-Removes an item from the cache. If the item exists, its eviction callback will record an eviction metric.
+Removes an item from the cache. The eviction callback decrements `cache.entries` but does **not** increment `cache.evictions` (explicit removals are excluded per dotnet/runtime#124140).
 
 **Parameters:**
 
@@ -221,7 +286,7 @@ Removes an item from the cache. If the item exists, its eviction callback will r
 
 **Metrics Emitted:**
 
-- `cache_evictions_total` (if the key existed and had an eviction callback)
+- `cache.entries` decremented (if the key existed and had an eviction callback)
 
 #### Dispose()
 
@@ -394,39 +459,40 @@ services.DecorateMemoryCacheWithMetrics("main-cache", "MyApp.Cache", options =>
 
 ## Metrics Emitted
 
-MeteredMemoryCache emits three types of metrics following OpenTelemetry conventions:
+MeteredMemoryCache emits four instruments following OpenTelemetry conventions:
 
-### cache_hits_total
+### cache.requests
 
-- **Type:** Counter<long>
-- **Description:** Total number of cache hits
+- **Type:** ObservableCounter
+- **Description:** Total number of cache lookup operations
 - **Emitted by:** `TryGetValue` (and extension methods that call it: `TryGetValue<T>`, `Get<T>`, `GetOrCreate<T>`, etc.)
-- **Tags:** `cache.name` (if specified), additional tags from options
+- **Tags:** `cache.name` (always present; defaults to `"Default"`), `cache.request.type` (`hit` or `miss`), additional tags from options
 
-### cache_misses_total
+### cache.evictions
 
-- **Type:** Counter<long>
-- **Description:** Total number of cache misses
-- **Emitted by:** `TryGetValue` (and extension methods that call it: `TryGetValue<T>`, `Get<T>`, `GetOrCreate<T>`, etc.)
-- **Tags:** `cache.name` (if specified), additional tags from options
+- **Type:** ObservableCounter
+- **Description:** Total number of automatic cache evictions (excludes explicit `Removed` and `Replaced`)
+- **Emitted by:** Eviction callback registered via `CreateEntry`
+- **Tags:** `cache.name` (always present; defaults to `"Default"`), additional tags from options
 
-### cache_evictions_total
+### cache.entries
 
-- **Type:** Counter<long>
-- **Description:** Total number of cache evictions
-- **Emitted by:** Eviction callbacks registered by `CreateEntry` (called by extension methods like `Set<T>`, `GetOrCreate<T>`, etc.)
-- **Tags:**
-  - `cache.name` (if specified)
-  - `reason` - The eviction reason (Removed, Replaced, Expired, TokenExpired, Capacity)
-  - Additional tags from options
+- **Type:** ObservableUpDownCounter
+- **Description:** Current number of entries in the cache
+- **Tags:** `cache.name` (always present; defaults to `"Default"`), additional tags from options
+
+### cache.estimated_size
+
+- **Type:** ObservableGauge
+- **Description:** Estimated size of the cache in bytes (unit: `By`). Only emitted when the inner cache is a `MemoryCache` with `TrackStatistics` enabled.
+- **Tags:** `cache.name` (always present; defaults to `"Default"`), additional tags from options
 
 ### Metric Tags
 
 All metrics include dimensional tags for filtering and aggregation:
 
-- **cache.name**: The logical name of the cache (if specified)
+- **cache.name**: The logical name of the cache (always emitted; defaults to `"Default"` when no explicit name is provided)
 - **Additional tags**: Custom tags specified in `MeteredMemoryCacheOptions.AdditionalTags`
-- **reason** (evictions only): The reason for eviction as a string representation of `EvictionReason` enum
 
 ## Exception Reference
 

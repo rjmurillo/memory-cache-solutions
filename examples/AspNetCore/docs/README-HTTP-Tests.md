@@ -146,9 +146,8 @@ Use `ErrorHandlingTests.http` to verify error handling:
 
 The tests verify that MeteredMemoryCache properly emits metrics:
 
-- `cache_hits_total` - Number of cache hits
-- `cache_misses_total` - Number of cache misses
-- `cache_evictions_total` - Number of cache evictions
+- `cache.requests` - Number of cache lookup operations (with `cache.request.type` = `hit` or `miss`)
+- `cache.evictions` - Number of cache evictions
 - Cache name tags (`cache.name`)
 - Additional tags (`cache_type`, `priority`)
 
