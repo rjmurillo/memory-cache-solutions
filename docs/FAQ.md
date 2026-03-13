@@ -41,9 +41,9 @@ services.AddSingleton<IMemoryCache>(sp =>
 **A:** MeteredMemoryCache emits the following instruments:
 
 - **`cache.requests`** - Number of cache lookup operations (with `cache.request.type` = `hit` or `miss`)
-- **`cache.evictions`** - Number of cache evictions
+- **`cache.evictions`** - Number of automatic cache evictions (excludes explicit removals and replacements)
 - **`cache.entries`** - Current number of entries in the cache
-- **`cache.estimated_size`** - Estimated cache size (when `SizeLimit` is set)
+- **`cache.estimated_size`** - Estimated cache size in bytes (when `TrackStatistics` is enabled)
 
 All metrics include the `cache.name` dimensional tag for multi-cache scenarios.
 
@@ -297,7 +297,7 @@ groups:
   - name: cache_health
     rules:
       - alert: CacheHitRateLow
-        expr: sum(rate(cache_requests_total{cache_request_type="hit"}[5m])) / sum(rate(cache_requests_total[5m])) < 0.7
+        expr: sum by (cache_name) (rate(cache_requests_total{cache_request_type="hit"}[5m])) / sum by (cache_name) (rate(cache_requests_total[5m])) < 0.7
         for: 5m
         labels:
           severity: warning

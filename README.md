@@ -108,9 +108,9 @@ Console.WriteLine($"Hit ratio: {stats.HitRatio:F2}%");
 
 Instruments exposed:
 
-- `cache.requests` (ObservableCounter, tag: `cache.request.type` = `hit` or `miss`)
-- `cache.evictions` (ObservableCounter)
-- `cache.entries` (ObservableUpDownCounter)
+- `cache.requests` (ObservableCounter, tags: `cache.name`, `cache.request.type` = `hit` or `miss`)
+- `cache.evictions` (ObservableCounter, tag: `cache.name`)
+- `cache.entries` (ObservableUpDownCounter, tag: `cache.name`)
 - `cache.estimated_size` (ObservableGauge, emitted when inner cache has statistics tracking enabled via `TrackStatistics`)
 
 Consume with `MeterListener`, OpenTelemetry Metrics SDK, or any compatible exporter.
@@ -173,7 +173,7 @@ For detailed usage, configuration, and examples, see the [MeteredMemoryCache Usa
 
 | Scenario                                                         | Recommended                                                                               |
 | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Need metrics (hit ratio, eviction reasons) with minimal overhead | `MeteredMemoryCache`                                                                      |
+| Need metrics (hit ratio, eviction counts) with minimal overhead | `MeteredMemoryCache`                                                                      |
 | Need single-flight (cache stampede protection) for .NET 9+       | **[Microsoft HybridCache](https://devblogs.microsoft.com/dotnet/hybrid-cache-is-now-ga)** |
 | Need single-flight with richer features or .NET < 9              | **[FusionCache](https://github.com/ZiggyCreatures/FusionCache)**                          |
 

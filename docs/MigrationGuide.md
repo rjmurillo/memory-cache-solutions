@@ -920,11 +920,11 @@ public void RawCache() => _rawCache.TryGetValue("key", out _);
 [Benchmark]
 public void MeteredCache() => _meteredCache.TryGetValue("key", out _);
 
-// Expected overhead: ~100ns per operation
+// Expected overhead: minimal (~5-15ns from Interlocked operations,
+// zero from metrics — all instruments are Observable)
 // If higher, check for:
 // 1. Excessive tag allocation
 // 2. Frequent meter lookups
-// 3. Inefficient metric emission
 ```
 
 ### Issue 3: Memory Leaks
@@ -1018,7 +1018,7 @@ counter.Add(1); // Should appear in console output
 
 ### Memory Impact
 
-- **Per Instance**: ~200 bytes (3 counters + tags)
+- **Per Instance**: ~200 bytes (4 instruments + tags)
 - **Per Operation**: 0 additional allocations on hot path
 - **Tag Storage**: 64 bytes per unique cache name
 
@@ -1045,7 +1045,7 @@ public class MigrationBenchmark
         _rawCache = new MemoryCache(new MemoryCacheOptions());
 
         var meter = new Meter("Benchmark.Cache");
-        _meteredCache = new MeteredMemoryCache(_rawCache, meter, "test-cache");
+        _meteredCache = new MeteredMemoryCache(new MemoryCache(new MemoryCacheOptions()), meter, "test-cache");
 
         // Pre-populate for hit scenarios
         for (int i = 0; i < 100; i++)

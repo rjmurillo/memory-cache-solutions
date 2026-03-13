@@ -67,25 +67,25 @@ builder.Services.AddOpenTelemetry()
 **Sample Prometheus Output:**
 
 ```prometheus
-# HELP cache_requests_total Number of cache lookup operations
+# HELP cache_requests_total Total number of cache lookup operations
 # TYPE cache_requests_total counter
 cache_requests_total{cache_name="user-cache",cache_request_type="hit"} 1547
 cache_requests_total{cache_name="user-cache",cache_request_type="miss"} 423
 
-# HELP cache_evictions_total Number of cache evictions
+# HELP cache_evictions_total Total number of automatic cache evictions
 # TYPE cache_evictions_total counter
 cache_evictions_total{cache_name="user-cache"} 89
 
-# HELP cache_entries Current number of cache entries
+# HELP cache_entries Current number of entries in the cache
 # TYPE cache_entries gauge
 cache_entries{cache_name="user-cache"} 1035
 
-# HELP cache_estimated_size Estimated size of the cache
-# TYPE cache_estimated_size gauge
-cache_estimated_size{cache_name="user-cache"} 524288
+# HELP cache_estimated_size_bytes Estimated size of the cache in bytes
+# TYPE cache_estimated_size_bytes gauge
+cache_estimated_size_bytes{cache_name="user-cache"} 524288
 ```
 
-> **Note:** `cache_estimated_size` only appears when the inner cache is a `MemoryCache` with `TrackStatistics` enabled (i.e., `GetCurrentStatistics()` returns non-null). `SizeLimit` and entry sizes affect whether the value is meaningful/non-zero.
+> **Note:** `cache_estimated_size_bytes` only appears when the inner cache is a `MemoryCache` with `TrackStatistics` enabled (i.e., `GetCurrentStatistics()` returns non-null). `SizeLimit` and entry sizes affect whether the value is meaningful/non-zero.
 
 ### 2. OTLP Exporter (OpenTelemetry Protocol)
 
@@ -472,8 +472,8 @@ groups:
       - alert: HighCacheMissRate
         expr: |
           (
-            sum(rate(cache_requests_total{cache_request_type="miss"}[5m])) /
-            sum(rate(cache_requests_total[5m]))
+            sum(rate(cache_requests_total{cache_request_type="miss"}[5m])) by (cache_name) /
+            sum(rate(cache_requests_total[5m])) by (cache_name)
           ) > 0.5
         for: 2m
         labels:

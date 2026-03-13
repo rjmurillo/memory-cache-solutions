@@ -21,7 +21,7 @@ MeteredMemoryCache is a decorator for `IMemoryCache` that automatically emits Op
 - **Zero-configuration metrics** for any `IMemoryCache` implementation
 - **OpenTelemetry integration** with standardized metric names
 - **Dimensional metrics** with cache naming and custom tags
-- **Minimal performance overhead** (15-40ns per operation)
+- **Minimal performance overhead** (~8-41ns per operation)
 - **Thread-safe** operations with concurrent metric collection
 - **Dependency injection support** with .NET options pattern
 
@@ -36,7 +36,7 @@ MeteredMemoryCache is a decorator for `IMemoryCache` that automatically emits Op
 
 #### Eviction Tracking
 
-The `cache.evictions` instrument counts automatic evictions only — those with reasons `Expired`, `TokenExpired`, and `Capacity`. Explicit user removals (`Removed`) and replacements (`Replaced`) are **not** counted. The eviction reason is **not** emitted as a metric tag.
+The `cache.evictions` instrument counts all evictions except explicit user removals (`Removed`) and replacements (`Replaced`). The eviction reason is **not** emitted as a metric tag.
 
 ## Quick Start
 
@@ -52,7 +52,7 @@ var builder = Host.CreateApplicationBuilder(args);
 // Configure OpenTelemetry
 builder.Services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
-        .AddMeter("MyApp.Cache")
+        .AddMeter("Microsoft.Extensions.Caching.Memory.MemoryCache")
         .AddPrometheusExporter());
 
 // Register named cache with metrics
@@ -74,7 +74,7 @@ using CacheImplementations;
 
 // Create and wrap cache
 var innerCache = new MemoryCache(new MemoryCacheOptions());
-var meter = new Meter("MyApp.Cache");
+var meter = new Meter("Microsoft.Extensions.Caching.Memory.MemoryCache");
 IMemoryCache cache = new MeteredMemoryCache(innerCache, meter, "my-cache");
 
 // Use normally - metrics emitted automatically
@@ -96,7 +96,7 @@ var innerCache = new MemoryCache(new MemoryCacheOptions
 {
     SizeLimit = 1000
 });
-var meter = new Meter("MyApp.Cache");
+var meter = new Meter("Microsoft.Extensions.Caching.Memory.MemoryCache");
 
 // Wrap with MeteredMemoryCache
 IMemoryCache cache = new MeteredMemoryCache(innerCache, meter, "user-cache");
@@ -125,7 +125,7 @@ var builder = Host.CreateApplicationBuilder(args);
 // Configure OpenTelemetry
 builder.Services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
-        .AddMeter("MyApp.Cache")
+        .AddMeter("Microsoft.Extensions.Caching.Memory.MemoryCache")
         .AddPrometheusExporter());
 
 // Register named cache with metrics
@@ -195,7 +195,6 @@ services.AddMemoryCache();
 
 // Decorate with metrics
 services.DecorateMemoryCacheWithMetrics("main-cache",
-    meterName: "MyApp.Cache",
     configureOptions: opts =>
     {
         opts.AdditionalTags["component"] = "main";
@@ -269,10 +268,10 @@ var result = cache.GetOrCreate($"product:{id}", entry =>
 #### Name
 
 ```csharp
-public string? Name { get; }
+public string Name { get; }
 ```
 
-Gets the logical cache name if provided during construction.
+Gets the logical cache name. Defaults to `"Default"` when no explicit name is provided.
 
 ## Extension Methods
 
@@ -282,8 +281,7 @@ Gets the logical cache name if provided during construction.
 public static IServiceCollection AddNamedMeteredMemoryCache(
     this IServiceCollection services,
     string cacheName,
-    Action<MeteredMemoryCacheOptions>? configureOptions = null,
-    string? meterName = null)
+    Action<MeteredMemoryCacheOptions>? configureOptions = null)
 ```
 
 Registers a named cache with complete dependency injection setup including:
@@ -299,7 +297,6 @@ Registers a named cache with complete dependency injection setup including:
 public static IServiceCollection DecorateMemoryCacheWithMetrics(
     this IServiceCollection services,
     string? cacheName = null,
-    string? meterName = null,
     Action<MeteredMemoryCacheOptions>? configureOptions = null)
 ```
 
@@ -384,11 +381,11 @@ Based on benchmarks with 16,384 operations on Windows 11/.NET 9.0.8:
 
 - **Per-instance**: ~200 bytes (3 counters + tag storage)
 - **Per-operation**: 0 allocations on hot path
-- **Per-eviction**: 1 allocation for eviction tag array
+- **Per-eviction**: 0 allocations (uses pre-allocated tags)
 
 ### Scalability
 
-- Thread-safe via underlying OpenTelemetry counter implementations
+- Thread-safe via `Interlocked` atomic operations on internal counters
 - No global locks or contention points
 - Linear scaling with operation rate
 - Suitable for high-throughput scenarios
@@ -403,7 +400,7 @@ Based on benchmarks with 16,384 operations on Windows 11/.NET 9.0.8:
 // Ensure meter is registered and exported
 services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
-        .AddMeter("MyApp.Cache") // Must match meter name
+        .AddMeter("Microsoft.Extensions.Caching.Memory.MemoryCache") // Must match meter name
         .AddConsoleExporter()); // Add exporter
 ```
 
@@ -450,7 +447,7 @@ var options = new MeteredMemoryCacheOptions
 ```csharp
 services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
-        .AddMeter("MyApp.Cache")
+        .AddMeter("Microsoft.Extensions.Caching.Memory.MemoryCache")
         .AddConsoleExporter()); // Prints to console
 ```
 
@@ -458,7 +455,7 @@ services.AddOpenTelemetry()
 
 ```csharp
 using var meterProvider = Sdk.CreateMeterProviderBuilder()
-    .AddMeter("MyApp.Cache")
+    .AddMeter("Microsoft.Extensions.Caching.Memory.MemoryCache")
     .AddInMemoryExporter(exportedItems)
     .Build();
 
@@ -548,7 +545,7 @@ public class InstrumentedCache : IMemoryCache
     public InstrumentedCache(IMemoryCache inner, IMeterFactory meterFactory)
     {
         _inner = inner;
-        var meter = meterFactory.Create("MyApp.Cache");
+        var meter = meterFactory.Create("Microsoft.Extensions.Caching.Memory.MemoryCache");
         _requestCounter = meter.CreateCounter<long>("cache.requests");
     }
 

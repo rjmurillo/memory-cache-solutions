@@ -274,7 +274,7 @@ groups:
   - name: cache_alerts
     rules:
       - alert: CacheHitRateLow
-        expr: sum(rate(cache_requests_total{cache_request_type="hit"}[5m])) / sum(rate(cache_requests_total[5m])) < 0.7
+        expr: sum(rate(cache_requests_total{cache_request_type="hit"}[5m])) by (cache_name) / sum(rate(cache_requests_total[5m])) by (cache_name) < 0.7
         for: 5m
         annotations:
           summary: "Cache hit rate is below 70%"
@@ -522,7 +522,7 @@ public class CachePerformanceBenchmark
     {
         _rawCache = new MemoryCache(new MemoryCacheOptions());
         var meter = new Meter("benchmark");
-        _meteredCache = new MeteredMemoryCache(_rawCache, meter);
+        _meteredCache = new MeteredMemoryCache(new MemoryCache(new MemoryCacheOptions()), meter);
     }
 
     [Benchmark(Baseline = true)]

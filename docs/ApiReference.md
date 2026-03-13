@@ -31,12 +31,12 @@ public sealed class MeteredMemoryCache : IMemoryCache, IDisposable
 #### Name
 
 ```csharp
-public string? Name { get; }
+public string Name { get; }
 ```
 
-Gets the logical name of this cache instance, if provided during construction.
+Gets the logical name of this cache instance. Defaults to `"Default"` when no explicit name is provided.
 
-**Returns:** The cache name or `null` if no name was specified.
+**Returns:** The cache name (never null).
 
 ### Constructors
 
@@ -102,6 +102,71 @@ var options = new MeteredMemoryCacheOptions
     AdditionalTags = { ["environment"] = "production", ["region"] = "us-west-2" }
 };
 var meteredCache = new MeteredMemoryCache(innerCache, meter, options);
+```
+
+#### MeteredMemoryCache(IMemoryCache, IMeterFactory?, string?, bool)
+
+```csharp
+public MeteredMemoryCache(
+    IMemoryCache innerCache,
+    IMeterFactory? meterFactory,
+    string? cacheName = null,
+    bool disposeInner = false)
+```
+
+Creates a new MeteredMemoryCache instance using an `IMeterFactory` to create the meter. The meter is created using the `MeterName` constant. If `meterFactory` is null, an owned `Meter` is created internally.
+
+**Parameters:**
+
+- `innerCache` - The underlying IMemoryCache implementation to decorate
+- `meterFactory` - The factory for creating the Meter instance (if null, an owned Meter is created)
+- `cacheName` - Optional logical name for the cache (used in metrics tags)
+- `disposeInner` - Whether to dispose the inner cache when this instance is disposed
+
+**Exceptions:**
+
+- `ArgumentNullException` - Thrown when `innerCache` is null
+
+**Example:**
+
+```csharp
+var innerCache = new MemoryCache(new MemoryCacheOptions());
+IMeterFactory meterFactory = sp.GetRequiredService<IMeterFactory>();
+var meteredCache = new MeteredMemoryCache(innerCache, meterFactory, "user-cache", true);
+```
+
+#### MeteredMemoryCache(IMemoryCache, IMeterFactory?, IEnumerable\<KeyValuePair\<string, object?\>\>?, string?, bool)
+
+```csharp
+public MeteredMemoryCache(
+    IMemoryCache innerCache,
+    IMeterFactory? meterFactory,
+    IEnumerable<KeyValuePair<string, object?>>? additionalTags = null,
+    string? cacheName = null,
+    bool disposeInner = false)
+```
+
+Creates a new MeteredMemoryCache instance using an `IMeterFactory` with additional tags. The meter is created using the `MeterName` constant. If `meterFactory` is null, an owned `Meter` is created internally.
+
+**Parameters:**
+
+- `innerCache` - The underlying IMemoryCache implementation to decorate
+- `meterFactory` - The factory for creating the Meter instance (if null, an owned Meter is created)
+- `additionalTags` - Additional tags to include in all emitted metrics
+- `cacheName` - Optional logical name for the cache (used in metrics tags)
+- `disposeInner` - Whether to dispose the inner cache when this instance is disposed
+
+**Exceptions:**
+
+- `ArgumentNullException` - Thrown when `innerCache` is null
+
+**Example:**
+
+```csharp
+var innerCache = new MemoryCache(new MemoryCacheOptions());
+IMeterFactory meterFactory = sp.GetRequiredService<IMeterFactory>();
+var tags = new[] { KeyValuePair.Create<string, object?>("environment", "production") };
+var meteredCache = new MeteredMemoryCache(innerCache, meterFactory, tags, "user-cache", true);
 ```
 
 ### Usage with Extension Methods
@@ -208,7 +273,7 @@ entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
 public void Remove(object key)
 ```
 
-Removes an item from the cache. If the item exists, its eviction callback will record an eviction metric.
+Removes an item from the cache. The eviction callback decrements `cache.entries` but does **not** increment `cache.evictions` (explicit removals are excluded per dotnet/runtime#124140).
 
 **Parameters:**
 
@@ -221,7 +286,7 @@ Removes an item from the cache. If the item exists, its eviction callback will r
 
 **Metrics Emitted:**
 
-- `cache.evictions` (if the key existed and had an eviction callback)
+- `cache.entries` decremented (if the key existed and had an eviction callback)
 
 #### Dispose()
 
@@ -419,7 +484,7 @@ MeteredMemoryCache emits four instruments following OpenTelemetry conventions:
 ### cache.estimated_size
 
 - **Type:** ObservableGauge
-- **Description:** Estimated size of the cache (emitted when inner cache has `TrackStatistics` enabled)
+- **Description:** Estimated size of the cache in bytes (unit: `By`). Only emitted when the inner cache is a `MemoryCache` with `TrackStatistics` enabled.
 - **Tags:** `cache.name` (always present; defaults to `"Default"`), additional tags from options
 
 ### Metric Tags

@@ -223,7 +223,9 @@ public void ConfigureServices(IServiceCollection services)
 ### 3. Validate Metrics Collection
 
 ```csharp
-// Create a test harness to verify metrics
+// Simplified pseudocode — illustrates the conceptual flow.
+// The real OpenTelemetry .NET in-memory exporter uses List<Metric>,
+// not List<Measurement<long>>. See the OTel .NET docs for compilable examples.
 public class MetricsTestHarness
 {
     private readonly List<Measurement<long>> _measurements = new();
