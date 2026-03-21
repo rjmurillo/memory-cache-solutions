@@ -38,13 +38,14 @@ services.AddSingleton<IMemoryCache>(sp =>
 
 ### Q: What metrics does MeteredMemoryCache emit?
 
-**A:** MeteredMemoryCache emits three core counters:
+**A:** MeteredMemoryCache emits the following instruments:
 
-- **`cache_hits_total`** - Number of successful cache retrievals
-- **`cache_misses_total`** - Number of cache key lookups that failed
-- **`cache_evictions_total`** - Number of items removed from cache (with reason tag)
+- **`cache.requests`** - Number of cache lookup operations (with `cache.request.type` = `hit` or `miss`)
+- **`cache.evictions`** - Number of automatic cache evictions (excludes explicit removals and replacements)
+- **`cache.entries`** - Current number of entries in the cache
+- **`cache.estimated_size`** - Estimated cache size in bytes (when `TrackStatistics` is enabled)
 
-All metrics include optional dimensional tags like `cache.name` for multi-cache scenarios.
+All metrics include the `cache.name` dimensional tag for multi-cache scenarios.
 
 ### Q: Is MeteredMemoryCache thread-safe?
 
@@ -237,20 +238,17 @@ var cache = new MeteredMemoryCache(innerCache, nullMeter);
 
 **A:** Essential metrics to track:
 
-1. **Hit Rate**: `rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))`
+1. **Hit Rate**: `sum(rate(cache_requests_total{cache_request_type="hit"}[5m])) by (cache_name) / sum(rate(cache_requests_total[5m])) by (cache_name)`
 
    - Target: >80%, Alert: <70%
 
-2. **Operations per Second**: `rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])`
+2. **Operations per Second**: `sum(rate(cache_requests_total[5m])) by (cache_name)`
 
    - Monitor for traffic patterns and capacity planning
 
-3. **Eviction Rate**: `rate(cache_evictions_total[5m])`
+3. **Eviction Rate**: `sum(rate(cache_evictions_total[5m])) by (cache_name)`
 
-   - Target: <5%, Alert: >10%
-
-4. **Eviction Reasons**: `rate(cache_evictions_total[5m]) by (reason)`
-   - Monitor "Capacity" vs "Expired" vs "Removed"
+   - Target: <5% of operations, Alert: >10%
 
 ### Q: How do I create effective dashboards?
 
@@ -266,7 +264,7 @@ var cache = new MeteredMemoryCache(innerCache, nullMeter);
         "type": "stat",
         "targets": [
           {
-            "expr": "rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) by (cache_name)"
+            "expr": "sum by (cache_name) (rate(cache_requests_total{cache_request_type=\"hit\"}[5m])) / sum by (cache_name) (rate(cache_requests_total[5m]))"
           }
         ]
       },
@@ -275,11 +273,11 @@ var cache = new MeteredMemoryCache(innerCache, nullMeter);
         "type": "graph",
         "targets": [
           {
-            "expr": "rate(cache_hits_total[5m])",
+            "expr": "rate(cache_requests_total{cache_request_type=\"hit\"}[5m])",
             "legendFormat": "Hits/sec"
           },
           {
-            "expr": "rate(cache_misses_total[5m])",
+            "expr": "rate(cache_requests_total{cache_request_type=\"miss\"}[5m])",
             "legendFormat": "Misses/sec"
           }
         ]
@@ -299,7 +297,7 @@ groups:
   - name: cache_health
     rules:
       - alert: CacheHitRateLow
-        expr: rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) < 0.7
+        expr: sum by (cache_name) (rate(cache_requests_total{cache_request_type="hit"}[5m])) / sum by (cache_name) (rate(cache_requests_total[5m])) < 0.7
         for: 5m
         labels:
           severity: warning
@@ -365,8 +363,8 @@ groups:
 2. **Check Eviction Patterns**:
 
    ```promql
-   # Monitor eviction reasons
-   rate(cache_evictions_total[5m]) by (reason)
+   # Monitor eviction rate by cache
+   sum(rate(cache_evictions_total[5m])) by (cache_name)
    ```
 
 3. **Analyze Key Patterns**:

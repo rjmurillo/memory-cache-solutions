@@ -57,16 +57,15 @@ This document provides a comprehensive review of all MeteredMemoryCache document
 
 **Recommendation**: Standardize on the detailed numbers from PerformanceCharacteristics.md and update other documents for consistency.
 
-#### Metric Name Inconsistencies
+#### Metric Name Conventions
 
-**Issue**: Some documents use different counter naming conventions.
+**Status**: Resolved. Documentation uses standardized OpenTelemetry semantic conventions.
 
-**Examples**:
+**Standard names**:
 
-- Some use `cache_hits_total`, others use `cache.hits.total`
-- Inconsistent mention of metric types (Counter<long> vs Counter)
-
-**Recommendation**: Standardize on OpenTelemetry semantic conventions throughout all documentation.
+- OTel instruments use dot-separated names: `cache.requests`, `cache.evictions`, `cache.entries`, `cache.estimated_size`
+- Prometheus exports convert to underscore-separated names: `cache_requests_total`, `cache_evictions_total`, `cache_entries`, `cache_estimated_size_bytes`
+- Meter name: `Microsoft.Extensions.Caching.Memory.MemoryCache`
 
 ### 3. XML Documentation Improvements
 

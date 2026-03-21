@@ -223,7 +223,9 @@ public void ConfigureServices(IServiceCollection services)
 ### 3. Validate Metrics Collection
 
 ```csharp
-// Create a test harness to verify metrics
+// Simplified pseudocode — illustrates the conceptual flow.
+// The real OpenTelemetry .NET in-memory exporter uses List<Metric>,
+// not List<Measurement<long>>. See the OTel .NET docs for compilable examples.
 public class MetricsTestHarness
 {
     private readonly List<Measurement<long>> _measurements = new();
@@ -250,10 +252,19 @@ public class MetricsTestHarness
         // Verify metrics were collected
         _meterProvider.ForceFlush(TimeSpan.FromSeconds(1));
 
-        var hits = _measurements.Where(m => m.Name == "cache_hits_total").Sum(m => m.Value);
-        var misses = _measurements.Where(m => m.Name == "cache_misses_total").Sum(m => m.Value);
+        var requests = _measurements.Where(m => m.Name == "cache.requests").Sum(m => m.Value);
+        Console.WriteLine($"Total requests: {requests}");
 
-        Console.WriteLine($"Hits: {hits}, Misses: {misses}");
+        // Split by cache.request.type to diagnose hit/miss ratio
+        var hits = _measurements
+            .Where(m => m.Name == "cache.requests"
+                && m.Tags.Any(t => t.Key == "cache.request.type" && t.Value?.ToString() == "hit"))
+            .Sum(m => m.Value);
+        var misses = _measurements
+            .Where(m => m.Name == "cache.requests"
+                && m.Tags.Any(t => t.Key == "cache.request.type" && t.Value?.ToString() == "miss"))
+            .Sum(m => m.Value);
+        Console.WriteLine($"Hits: {hits}, Misses: {misses}, Hit Rate: {(hits + misses > 0 ? (double)hits / (hits + misses) : 0):P1}");
     }
 }
 ```
