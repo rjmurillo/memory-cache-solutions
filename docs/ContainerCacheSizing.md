@@ -75,7 +75,7 @@ services.AddNamedMeteredMemoryCache("documents", options =>
 });
 
 // Estimate entry size
-int estimatedKiB = (serializedBytes.Length + 256) / 1024; // +256 for overhead
+int estimatedKiB = (serializedBytes.Length + 256 + 1023) / 1024; // ceiling division; +256 for overhead
 cache.Set(key, document, new MemoryCacheEntryOptions
 {
     Size = Math.Max(1, estimatedKiB),
@@ -157,12 +157,12 @@ services.AddOpenTelemetry()
 
 **Key metrics to watch:**
 
-| Metric                                       | What It Tells You                                                                       |
-| -------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `cache.evictions`                            | High sustained evictions suggest the cache is too small or TTLs are too short           |
-| `cache.requests` (`cache.request.type=miss`) | High miss rate means the cache isn't saving enough work                                 |
-| `cache.entries`                              | Trend over time shows growth patterns; flat at `SizeLimit` means the cache is saturated |
-| `cache.estimated_size`                       | Actual size vs `SizeLimit` headroom (requires `TrackStatistics = true`)                 |
+| Metric                                       | What It Tells You                                                                                                                                                                           |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cache.evictions`                            | High sustained evictions suggest the cache is too small or TTLs are too short                                                                                                               |
+| `cache.requests` (`cache.request.type=miss`) | High miss rate means the cache isn't saving enough work                                                                                                                                     |
+| `cache.entries`                              | Entry count; trend over time shows growth patterns, and a flat line near your chosen capacity suggests the cache is effectively "full"                                                      |
+| `cache.estimated_size`                       | Sum of entry `Size` values in your chosen unit (from `CurrentEstimatedSize`); compare to `SizeLimit` directly since both use the same user-defined unit (requires `TrackStatistics = true`) |
 
 **Container-specific signals to correlate:**
 
@@ -231,6 +231,14 @@ options.SizeLimit = 100;
 ```
 
 ### ❌ Ignoring cache metrics in containers
+
+```csharp
+// DON'T — without metrics, you're flying blind
+services.AddMemoryCache(options =>
+{
+    // No TrackStatistics = true or OpenTelemetry meter added
+});
+```
 
 Without metrics, you can't tell whether evictions are from expiration (normal) or capacity pressure (potential problem). Always enable `TrackStatistics = true` and emit OTel metrics.
 
