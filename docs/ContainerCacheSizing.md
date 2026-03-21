@@ -172,6 +172,10 @@ services.AddOpenTelemetry()
 
 ## Example: Kubernetes Deployment
 
+> [!IMPORTANT]
+>
+> For memory-sensitive workloads (in-memory caches), set `requests.memory` **equal to** `limits.memory` to place the pod in the [**Guaranteed** QoS class](https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/) — the last to be evicted under node memory pressure. If `requests < limits` (Burstable QoS), the scheduler may place the pod on a node with only the _requested_ amount available, and the pod will OOM the moment it exceeds that — even though its _limit_ is higher. See [Robusta: Stop Using CPU Limits on Kubernetes](https://home.robusta.dev/blog/kubernetes-memory-limit/) for a detailed explanation of why memory is different from CPU.
+
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -184,9 +188,9 @@ spec:
         - name: my-service
           resources:
             requests:
-              memory: "256Mi"
+              memory: "512Mi"
             limits:
-              memory: "512Mi" # Container memory ceiling
+              memory: "512Mi" # Equal to request → Guaranteed QoS
           env:
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "http://otel-collector:4317"
