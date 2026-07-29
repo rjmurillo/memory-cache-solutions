@@ -150,7 +150,7 @@ services.AddNamedMeteredMemoryCache("my-cache", options =>
 services.AddOpenTelemetry()
     .WithMetrics(metrics =>
     {
-        metrics.AddMeter("Microsoft.Extensions.Caching.Memory.MemoryCache");
+        metrics.AddMeter("Microsoft.Extensions.Caching.Memory");
         // Add your exporter (OTLP, Prometheus, etc.)
     });
 ```
