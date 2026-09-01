@@ -52,7 +52,7 @@ var builder = Host.CreateApplicationBuilder(args);
 // Configure OpenTelemetry
 builder.Services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
-        .AddMeter("Microsoft.Extensions.Caching.Memory.MemoryCache")
+        .AddMeter("Microsoft.Extensions.Caching.Memory")
         .AddPrometheusExporter());
 
 // Register named cache with metrics
@@ -74,7 +74,7 @@ using CacheImplementations;
 
 // Create and wrap cache
 var innerCache = new MemoryCache(new MemoryCacheOptions());
-var meter = new Meter("Microsoft.Extensions.Caching.Memory.MemoryCache");
+var meter = new Meter("Microsoft.Extensions.Caching.Memory");
 IMemoryCache cache = new MeteredMemoryCache(innerCache, meter, "my-cache");
 
 // Use normally - metrics emitted automatically
@@ -96,7 +96,7 @@ var innerCache = new MemoryCache(new MemoryCacheOptions
 {
     SizeLimit = 1000
 });
-var meter = new Meter("Microsoft.Extensions.Caching.Memory.MemoryCache");
+var meter = new Meter("Microsoft.Extensions.Caching.Memory");
 
 // Wrap with MeteredMemoryCache
 IMemoryCache cache = new MeteredMemoryCache(innerCache, meter, "user-cache");
@@ -125,7 +125,7 @@ var builder = Host.CreateApplicationBuilder(args);
 // Configure OpenTelemetry
 builder.Services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
-        .AddMeter("Microsoft.Extensions.Caching.Memory.MemoryCache")
+        .AddMeter("Microsoft.Extensions.Caching.Memory")
         .AddPrometheusExporter());
 
 // Register named cache with metrics
@@ -400,7 +400,7 @@ Based on benchmarks with 16,384 operations on Windows 11/.NET 9.0.8:
 // Ensure meter is registered and exported
 services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
-        .AddMeter("Microsoft.Extensions.Caching.Memory.MemoryCache") // Must match meter name
+        .AddMeter("Microsoft.Extensions.Caching.Memory") // Must match meter name
         .AddConsoleExporter()); // Add exporter
 ```
 
@@ -447,7 +447,7 @@ var options = new MeteredMemoryCacheOptions
 ```csharp
 services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
-        .AddMeter("Microsoft.Extensions.Caching.Memory.MemoryCache")
+        .AddMeter("Microsoft.Extensions.Caching.Memory")
         .AddConsoleExporter()); // Prints to console
 ```
 
@@ -455,7 +455,7 @@ services.AddOpenTelemetry()
 
 ```csharp
 using var meterProvider = Sdk.CreateMeterProviderBuilder()
-    .AddMeter("Microsoft.Extensions.Caching.Memory.MemoryCache")
+    .AddMeter("Microsoft.Extensions.Caching.Memory")
     .AddInMemoryExporter(exportedItems)
     .Build();
 
@@ -545,7 +545,7 @@ public class InstrumentedCache : IMemoryCache
     public InstrumentedCache(IMemoryCache inner, IMeterFactory meterFactory)
     {
         _inner = inner;
-        var meter = meterFactory.Create("Microsoft.Extensions.Caching.Memory.MemoryCache");
+        var meter = meterFactory.Create("Microsoft.Extensions.Caching.Memory");
         _requestCounter = meter.CreateCounter<long>("cache.requests");
     }
 
