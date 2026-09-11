@@ -302,7 +302,7 @@ public sealed class MeteredMemoryCache : IMemoryCache
     /// <summary>
     /// The meter name used per dotnet/runtime#124140.
     /// </summary>
-    public const string MeterName = "Microsoft.Extensions.Caching.Memory.MemoryCache";
+    public const string MeterName = "Microsoft.Extensions.Caching.Memory";
 
     /// <summary>
     /// Normalizes cache names to handle whitespace and prevent tag cardinality issues.
@@ -336,17 +336,17 @@ public sealed class MeteredMemoryCache : IMemoryCache
                 new Measurement<long>(Interlocked.Read(ref _hitCount), hitTags),
                 new Measurement<long>(Interlocked.Read(ref _missCount), missTags),
             },
-            unit: "{requests}",
+            unit: "{request}",
             description: "Total number of cache lookup operations.");
 
         meter.CreateObservableCounter("cache.evictions",
             () => new Measurement<long>(Interlocked.Read(ref _evictionCount), tags),
-            unit: "{evictions}",
+            unit: "{eviction}",
             description: "Total number of automatic cache evictions.");
 
         meter.CreateObservableUpDownCounter("cache.entries",
             () => new Measurement<long>(Interlocked.Read(ref _entryCount), tags),
-            unit: "{entries}",
+            unit: "{entry}",
             description: "Current number of entries in the cache.");
 
         // cache.estimated_size is only available when the inner cache is MemoryCache with TrackStatistics enabled

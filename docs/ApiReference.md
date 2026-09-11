@@ -464,6 +464,7 @@ MeteredMemoryCache emits four instruments following OpenTelemetry conventions:
 ### cache.requests
 
 - **Type:** ObservableCounter
+- **Unit:** `{request}`
 - **Description:** Total number of cache lookup operations
 - **Emitted by:** `TryGetValue` (and extension methods that call it: `TryGetValue<T>`, `Get<T>`, `GetOrCreate<T>`, etc.)
 - **Tags:** `cache.name` (always present; defaults to `"Default"`), `cache.request.type` (`hit` or `miss`), additional tags from options
@@ -471,6 +472,7 @@ MeteredMemoryCache emits four instruments following OpenTelemetry conventions:
 ### cache.evictions
 
 - **Type:** ObservableCounter
+- **Unit:** `{eviction}`
 - **Description:** Total number of automatic cache evictions (excludes explicit `Removed` and `Replaced`)
 - **Emitted by:** Eviction callback registered via `CreateEntry`
 - **Tags:** `cache.name` (always present; defaults to `"Default"`), additional tags from options
@@ -478,13 +480,15 @@ MeteredMemoryCache emits four instruments following OpenTelemetry conventions:
 ### cache.entries
 
 - **Type:** ObservableUpDownCounter
+- **Unit:** `{entry}`
 - **Description:** Current number of entries in the cache
 - **Tags:** `cache.name` (always present; defaults to `"Default"`), additional tags from options
 
 ### cache.estimated_size
 
 - **Type:** ObservableGauge
-- **Description:** Estimated size of the cache in bytes (unit: `By`). Only emitted when the inner cache is a `MemoryCache` with `TrackStatistics` enabled.
+- **Unit:** `By`
+- **Description:** Estimated size of the cache in bytes. Only emitted when the inner cache is a `MemoryCache` with `TrackStatistics` enabled.
 - **Tags:** `cache.name` (always present; defaults to `"Default"`), additional tags from options
 
 ### Metric Tags

@@ -21,7 +21,7 @@ public class BclAdoptionCoverageTests
     [Fact]
     public void MeterName_Constant_HasExpectedValue()
     {
-        Assert.Equal("Microsoft.Extensions.Caching.Memory.MemoryCache", MeteredMemoryCache.MeterName);
+        Assert.Equal("Microsoft.Extensions.Caching.Memory", MeteredMemoryCache.MeterName);
     }
 
     #endregion
