@@ -130,7 +130,7 @@ builder.Services.AddNamedMeteredMemoryCache("user-cache");
 // Configure OpenTelemetry
 builder.Services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
-        .AddMeter("Microsoft.Extensions.Caching.Memory.MemoryCache")
+        .AddMeter("Microsoft.Extensions.Caching.Memory")
         .AddOtlpExporter());
 ```
 

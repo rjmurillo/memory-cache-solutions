@@ -259,7 +259,7 @@ builder.Services.AddOpenTelemetry()
 ```csharp
 builder.Services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
-        .AddMeter("Microsoft.Extensions.Caching.Memory.MemoryCache")
+        .AddMeter("Microsoft.Extensions.Caching.Memory")
         .AddView("cache.requests", new MetricStreamConfiguration
         {
             TagKeys = new[] { "cache.name", "cache.request.type" }
@@ -285,6 +285,25 @@ builder.Services.AddOpenTelemetry()
             };
         }));
 ```
+
+### Combining Cache and Runtime Metrics
+
+For full observability, subscribe to both the cache meter and the .NET runtime meter.
+This lets you correlate cache behavior (eviction spikes, hit rate drops) with runtime
+conditions (GC pressure, thread pool saturation, memory growth).
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics => metrics
+        .AddMeter("Microsoft.Extensions.Caching.Memory") // cache metrics
+        .AddMeter("System.Runtime")                      // GC, CPU, memory, threads
+        .AddPrometheusExporter());
+```
+
+The `System.Runtime` meter emits metrics defined by the
+[OTel .NET runtime semantic conventions](https://opentelemetry.io/docs/specs/semconv/runtime/dotnet-metrics/),
+including `dotnet.gc.collections`, `dotnet.process.memory.working_set`,
+`dotnet.thread_pool.queue.length`, and others. Available in .NET 9+ without additional packages.
 
 ## Container Deployments
 

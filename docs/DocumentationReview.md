@@ -65,7 +65,7 @@ This document provides a comprehensive review of all MeteredMemoryCache document
 
 - OTel instruments use dot-separated names: `cache.requests`, `cache.evictions`, `cache.entries`, `cache.estimated_size`
 - Prometheus exports convert to underscore-separated names: `cache_requests_total`, `cache_evictions_total`, `cache_entries`, `cache_estimated_size_bytes`
-- Meter name: `Microsoft.Extensions.Caching.Memory.MemoryCache`
+- Meter name: `Microsoft.Extensions.Caching.Memory`
 
 ### 3. XML Documentation Improvements
 
