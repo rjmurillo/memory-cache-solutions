@@ -147,6 +147,8 @@ builder.Services.AddOpenTelemetry()
 
 ### Emitted Metrics
 
+On .NET 11, `MemoryCache` emits its own `dotnet.cache.*` metrics on the same meter when `TrackStatistics = true`; see [Built-in MemoryCache metrics in .NET 11](docs/built-in-memorycache-metrics.md).
+
 | Metric                 | Type                    | Description             | Tags                               |
 | ---------------------- | ----------------------- | ----------------------- | ---------------------------------- |
 | `cache.requests`       | ObservableCounter       | Cache lookup operations | `cache.name`, `cache.request.type` |
@@ -176,6 +178,7 @@ For detailed usage, configuration, and examples, see the [MeteredMemoryCache Usa
 | Scenario                                                        | Recommended                                                                               |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | Need metrics (hit ratio, eviction counts) with minimal overhead | `MeteredMemoryCache`                                                                      |
+| On .NET 11 and need only hit/miss/eviction/size metrics         | Built-in `MemoryCache` metrics ([guide](docs/built-in-memorycache-metrics.md))            |
 | Need single-flight (cache stampede protection)                  | **[Microsoft HybridCache](https://devblogs.microsoft.com/dotnet/hybrid-cache-is-now-ga)** |
 | Need single-flight with richer features                         | **[FusionCache](https://github.com/ZiggyCreatures/FusionCache)**                          |
 

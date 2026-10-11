@@ -16,6 +16,8 @@
 
 MeteredMemoryCache is a decorator for `IMemoryCache` that automatically emits OpenTelemetry metrics for cache operations. It provides observability into cache hit rates, miss rates, and eviction patterns without requiring changes to your existing cache usage code.
 
+See also: [Built-in MemoryCache metrics in .NET 11](built-in-memorycache-metrics.md) for the `dotnet.cache.*` metrics `MemoryCache` emits on .NET 11 and how to migrate.
+
 ### Key Features
 
 - **Zero-configuration metrics** for any `IMemoryCache` implementation
