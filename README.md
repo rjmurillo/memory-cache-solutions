@@ -58,7 +58,7 @@ public class SomeService(HybridCache cache)
         return await cache.GetOrCreateAsync(
             $"someinfo:{name}:{id}",
             async cancel => await SomeExpensiveOperationAsync(name, id, cancel),
-            token: token
+            cancellationToken: token
         );
     }
 }
