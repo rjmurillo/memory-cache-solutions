@@ -3,10 +3,10 @@
 Claude Code loads this file at the start of every session. Path-scoped rules in `.claude/rules/` load when you work on matching files:
 
 - `.claude/rules/testing.md`: test isolation and flaky-test prevention (`tests/**`).
-- `.claude/rules/csharp.md`: C# review, XML documentation, and `#region` policy (`**/*.cs`).
+- `.claude/rules/csharp.md`: C# review, XML documentation, and `#region` policy (`**/*.cs`, `**/*.csproj`, `**/*.sln`).
 - `.claude/rules/codacy.md`: Codacy MCP server usage (all files).
 
-These instructions bind human contributors and AI assistants alike. If a rule conflicts with your memory of a prior session, this file wins.
+These instructions bind human contributors and AI assistants alike. If a rule conflicts with your memory of a prior session, this file and the rules in `.claude/rules/` win.
 
 ### Baseline Files (Per-OS/Arch Robustness)
 

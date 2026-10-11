@@ -5,11 +5,9 @@ paths:
   - "**/*.sln"
 ---
 
-## When reviewing C# code (\*.cs)
+## When reviewing or changing C# code (\*.cs)
 
-I need your help tracking down and fixing some bugs that have been reported in this codebase.
-
-I suspect the bugs are related to:
+Check for these common bug sources:
 
 - Incorrect handling of edge cases
 - Off-by-one errors in loops or array indexing
@@ -18,25 +16,14 @@ I suspect the bugs are related to:
 - Concurrency issues
 - Improper configuration settings
 
-To diagnose:
-
-1. Review the code carefully and systematically
-2. Trace the relevant code paths
-3. Consider boundary conditions and potential error states
-4. Look for antipatterns that tend to cause bugs
-5. Run the code mentally with example inputs
-6. Think about interactions between components
-
-When you find potential bugs, for each one provide:
+Report each finding with:
 
 1. File path and line number(s)
-2. Description of the issue and why it's a bug
-3. Example input that would trigger the bug
-4. Suggestions for how to fix it
+2. Why it is a bug
+3. An example input that triggers it
+4. A suggested fix
 
-After analysis, please update the code with your proposed fixes. Try to match the existing code style. Add regression tests if possible to prevent the bugs from recurring.
-
-I appreciate your diligence and attention to detail! Let me know if you need any clarification on the intended behavior of the code.
+Only change code outside the current task when asked. When you fix a bug, match the existing code style and add a regression test.
 
 ---
 

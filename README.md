@@ -260,7 +260,7 @@ Current baselines (Windows):
 
 Add additional OS baselines by copying the corresponding `*-report-full.json` into the baseline directory using the naming convention above.
 
-Evidence & Process requirements are described in `.claude/CLAUDE.md` Sections 12 to 14.
+Evidence & Process requirements are described in `.claude/CLAUDE.md` Sections 12-14.
 
 ---
 

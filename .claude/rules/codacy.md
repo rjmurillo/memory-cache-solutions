@@ -10,7 +10,7 @@ Configuration for AI behavior when interacting with Codacy's MCP Server.
   - repository: memory-cache-solutions
 - Avoid calling `git remote -v` unless really necessary.
 
-## CRITICAL: After ANY successful `Edit` or `Write` operation
+## CRITICAL: After ANY successful file edit (`Edit`, `Write`, or any other tool that changes a file)
 
 - YOU MUST IMMEDIATELY run the `codacy_cli_analyze` tool from Codacy's MCP Server for each file that was edited, with:
   - `rootPath`: set to the workspace path
@@ -26,6 +26,7 @@ Configuration for AI behavior when interacting with Codacy's MCP Server.
 ## When there are no Codacy MCP Server tools available, or the MCP Server is not reachable
 
 - Suggest the user the following troubleshooting steps:
+  - If the server is not registered, add it with `claude mcp add codacy --scope user -e CODACY_ACCOUNT_TOKEN=<token> -- npx -y @codacy/codacy-mcp`. Create the token under Codacy account settings, API tokens.
   - Run `claude mcp list` to confirm the Codacy server is registered and connected.
   - Run `/mcp` inside Claude Code to reconnect or re-authenticate the server.
 - If none of the above steps work, suggest the user contact Codacy support.
