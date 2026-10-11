@@ -39,9 +39,10 @@ builder.Services.AddNamedMeteredMemoryCache("user-cache");
 
 For single-flight scenarios, we recommend using these mature, production-ready solutions instead of implementing your own:
 
-### Microsoft HybridCache (.NET 9+)
+### Microsoft HybridCache
 
 - **First-party solution** from Microsoft with built-in cache stampede protection
+- **Runs on .NET 8+, .NET Framework 4.7.2+, and .NET Standard 2.0**: introduced alongside .NET 9 ([compatibility](https://learn.microsoft.com/aspnet/core/performance/caching/hybrid#compatibility))
 - **L1 + L2 cache support** (in-memory + distributed)
 - **Cache invalidation with tags** for bulk operations
 - **Simple API** - reduces complex cache-aside patterns to a single line
@@ -57,17 +58,18 @@ public class SomeService(HybridCache cache)
         return await cache.GetOrCreateAsync(
             $"someinfo:{name}:{id}",
             async cancel => await SomeExpensiveOperationAsync(name, id, cancel),
-            token: token
+            cancellationToken: token
         );
     }
 }
 ```
 
-### FusionCache (All .NET Versions)
+### FusionCache
 
 - **Mature OSS library** with comprehensive single-flight support
 - **Request coalescing** - only one factory runs per key concurrently
 - **Rich feature set**: soft/hard timeouts, fail-safe, eager refresh, backplane
+- **Optional distributed stampede protection** when you register a [distributed locker](https://github.com/ZiggyCreatures/FusionCache/blob/main/docs/CacheStampede.md)
 - **Excellent documentation** and active maintenance
 - **Supports older .NET versions** down to .NET Framework 4.7.2
 
@@ -89,8 +91,8 @@ public class SomeService(FusionCache cache)
 
 ### When to Choose Which
 
-- **Greenfield or .NET 9+**: Use **HybridCache** - first-party, GA, built-in stampede protection
-- **Need richer features or .NET < 9**: Use **FusionCache** - comprehensive feature set, excellent documentation
+- **Prefer a first-party library**: Use **HybridCache** - first-party, GA, built-in stampede protection, runs on .NET 8+ and .NET Framework 4.7.2+
+- **Need richer features**: Use **FusionCache** - fail-safe, eager refresh, backplane, and optional distributed stampede protection
 
 Recording metrics with `MeteredMemoryCache`:
 
@@ -145,12 +147,12 @@ builder.Services.AddOpenTelemetry()
 
 ### Emitted Metrics
 
-| Metric                  | Type                     | Description                 | Tags                                  |
-| ----------------------- | ------------------------ | --------------------------- | ------------------------------------- |
-| `cache.requests`        | ObservableCounter        | Cache lookup operations     | `cache.name`, `cache.request.type`    |
-| `cache.evictions`       | ObservableCounter        | Cache evictions             | `cache.name`                          |
-| `cache.entries`         | ObservableUpDownCounter  | Current entry count         | `cache.name`                          |
-| `cache.estimated_size`  | ObservableGauge          | Estimated cache size        | `cache.name`                          |
+| Metric                 | Type                    | Description             | Tags                               |
+| ---------------------- | ----------------------- | ----------------------- | ---------------------------------- |
+| `cache.requests`       | ObservableCounter       | Cache lookup operations | `cache.name`, `cache.request.type` |
+| `cache.evictions`      | ObservableCounter       | Cache evictions         | `cache.name`                       |
+| `cache.entries`        | ObservableUpDownCounter | Current entry count     | `cache.name`                       |
+| `cache.estimated_size` | ObservableGauge         | Estimated cache size    | `cache.name`                       |
 
 For detailed usage, configuration, and examples, see the [MeteredMemoryCache Usage Guide](docs/MeteredMemoryCache.md).
 
@@ -171,11 +173,11 @@ For detailed usage, configuration, and examples, see the [MeteredMemoryCache Usa
 
 ## Choosing an Approach
 
-| Scenario                                                         | Recommended                                                                               |
-| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Scenario                                                        | Recommended                                                                               |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | Need metrics (hit ratio, eviction counts) with minimal overhead | `MeteredMemoryCache`                                                                      |
-| Need single-flight (cache stampede protection) for .NET 9+       | **[Microsoft HybridCache](https://devblogs.microsoft.com/dotnet/hybrid-cache-is-now-ga)** |
-| Need single-flight with richer features or .NET < 9              | **[FusionCache](https://github.com/ZiggyCreatures/FusionCache)**                          |
+| Need single-flight (cache stampede protection)                  | **[Microsoft HybridCache](https://devblogs.microsoft.com/dotnet/hybrid-cache-is-now-ga)** |
+| Need single-flight with richer features                         | **[FusionCache](https://github.com/ZiggyCreatures/FusionCache)**                          |
 
 ---
 
@@ -258,7 +260,7 @@ Current baselines (Windows):
 
 Add additional OS baselines by copying the corresponding `*-report-full.json` into the baseline directory using the naming convention above.
 
-Evidence & Process requirements are described in `.github/copilot-instructions.md` Sections 12–14.
+Evidence & Process requirements are described in `.github/copilot-instructions.md` Sections 12 to 14.
 
 ---
 
