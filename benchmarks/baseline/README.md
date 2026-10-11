@@ -40,4 +40,4 @@ Each matrix job in CI and each local run should use its own OS/arch-specific fil
 - Download both the current and baseline JSON artifacts for any failed job to compare and investigate.
 - Use the uploaded Markdown and HTML for human-readable reports.
 
-For full details, see `.github/copilot-instructions.md`.
+For full details, see `.claude/CLAUDE.md`.
