@@ -42,7 +42,7 @@ For single-flight scenarios, we recommend using these mature, production-ready s
 ### Microsoft HybridCache
 
 - **First-party solution** from Microsoft with built-in cache stampede protection
-- **Runs on .NET 8 and later**: it shipped with .NET 9, and the package also supports .NET Framework 4.7.2 and .NET Standard 2.0 ([compatibility](https://learn.microsoft.com/aspnet/core/performance/caching/hybrid#compatibility))
+- **Runs on .NET 8+, .NET Framework 4.7.2+, and .NET Standard 2.0**: introduced alongside .NET 9 ([compatibility](https://learn.microsoft.com/aspnet/core/performance/caching/hybrid#compatibility))
 - **L1 + L2 cache support** (in-memory + distributed)
 - **Cache invalidation with tags** for bulk operations
 - **Simple API** - reduces complex cache-aside patterns to a single line
@@ -64,11 +64,12 @@ public class SomeService(HybridCache cache)
 }
 ```
 
-### FusionCache (All .NET Versions)
+### FusionCache
 
 - **Mature OSS library** with comprehensive single-flight support
 - **Request coalescing** - only one factory runs per key concurrently
 - **Rich feature set**: soft/hard timeouts, fail-safe, eager refresh, backplane
+- **Optional distributed stampede protection** when you register a [distributed locker](https://github.com/ZiggyCreatures/FusionCache/blob/main/docs/CacheStampede.md)
 - **Excellent documentation** and active maintenance
 - **Supports older .NET versions** down to .NET Framework 4.7.2
 
@@ -91,7 +92,7 @@ public class SomeService(FusionCache cache)
 ### When to Choose Which
 
 - **Prefer a first-party library**: Use **HybridCache** - first-party, GA, built-in stampede protection, runs on .NET 8+ and .NET Framework 4.7.2+
-- **Need richer features**: Use **FusionCache** - fail-safe, eager refresh, backplane, and distributed stampede protection
+- **Need richer features**: Use **FusionCache** - fail-safe, eager refresh, backplane, and optional distributed stampede protection
 
 Recording metrics with `MeteredMemoryCache`:
 
@@ -259,7 +260,7 @@ Current baselines (Windows):
 
 Add additional OS baselines by copying the corresponding `*-report-full.json` into the baseline directory using the naming convention above.
 
-Evidence & Process requirements are described in `.github/copilot-instructions.md` Sections 12–14.
+Evidence & Process requirements are described in `.github/copilot-instructions.md` Sections 12 to 14.
 
 ---
 
