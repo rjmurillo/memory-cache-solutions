@@ -255,7 +255,7 @@ evictions=2 entries=0
 
 ## When you still need MeteredMemoryCache
 
-- **You are on .NET 8 to 10.** The `MemoryCache` metrics first shipped in the 11.0 previews. On earlier versions, `MemoryCache` has only `GetCurrentStatistics()`. The `MeteredMemoryCache` project in this repo targets `net10.0` and is consumed as source.
+- **You are on .NET 8 to 10.** The `MemoryCache` metrics first shipped in `Microsoft.Extensions.Caching.Memory` `11.0.0-preview.4.26230.115`. On earlier versions, `MemoryCache` has only `GetCurrentStatistics()`. The `MeteredMemoryCache` project in this repo targets `net10.0` and is consumed as source.
 - **You cache through another `IMemoryCache` implementation.** The built-in instruments live inside `MemoryCache`. `MeteredMemoryCache` decorates any `IMemoryCache`. Its `cache.estimated_size` instrument still requires the inner cache to be a `MemoryCache` with `TrackStatistics` on.
 - **You need extra tags on the cache metrics.** `MeteredMemoryCacheOptions.AdditionalTags` adds tags to every instrument. `MemoryCacheOptions` has no tag option; its only metrics-related settings are `TrackStatistics` and `Name`.
 - **You want keyed, named registrations.** `AddNamedMeteredMemoryCache("name")` registers a keyed `IMemoryCache` per name. `AddMemoryCache()` registers one `IMemoryCache`.
