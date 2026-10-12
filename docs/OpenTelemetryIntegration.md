@@ -4,6 +4,8 @@
 
 MeteredMemoryCache integrates seamlessly with OpenTelemetry to provide standardized cache metrics. This guide covers setup and configuration for various OpenTelemetry exporters and deployment scenarios.
 
+See also: [Built-in MemoryCache metrics in .NET 11](built-in-memorycache-metrics.md) for the `dotnet.cache.*` metrics `MemoryCache` emits on .NET 11 and how to migrate.
+
 ## Quick Start
 
 ### Basic Console Setup
