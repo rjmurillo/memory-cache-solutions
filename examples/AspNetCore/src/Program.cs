@@ -138,6 +138,12 @@ public class Program
 /// <summary>
 /// Controller demonstrating cache usage patterns in web APIs.
 /// </summary>
+/// <remarks>
+/// Sample only: these endpoints have no authentication or per-user authorization.
+/// Any caller can read, bulk-read, or update any user by ID. A real app needs an
+/// authenticated caller, an ownership or role check per ID, and a cap on the
+/// batch size. See the warning in examples/AspNetCore/README.md.
+/// </remarks>
 [ApiController]
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
@@ -289,6 +295,11 @@ public class ProductsController : ControllerBase
 /// <summary>
 /// Controller for cache statistics and monitoring.
 /// </summary>
+/// <remarks>
+/// Sample only: these are administrative endpoints with no authentication.
+/// A real app must restrict them to an admin role before exposing them.
+/// See the warning in examples/AspNetCore/README.md.
+/// </remarks>
 [ApiController]
 [Route("api/[controller]")]
 public class CacheController : ControllerBase
