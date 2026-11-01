@@ -2,6 +2,16 @@
 
 This example demonstrates how to use the `MeteredMemoryCache` in an ASP.NET Core application with OpenTelemetry integration for comprehensive metrics and monitoring.
 
+> [!WARNING]
+> **Not production-ready: this sample has no authentication or authorization.**
+> Every endpoint is anonymous. Any caller can read any user by ID, read users in
+> bulk, update any user, read cache statistics, and call the cache-clear endpoint.
+> The sample exists to show `MeteredMemoryCache` metrics, not access control.
+> Before you expose an app built from it, add authentication
+> (`AddAuthentication`) and an authorization policy, require an admin role on
+> `/api/cache/*`, check that the caller owns the user ID on `/api/users/{id}`,
+> and cap the number of IDs `GET /api/users` accepts.
+
 ## Directory Structure
 
 ```text
