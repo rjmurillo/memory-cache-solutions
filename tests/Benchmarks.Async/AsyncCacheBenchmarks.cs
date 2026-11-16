@@ -18,13 +18,20 @@ namespace Benchmarks.Async;
 /// dominant cost. Run the same benchmarks from Benchmarks.Async.RuntimeAsync,
 /// which compiles this exact source with runtime-async=on, to isolate the effect.
 /// </summary>
+/// <remarks>
+/// The three benchmark loops are duplicated on purpose. A shared helper would add
+/// an async layer of its own and shift every result.
+/// </remarks>
 [Config(typeof(AsyncBenchmarkConfig))]
-[MemoryDiagnoser]
 public class AsyncCacheBenchmarks
 {
     private const string TestKey = "test-key";
     private const string TestValue = "test-value-with-some-length-to-simulate-realistic-cache-entries";
-    private const int HitsPerInvoke = 100;
+    /// <summary>
+    /// The number of cache hits each benchmark call awaits. The direct harness
+    /// divides by this value, so it is shared rather than repeated.
+    /// </summary>
+    internal const int HitsPerInvoke = 100;
 
     private Meter _meter = null!;
     private MemoryCache _rawCache = null!;
