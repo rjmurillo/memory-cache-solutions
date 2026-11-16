@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <!-- The one variable under test: .NET 11 runtime async. -->
+    <Features>runtime-async=on</Features>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Benchmarks.Async\**\*.cs" Exclude="..\Benchmarks.Async\obj\**\*.cs;..\Benchmarks.Async\bin\**\*.cs" LinkBase="Linked" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Unit\SharedUtilities.cs" Link="Linked\SharedUtilities.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="BenchmarkDotNet.Diagnostics.Windows" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CacheImplementations\CacheImplementations.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="..\..\BannedSymbols.txt" Link="BannedSymbols.txt" />
+  </ItemGroup>
+
+</Project>
