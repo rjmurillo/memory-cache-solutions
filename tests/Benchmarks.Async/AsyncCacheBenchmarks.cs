@@ -7,6 +7,7 @@ using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Toolchains.InProcess.Emit;
 using CacheImplementations;
 using Microsoft.Extensions.Caching.Memory;
+using Unit;
 
 namespace Benchmarks.Async;
 
@@ -25,10 +26,14 @@ public class AsyncCacheBenchmarks
     private const string TestValue = "test-value-with-some-length-to-simulate-realistic-cache-entries";
     private const int HitsPerInvoke = 100;
 
-    private readonly Meter _meter = new("BenchmarkMeter");
+    private Meter _meter = null!;
+    private MemoryCache _rawCache = null!;
+    private MemoryCache _layeredRawCache = null!;
+    private MeteredMemoryCache _meteredCache = null!;
 
     private AsyncCacheAdapter _rawAdapter = null!;
-    private LayeredAsyncCacheAdapter _layeredAdapter = null!;
+    private LayeredAsyncCacheAdapter _layeredRawAdapter = null!;
+    private LayeredAsyncCacheAdapter _layeredMeteredAdapter = null!;
 
     /// <summary>
     /// Builds the caches and adapters with the test key pre-populated, so every
@@ -37,14 +42,32 @@ public class AsyncCacheBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        var rawCache = new MemoryCache(new MemoryCacheOptions());
-        rawCache.Set(TestKey, TestValue);
-        _rawAdapter = new AsyncCacheAdapter(rawCache);
+        _meter = new Meter(SharedUtilities.GetUniqueMeterName("benchmarks.async"));
+
+        _rawCache = new MemoryCache(new MemoryCacheOptions());
+        _rawCache.Set(TestKey, TestValue);
+        _rawAdapter = new AsyncCacheAdapter(_rawCache);
+
+        _layeredRawCache = new MemoryCache(new MemoryCacheOptions());
+        _layeredRawCache.Set(TestKey, TestValue);
+        _layeredRawAdapter = new LayeredAsyncCacheAdapter(new AsyncCacheAdapter(_layeredRawCache));
 
         var innerCache = new MemoryCache(new MemoryCacheOptions());
-        var meteredCache = new MeteredMemoryCache(innerCache, _meter, "benchmark-cache", disposeInner: true);
-        meteredCache.Set(TestKey, TestValue);
-        _layeredAdapter = new LayeredAsyncCacheAdapter(new AsyncCacheAdapter(meteredCache));
+        _meteredCache = new MeteredMemoryCache(innerCache, _meter, SharedUtilities.GetUniqueCacheName("benchmark-cache"), disposeInner: true);
+        _meteredCache.Set(TestKey, TestValue);
+        _layeredMeteredAdapter = new LayeredAsyncCacheAdapter(new AsyncCacheAdapter(_meteredCache));
+    }
+
+    /// <summary>
+    /// Disposes the caches and the meter created by <see cref="Setup"/>.
+    /// </summary>
+    [GlobalCleanup]
+    public void Cleanup()
+    {
+        _meteredCache?.Dispose();
+        _layeredRawCache?.Dispose();
+        _rawCache?.Dispose();
+        _meter?.Dispose();
     }
 
     /// <summary>
@@ -57,8 +80,27 @@ public class AsyncCacheBenchmarks
         int total = 0;
         for (int i = 0; i < HitsPerInvoke; i++)
         {
-            string? value = await _rawAdapter.GetAsync(TestKey).ConfigureAwait(false);
-            total += value?.Length ?? 0;
+            CacheLookup lookup = await _rawAdapter.GetAsync(TestKey).ConfigureAwait(false);
+            total += lookup.Value?.Length ?? 0;
+        }
+
+        return total;
+    }
+
+    /// <summary>
+    /// Awaits 100 cache hits through two async layers over a raw MemoryCache.
+    /// This is the depth control: it differs from <see cref="RawHitAsync"/> only by
+    /// the second async layer and its hit counter.
+    /// </summary>
+    /// <returns>The summed value lengths, so the loop cannot be optimized away.</returns>
+    [Benchmark(OperationsPerInvoke = HitsPerInvoke)]
+    public async ValueTask<int> LayeredRawHitAsync()
+    {
+        int total = 0;
+        for (int i = 0; i < HitsPerInvoke; i++)
+        {
+            CacheLookup lookup = await _layeredRawAdapter.GetAsync(TestKey).ConfigureAwait(false);
+            total += lookup.Value?.Length ?? 0;
         }
 
         return total;
@@ -66,6 +108,7 @@ public class AsyncCacheBenchmarks
 
     /// <summary>
     /// Awaits 100 cache hits through two async layers over a MeteredMemoryCache.
+    /// It differs from <see cref="LayeredRawHitAsync"/> only by the cache implementation.
     /// </summary>
     /// <returns>The summed value lengths, so the loop cannot be optimized away.</returns>
     [Benchmark(OperationsPerInvoke = HitsPerInvoke)]
@@ -74,8 +117,8 @@ public class AsyncCacheBenchmarks
         int total = 0;
         for (int i = 0; i < HitsPerInvoke; i++)
         {
-            string? value = await _layeredAdapter.GetAsync(TestKey).ConfigureAwait(false);
-            total += value?.Length ?? 0;
+            CacheLookup lookup = await _layeredMeteredAdapter.GetAsync(TestKey).ConfigureAwait(false);
+            total += lookup.Value?.Length ?? 0;
         }
 
         return total;
