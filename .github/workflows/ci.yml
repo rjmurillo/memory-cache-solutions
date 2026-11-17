@@ -44,7 +44,14 @@ jobs:
 
       - name: Test
         shell: pwsh
-        run: dotnet test --configuration Release --no-build --logger 'trx;LogFileName=test-results.trx' --collect 'Xplat Code Coverage'
+        run: |
+          # Workaround for https://github.com/microsoft/vstest/issues/16657.
+          # The vstest artifacts directory check uses x64 open() flags on linux-arm64.
+          # It fails with errno 22 even when all tests pass. Remove after a fixed SDK ships.
+          if ($env:RUNNER_OS -eq 'Linux' -and $env:RUNNER_ARCH -eq 'ARM64') {
+            $env:VSTEST_DISABLE_ARTIFACTS_DIRECTORY_VERIFICATION = '1'
+          }
+          dotnet test --configuration Release --no-build --logger 'trx;LogFileName=test-results.trx' --collect 'Xplat Code Coverage'
 
       - name: Upload Test Artifacts
         if: always()
