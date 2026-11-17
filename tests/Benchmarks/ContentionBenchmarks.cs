@@ -10,8 +10,8 @@ namespace Benchmarks;
 /// This class isolates contention so other benchmark classes can remain single-threaded for clearer micro-metrics.
 /// Tests MeteredMemoryCache under concurrent load.
 /// </summary>
+[Config(typeof(BenchmarkConfig))]
 [MemoryDiagnoser]
-[ThreadingDiagnoser]
 [JsonExporter]
 public class ContentionBenchmarks
 {

@@ -92,7 +92,7 @@ public static class ServiceCollectionExtensions
         // Register the keyed cache service — uses IMeterFactory from DI when available
         services.AddKeyedSingleton<IMemoryCache>(cacheName, (sp, key) =>
         {
-            var keyString = (string)key!;
+            var keyString = (string)key;
             var innerCache = new MemoryCache(new MemoryCacheOptions());
             var meterFactory = sp.GetService<IMeterFactory>();
             var options = sp.GetRequiredService<IOptionsMonitor<MeteredMemoryCacheOptions>>().Get(keyString);

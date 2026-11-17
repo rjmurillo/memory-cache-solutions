@@ -17,7 +17,6 @@ namespace Benchmarks;
 /// </summary>
 [Config(typeof(BenchmarkConfig))]
 [MemoryDiagnoser]
-[ThreadingDiagnoser]
 [JsonExporter]
 public class MetricsOverheadBenchmarks
 {
