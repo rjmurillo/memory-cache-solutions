@@ -1,0 +1,9 @@
+{
+  "verdict": "PASS",
+  "threshold": "high",
+  "blocking_findings": 0,
+  "total_findings": 147,
+  "by_severity": {
+    "info": 147
+  }
+}

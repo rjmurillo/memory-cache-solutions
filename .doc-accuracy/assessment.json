@@ -1,0 +1,3828 @@
+{
+  "documentation_files": [
+    {
+      "path": "docs/built-in-memorycache-metrics.md",
+      "size_bytes": 27159,
+      "line_count": 407,
+      "code_blocks": 22,
+      "referenced_symbols": [
+        "AddNamedMeteredMemoryCache",
+        "CacheStatistics",
+        "Collect",
+        "Create",
+        "DecorateMemoryCacheWithMetrics",
+        "GetCurrentStatistics",
+        "MeteredMemoryCache",
+        "MeteredMemoryCacheOptions",
+        "Remove",
+        "Test",
+        "TryGetValue",
+        "options",
+        "struct"
+      ],
+      "mapped_source_files": [
+        "examples/AspNetCore/src/Program.cs",
+        "examples/BasicUsage/Program.cs",
+        "examples/MultiCache/Program.cs",
+        "src/CacheImplementations/CacheStatistics.cs",
+        "src/CacheImplementations/MeteredMemoryCache.cs",
+        "src/CacheImplementations/MeteredMemoryCacheOptions.cs",
+        "tests/Benchmarks.Async/Program.cs",
+        "tests/Benchmarks/Program.cs",
+        "tools/BenchGate/Program.cs"
+      ]
+    }
+  ],
+  "source_symbols": [
+    {
+      "name": "Program",
+      "kind": "class",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 18,
+      "signature": "public class Program",
+      "visibility": "public"
+    },
+    {
+      "name": "Main",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 20,
+      "signature": "public static void Main(string[] args)",
+      "visibility": "public"
+    },
+    {
+      "name": "UsersController",
+      "kind": "class",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 149,
+      "signature": "public class UsersController : ControllerBase",
+      "visibility": "public"
+    },
+    {
+      "name": "GetUser",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 164,
+      "signature": "public async Task<ActionResult<UserDto>> GetUser(int id)",
+      "visibility": "public"
+    },
+    {
+      "name": "GetUsers",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 182,
+      "signature": "public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers([FromQuery] int[] ids)",
+      "visibility": "public"
+    },
+    {
+      "name": "UpdateUser",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 203,
+      "signature": "public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserDto updateDto)",
+      "visibility": "public"
+    },
+    {
+      "name": "ProductsController",
+      "kind": "class",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 226,
+      "signature": "public class ProductsController : ControllerBase",
+      "visibility": "public"
+    },
+    {
+      "name": "GetProduct",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 241,
+      "signature": "public async Task<ActionResult<ProductDto>> GetProduct(int id)",
+      "visibility": "public"
+    },
+    {
+      "name": "GetProductsByCategory",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 259,
+      "signature": "public async Task<ActionResult<IEnumerable<ProductDto>>> GetProductsByCategory(int categoryId)",
+      "visibility": "public"
+    },
+    {
+      "name": "SearchProducts",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 277,
+      "signature": "public async Task<ActionResult<IEnumerable<ProductDto>>> SearchProducts([FromQuery] string query, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheController",
+      "kind": "class",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 305,
+      "signature": "public class CacheController : ControllerBase",
+      "visibility": "public"
+    },
+    {
+      "name": "GetStats",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 318,
+      "signature": "public ActionResult<CacheStatsDto> GetStats()",
+      "visibility": "public"
+    },
+    {
+      "name": "ClearCache",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 328,
+      "signature": "public ActionResult ClearCache(string cacheName)",
+      "visibility": "public"
+    },
+    {
+      "name": "IUserService",
+      "kind": "interface",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 338,
+      "signature": "public interface IUserService",
+      "visibility": "public"
+    },
+    {
+      "name": "UserService",
+      "kind": "class",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 345,
+      "signature": "public class UserService : IUserService",
+      "visibility": "public"
+    },
+    {
+      "name": "GetUserAsync",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 361,
+      "signature": "public async Task<UserDto?> GetUserAsync(int id)",
+      "visibility": "public"
+    },
+    {
+      "name": "GetUsersAsync",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 388,
+      "signature": "public async Task<IEnumerable<UserDto>> GetUsersAsync(int[] ids)",
+      "visibility": "public"
+    },
+    {
+      "name": "UpdateUserAsync",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 433,
+      "signature": "public async Task<bool> UpdateUserAsync(int id, UpdateUserDto updateDto)",
+      "visibility": "public"
+    },
+    {
+      "name": "IProductService",
+      "kind": "interface",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 452,
+      "signature": "public interface IProductService",
+      "visibility": "public"
+    },
+    {
+      "name": "ProductService",
+      "kind": "class",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 459,
+      "signature": "public class ProductService : IProductService",
+      "visibility": "public"
+    },
+    {
+      "name": "GetProductAsync",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 475,
+      "signature": "public async Task<ProductDto?> GetProductAsync(int id)",
+      "visibility": "public"
+    },
+    {
+      "name": "GetProductsByCategoryAsync",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 499,
+      "signature": "public async Task<IEnumerable<ProductDto>> GetProductsByCategoryAsync(int categoryId)",
+      "visibility": "public"
+    },
+    {
+      "name": "SearchProductsAsync",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 520,
+      "signature": "public async Task<IEnumerable<ProductDto>> SearchProductsAsync(string query, int page, int pageSize)",
+      "visibility": "public"
+    },
+    {
+      "name": "IExternalApiService",
+      "kind": "interface",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 546,
+      "signature": "public interface IExternalApiService",
+      "visibility": "public"
+    },
+    {
+      "name": "ExternalApiService",
+      "kind": "class",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 556,
+      "signature": "public class ExternalApiService : IExternalApiService",
+      "visibility": "public"
+    },
+    {
+      "name": "GetUserAsync",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 572,
+      "signature": "public async Task<UserDto?> GetUserAsync(int id)",
+      "visibility": "public"
+    },
+    {
+      "name": "GetUsersAsync",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 586,
+      "signature": "public async Task<IEnumerable<UserDto>> GetUsersAsync(int[] ids)",
+      "visibility": "public"
+    },
+    {
+      "name": "UpdateUserAsync",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 600,
+      "signature": "public async Task<bool> UpdateUserAsync(int id, UpdateUserDto updateDto)",
+      "visibility": "public"
+    },
+    {
+      "name": "GetProductAsync",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 607,
+      "signature": "public async Task<ProductDto?> GetProductAsync(int id)",
+      "visibility": "public"
+    },
+    {
+      "name": "GetProductsByCategoryAsync",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 621,
+      "signature": "public async Task<IEnumerable<ProductDto>> GetProductsByCategoryAsync(int categoryId)",
+      "visibility": "public"
+    },
+    {
+      "name": "SearchProductsAsync",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 635,
+      "signature": "public async Task<IEnumerable<ProductDto>> SearchProductsAsync(string query, int page, int pageSize)",
+      "visibility": "public"
+    },
+    {
+      "name": "ICacheStatsService",
+      "kind": "interface",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 655,
+      "signature": "public interface ICacheStatsService",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheStatsService",
+      "kind": "class",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 661,
+      "signature": "public class CacheStatsService : ICacheStatsService",
+      "visibility": "public"
+    },
+    {
+      "name": "GetCacheStats",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 670,
+      "signature": "public CacheStatsDto GetCacheStats()",
+      "visibility": "public"
+    },
+    {
+      "name": "ClearCache",
+      "kind": "method",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 687,
+      "signature": "public bool ClearCache(string cacheName)",
+      "visibility": "public"
+    },
+    {
+      "name": "UserDto",
+      "kind": "record",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 710,
+      "signature": "public record UserDto",
+      "visibility": "public"
+    },
+    {
+      "name": "UpdateUserDto",
+      "kind": "record",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 718,
+      "signature": "public record UpdateUserDto",
+      "visibility": "public"
+    },
+    {
+      "name": "ProductDto",
+      "kind": "record",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 728,
+      "signature": "public record ProductDto",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheStatsDto",
+      "kind": "record",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 737,
+      "signature": "public record CacheStatsDto",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheInfoDto",
+      "kind": "record",
+      "file": "examples/AspNetCore/src/Program.cs",
+      "line": 743,
+      "signature": "public record CacheInfoDto",
+      "visibility": "public"
+    },
+    {
+      "name": "options",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-average-load-tests.js",
+      "line": 30,
+      "signature": "export let options = {",
+      "visibility": "public"
+    },
+    {
+      "name": "setup",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-average-load-tests.js",
+      "line": 43,
+      "signature": "export function setup() {",
+      "visibility": "public"
+    },
+    {
+      "name": "teardown",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-average-load-tests.js",
+      "line": 203,
+      "signature": "export function teardown(data) {",
+      "visibility": "public"
+    },
+    {
+      "name": "options",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-breakpoint-tests.js",
+      "line": 30,
+      "signature": "export let options = {",
+      "visibility": "public"
+    },
+    {
+      "name": "setup",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-breakpoint-tests.js",
+      "line": 47,
+      "signature": "export function setup() {",
+      "visibility": "public"
+    },
+    {
+      "name": "teardown",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-breakpoint-tests.js",
+      "line": 325,
+      "signature": "export function teardown(data) {",
+      "visibility": "public"
+    },
+    {
+      "name": "cacheHitRate",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 9,
+      "signature": "export const cacheHitRate = new Rate(\"cache_hit_rate\");",
+      "visibility": "public"
+    },
+    {
+      "name": "cacheMissRate",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 10,
+      "signature": "export const cacheMissRate = new Rate(\"cache_miss_rate\");",
+      "visibility": "public"
+    },
+    {
+      "name": "cacheEvictionRate",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 11,
+      "signature": "export const cacheEvictionRate = new Rate(\"cache_eviction_rate\");",
+      "visibility": "public"
+    },
+    {
+      "name": "responseTime",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 12,
+      "signature": "export const responseTime = new Trend(\"response_time\");",
+      "visibility": "public"
+    },
+    {
+      "name": "cacheResponseTime",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 13,
+      "signature": "export const cacheResponseTime = new Trend(\"cache_response_time\");",
+      "visibility": "public"
+    },
+    {
+      "name": "apiResponseTime",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 14,
+      "signature": "export const apiResponseTime = new Trend(\"api_response_time\");",
+      "visibility": "public"
+    },
+    {
+      "name": "errorRate",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 15,
+      "signature": "export const errorRate = new Rate(\"error_rate\");",
+      "visibility": "public"
+    },
+    {
+      "name": "requestCount",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 16,
+      "signature": "export const requestCount = new Counter(\"request_count\");",
+      "visibility": "public"
+    },
+    {
+      "name": "config",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 19,
+      "signature": "export const config = {",
+      "visibility": "public"
+    },
+    {
+      "name": "httpOptions",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 48,
+      "signature": "export const httpOptions = {",
+      "visibility": "public"
+    },
+    {
+      "name": "getRandomUserId",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 58,
+      "signature": "export function getRandomUserId() {",
+      "visibility": "public"
+    },
+    {
+      "name": "getRandomProductId",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 64,
+      "signature": "export function getRandomProductId() {",
+      "visibility": "public"
+    },
+    {
+      "name": "getRandomCategoryId",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 70,
+      "signature": "export function getRandomCategoryId() {",
+      "visibility": "public"
+    },
+    {
+      "name": "getRandomSearchQuery",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 76,
+      "signature": "export function getRandomSearchQuery() {",
+      "visibility": "public"
+    },
+    {
+      "name": "getRandomCacheName",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 82,
+      "signature": "export function getRandomCacheName() {",
+      "visibility": "public"
+    },
+    {
+      "name": "getUser",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 89,
+      "signature": "export function getUser(userId) {",
+      "visibility": "public"
+    },
+    {
+      "name": "getProduct",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 108,
+      "signature": "export function getProduct(productId) {",
+      "visibility": "public"
+    },
+    {
+      "name": "getProductsByCategory",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 127,
+      "signature": "export function getProductsByCategory(categoryId) {",
+      "visibility": "public"
+    },
+    {
+      "name": "searchProducts",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 146,
+      "signature": "export function searchProducts(query, page = 1, pageSize = 10) {",
+      "visibility": "public"
+    },
+    {
+      "name": "getUsers",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 165,
+      "signature": "export function getUsers(ids) {",
+      "visibility": "public"
+    },
+    {
+      "name": "updateUser",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 185,
+      "signature": "export function updateUser(userId, userData) {",
+      "visibility": "public"
+    },
+    {
+      "name": "getCacheStats",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 204,
+      "signature": "export function getCacheStats() {",
+      "visibility": "public"
+    },
+    {
+      "name": "clearCache",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 220,
+      "signature": "export function clearCache(cacheName) {",
+      "visibility": "public"
+    },
+    {
+      "name": "getHealth",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 239,
+      "signature": "export function getHealth() {",
+      "visibility": "public"
+    },
+    {
+      "name": "getMetrics",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 254,
+      "signature": "export function getMetrics() {",
+      "visibility": "public"
+    },
+    {
+      "name": "testCacheHit",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 275,
+      "signature": "export function testCacheHit(userId) {",
+      "visibility": "public"
+    },
+    {
+      "name": "testCacheInvalidation",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 299,
+      "signature": "export function testCacheInvalidation(userId) {",
+      "visibility": "public"
+    },
+    {
+      "name": "thresholds",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 322,
+      "signature": "export const thresholds = {",
+      "visibility": "public"
+    },
+    {
+      "name": "scenarios",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-config.js",
+      "line": 334,
+      "signature": "export const scenarios = {",
+      "visibility": "public"
+    },
+    {
+      "name": "options",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-smoke-tests.js",
+      "line": 30,
+      "signature": "export let options = {",
+      "visibility": "public"
+    },
+    {
+      "name": "setup",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-smoke-tests.js",
+      "line": 43,
+      "signature": "export function setup() {",
+      "visibility": "public"
+    },
+    {
+      "name": "teardown",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-smoke-tests.js",
+      "line": 212,
+      "signature": "export function teardown(data) {",
+      "visibility": "public"
+    },
+    {
+      "name": "options",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-soak-tests.js",
+      "line": 30,
+      "signature": "export let options = {",
+      "visibility": "public"
+    },
+    {
+      "name": "setup",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-soak-tests.js",
+      "line": 47,
+      "signature": "export function setup() {",
+      "visibility": "public"
+    },
+    {
+      "name": "teardown",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-soak-tests.js",
+      "line": 261,
+      "signature": "export function teardown(data) {",
+      "visibility": "public"
+    },
+    {
+      "name": "options",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-spike-tests.js",
+      "line": 30,
+      "signature": "export let options = {",
+      "visibility": "public"
+    },
+    {
+      "name": "setup",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-spike-tests.js",
+      "line": 47,
+      "signature": "export function setup() {",
+      "visibility": "public"
+    },
+    {
+      "name": "teardown",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-spike-tests.js",
+      "line": 302,
+      "signature": "export function teardown(data) {",
+      "visibility": "public"
+    },
+    {
+      "name": "options",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-stress-tests.js",
+      "line": 30,
+      "signature": "export let options = {",
+      "visibility": "public"
+    },
+    {
+      "name": "setup",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-stress-tests.js",
+      "line": 47,
+      "signature": "export function setup() {",
+      "visibility": "public"
+    },
+    {
+      "name": "teardown",
+      "kind": "function",
+      "file": "examples/AspNetCore/tests/k6-stress-tests.js",
+      "line": 237,
+      "signature": "export function teardown(data) {",
+      "visibility": "public"
+    },
+    {
+      "name": "Program",
+      "kind": "class",
+      "file": "examples/BasicUsage/Program.cs",
+      "line": 18,
+      "signature": "public class Program",
+      "visibility": "public"
+    },
+    {
+      "name": "Main",
+      "kind": "method",
+      "file": "examples/BasicUsage/Program.cs",
+      "line": 20,
+      "signature": "public static async Task Main(string[] args)",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheDemo",
+      "kind": "class",
+      "file": "examples/BasicUsage/Program.cs",
+      "line": 66,
+      "signature": "public class CacheDemo",
+      "visibility": "public"
+    },
+    {
+      "name": "RunDemoAsync",
+      "kind": "method",
+      "file": "examples/BasicUsage/Program.cs",
+      "line": 77,
+      "signature": "public async Task RunDemoAsync()",
+      "visibility": "public"
+    },
+    {
+      "name": "MemoryCacheExtensions",
+      "kind": "class",
+      "file": "examples/BasicUsage/Program.cs",
+      "line": 187,
+      "signature": "public static class MemoryCacheExtensions",
+      "visibility": "public"
+    },
+    {
+      "name": "GetOrCreateAsync",
+      "kind": "method",
+      "file": "examples/BasicUsage/Program.cs",
+      "line": 192,
+      "signature": "public static async Task<T> GetOrCreateAsync<T>(this IMemoryCache cache, string key,",
+      "visibility": "public"
+    },
+    {
+      "name": "GetOrCreate",
+      "kind": "method",
+      "file": "examples/BasicUsage/Program.cs",
+      "line": 210,
+      "signature": "public static T GetOrCreate<T>(this IMemoryCache cache, string key,",
+      "visibility": "public"
+    },
+    {
+      "name": "Program",
+      "kind": "class",
+      "file": "examples/MultiCache/Program.cs",
+      "line": 19,
+      "signature": "public class Program",
+      "visibility": "public"
+    },
+    {
+      "name": "Main",
+      "kind": "method",
+      "file": "examples/MultiCache/Program.cs",
+      "line": 21,
+      "signature": "public static async Task Main(string[] args)",
+      "visibility": "public"
+    },
+    {
+      "name": "UserService",
+      "kind": "class",
+      "file": "examples/MultiCache/Program.cs",
+      "line": 115,
+      "signature": "public class UserService",
+      "visibility": "public"
+    },
+    {
+      "name": "GetUserAsync",
+      "kind": "method",
+      "file": "examples/MultiCache/Program.cs",
+      "line": 126,
+      "signature": "public async Task<User> GetUserAsync(int userId)",
+      "visibility": "public"
+    },
+    {
+      "name": "ProductService",
+      "kind": "class",
+      "file": "examples/MultiCache/Program.cs",
+      "line": 163,
+      "signature": "public class ProductService",
+      "visibility": "public"
+    },
+    {
+      "name": "GetProductAsync",
+      "kind": "method",
+      "file": "examples/MultiCache/Program.cs",
+      "line": 174,
+      "signature": "public async Task<Product> GetProductAsync(int productId)",
+      "visibility": "public"
+    },
+    {
+      "name": "GetProductsByCategoryAsync",
+      "kind": "method",
+      "file": "examples/MultiCache/Program.cs",
+      "line": 209,
+      "signature": "public async Task<IEnumerable<Product>> GetProductsByCategoryAsync(int categoryId)",
+      "visibility": "public"
+    },
+    {
+      "name": "SessionService",
+      "kind": "class",
+      "file": "examples/MultiCache/Program.cs",
+      "line": 247,
+      "signature": "public class SessionService",
+      "visibility": "public"
+    },
+    {
+      "name": "GetSessionAsync",
+      "kind": "method",
+      "file": "examples/MultiCache/Program.cs",
+      "line": 258,
+      "signature": "public async Task<UserSession> GetSessionAsync(string sessionId)",
+      "visibility": "public"
+    },
+    {
+      "name": "MultiCacheDemo",
+      "kind": "class",
+      "file": "examples/MultiCache/Program.cs",
+      "line": 306,
+      "signature": "public class MultiCacheDemo",
+      "visibility": "public"
+    },
+    {
+      "name": "RunDemoAsync",
+      "kind": "method",
+      "file": "examples/MultiCache/Program.cs",
+      "line": 328,
+      "signature": "public async Task RunDemoAsync()",
+      "visibility": "public"
+    },
+    {
+      "name": "User",
+      "kind": "record",
+      "file": "examples/MultiCache/Program.cs",
+      "line": 504,
+      "signature": "public record User",
+      "visibility": "public"
+    },
+    {
+      "name": "Product",
+      "kind": "record",
+      "file": "examples/MultiCache/Program.cs",
+      "line": 515,
+      "signature": "public record Product",
+      "visibility": "public"
+    },
+    {
+      "name": "UserSession",
+      "kind": "record",
+      "file": "examples/MultiCache/Program.cs",
+      "line": 527,
+      "signature": "public record UserSession",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheStatistics",
+      "kind": "class",
+      "file": "src/CacheImplementations/CacheStatistics.cs",
+      "line": 11,
+      "signature": "public sealed class CacheStatistics",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache",
+      "kind": "class",
+      "file": "src/CacheImplementations/MeteredMemoryCache.cs",
+      "line": 49,
+      "signature": "public sealed class MeteredMemoryCache : IMemoryCache",
+      "visibility": "public"
+    },
+    {
+      "name": "TryGetValue",
+      "kind": "method",
+      "file": "src/CacheImplementations/MeteredMemoryCache.cs",
+      "line": 231,
+      "signature": "public bool TryGetValue(object key, out object? value)",
+      "visibility": "public"
+    },
+    {
+      "name": "CreateEntry",
+      "kind": "method",
+      "file": "src/CacheImplementations/MeteredMemoryCache.cs",
+      "line": 258,
+      "signature": "public ICacheEntry CreateEntry(object key)",
+      "visibility": "public"
+    },
+    {
+      "name": "Remove",
+      "kind": "method",
+      "file": "src/CacheImplementations/MeteredMemoryCache.cs",
+      "line": 276,
+      "signature": "public void Remove(object key)",
+      "visibility": "public"
+    },
+    {
+      "name": "GetCurrentStatistics",
+      "kind": "method",
+      "file": "src/CacheImplementations/MeteredMemoryCache.cs",
+      "line": 288,
+      "signature": "public CacheStatistics GetCurrentStatistics()",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "src/CacheImplementations/MeteredMemoryCache.cs",
+      "line": 403,
+      "signature": "public void Dispose()",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "src/CacheImplementations/MeteredMemoryCache.cs",
+      "line": 513,
+      "signature": "public void Dispose()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCacheOptions",
+      "kind": "class",
+      "file": "src/CacheImplementations/MeteredMemoryCacheOptions.cs",
+      "line": 13,
+      "signature": "public class MeteredMemoryCacheOptions",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCacheOptionsValidator",
+      "kind": "class",
+      "file": "src/CacheImplementations/MeteredMemoryCacheOptionsValidator.cs",
+      "line": 23,
+      "signature": "public sealed class MeteredMemoryCacheOptionsValidator : IValidateOptions<MeteredMemoryCacheOptions>",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate",
+      "kind": "method",
+      "file": "src/CacheImplementations/MeteredMemoryCacheOptionsValidator.cs",
+      "line": 60,
+      "signature": "public ValidateOptionsResult Validate(string? name, MeteredMemoryCacheOptions options)",
+      "visibility": "public"
+    },
+    {
+      "name": "ServiceCollectionExtensions",
+      "kind": "class",
+      "file": "src/CacheImplementations/ServiceCollectionExtensions.cs",
+      "line": 20,
+      "signature": "public static class ServiceCollectionExtensions",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache",
+      "kind": "method",
+      "file": "src/CacheImplementations/ServiceCollectionExtensions.cs",
+      "line": 67,
+      "signature": "public static IServiceCollection AddNamedMeteredMemoryCache(",
+      "visibility": "public"
+    },
+    {
+      "name": "DecorateMemoryCacheWithMetrics",
+      "kind": "method",
+      "file": "src/CacheImplementations/ServiceCollectionExtensions.cs",
+      "line": 153,
+      "signature": "public static IServiceCollection DecorateMemoryCacheWithMetrics(",
+      "visibility": "public"
+    },
+    {
+      "name": "struct",
+      "kind": "record",
+      "file": "tests/Benchmarks.Async/AsyncCacheAdapter.cs",
+      "line": 10,
+      "signature": "public readonly record struct CacheLookup(string? Value, bool IsHit);",
+      "visibility": "public"
+    },
+    {
+      "name": "AsyncCacheAdapter",
+      "kind": "class",
+      "file": "tests/Benchmarks.Async/AsyncCacheAdapter.cs",
+      "line": 19,
+      "signature": "public sealed class AsyncCacheAdapter(IMemoryCache cache)",
+      "visibility": "public"
+    },
+    {
+      "name": "GetAsync",
+      "kind": "method",
+      "file": "tests/Benchmarks.Async/AsyncCacheAdapter.cs",
+      "line": 27,
+      "signature": "public async ValueTask<CacheLookup> GetAsync(string key, CancellationToken cancellationToken = default)",
+      "visibility": "public"
+    },
+    {
+      "name": "LayeredAsyncCacheAdapter",
+      "kind": "class",
+      "file": "tests/Benchmarks.Async/AsyncCacheAdapter.cs",
+      "line": 52,
+      "signature": "public sealed class LayeredAsyncCacheAdapter(AsyncCacheAdapter inner)",
+      "visibility": "public"
+    },
+    {
+      "name": "GetAsync",
+      "kind": "method",
+      "file": "tests/Benchmarks.Async/AsyncCacheAdapter.cs",
+      "line": 68,
+      "signature": "public async ValueTask<CacheLookup> GetAsync(string key, CancellationToken cancellationToken = default)",
+      "visibility": "public"
+    },
+    {
+      "name": "AsyncCacheBenchmarks",
+      "kind": "class",
+      "file": "tests/Benchmarks.Async/AsyncCacheBenchmarks.cs",
+      "line": 26,
+      "signature": "public class AsyncCacheBenchmarks",
+      "visibility": "public"
+    },
+    {
+      "name": "Setup",
+      "kind": "method",
+      "file": "tests/Benchmarks.Async/AsyncCacheBenchmarks.cs",
+      "line": 50,
+      "signature": "public void Setup()",
+      "visibility": "public"
+    },
+    {
+      "name": "Cleanup",
+      "kind": "method",
+      "file": "tests/Benchmarks.Async/AsyncCacheBenchmarks.cs",
+      "line": 72,
+      "signature": "public void Cleanup()",
+      "visibility": "public"
+    },
+    {
+      "name": "RawHitAsync",
+      "kind": "method",
+      "file": "tests/Benchmarks.Async/AsyncCacheBenchmarks.cs",
+      "line": 85,
+      "signature": "public async ValueTask<int> RawHitAsync()",
+      "visibility": "public"
+    },
+    {
+      "name": "LayeredRawHitAsync",
+      "kind": "method",
+      "file": "tests/Benchmarks.Async/AsyncCacheBenchmarks.cs",
+      "line": 104,
+      "signature": "public async ValueTask<int> LayeredRawHitAsync()",
+      "visibility": "public"
+    },
+    {
+      "name": "LayeredMeteredHitAsync",
+      "kind": "method",
+      "file": "tests/Benchmarks.Async/AsyncCacheBenchmarks.cs",
+      "line": 122,
+      "signature": "public async ValueTask<int> LayeredMeteredHitAsync()",
+      "visibility": "public"
+    },
+    {
+      "name": "AsyncBenchmarkConfig",
+      "kind": "class",
+      "file": "tests/Benchmarks.Async/AsyncCacheBenchmarks.cs",
+      "line": 139,
+      "signature": "public class AsyncBenchmarkConfig : ManualConfig",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheBenchmarks",
+      "kind": "class",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 22,
+      "signature": "public class CacheBenchmarks",
+      "visibility": "public"
+    },
+    {
+      "name": "Setup",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 41,
+      "signature": "public void Setup()",
+      "visibility": "public"
+    },
+    {
+      "name": "Cleanup",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 67,
+      "signature": "public void Cleanup()",
+      "visibility": "public"
+    },
+    {
+      "name": "RawCache_Hit",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 81,
+      "signature": "public object? RawCache_Hit()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredCache_Unnamed_Hit",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 91,
+      "signature": "public object? MeteredCache_Unnamed_Hit()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredCache_Named_Hit",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 101,
+      "signature": "public object? MeteredCache_Named_Hit()",
+      "visibility": "public"
+    },
+    {
+      "name": "RawCache_Miss",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 114,
+      "signature": "public object? RawCache_Miss()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredCache_Unnamed_Miss",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 124,
+      "signature": "public object? MeteredCache_Unnamed_Miss()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredCache_Named_Miss",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 134,
+      "signature": "public object? MeteredCache_Named_Miss()",
+      "visibility": "public"
+    },
+    {
+      "name": "RawCache_Set",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 150,
+      "signature": "public void RawCache_Set()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredCache_Unnamed_Set",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 160,
+      "signature": "public void MeteredCache_Unnamed_Set()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredCache_Named_Set",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 170,
+      "signature": "public void MeteredCache_Named_Set()",
+      "visibility": "public"
+    },
+    {
+      "name": "RawCache_TryGetValue_Hit",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 183,
+      "signature": "public bool RawCache_TryGetValue_Hit()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredCache_Unnamed_TryGetValue_Hit",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 192,
+      "signature": "public bool MeteredCache_Unnamed_TryGetValue_Hit()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredCache_Named_TryGetValue_Hit",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 201,
+      "signature": "public bool MeteredCache_Named_TryGetValue_Hit()",
+      "visibility": "public"
+    },
+    {
+      "name": "RawCache_TryGetValue_Miss",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 210,
+      "signature": "public bool RawCache_TryGetValue_Miss()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredCache_Unnamed_TryGetValue_Miss",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 219,
+      "signature": "public bool MeteredCache_Unnamed_TryGetValue_Miss()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredCache_Named_TryGetValue_Miss",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 228,
+      "signature": "public bool MeteredCache_Named_TryGetValue_Miss()",
+      "visibility": "public"
+    },
+    {
+      "name": "RawCache_CreateEntry",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 241,
+      "signature": "public void RawCache_CreateEntry()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredCache_Unnamed_CreateEntry",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 252,
+      "signature": "public void MeteredCache_Unnamed_CreateEntry()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredCache_Named_CreateEntry",
+      "kind": "method",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 263,
+      "signature": "public void MeteredCache_Named_CreateEntry()",
+      "visibility": "public"
+    },
+    {
+      "name": "BenchmarkConfig",
+      "kind": "class",
+      "file": "tests/Benchmarks/CacheBenchmarks.cs",
+      "line": 292,
+      "signature": "public class BenchmarkConfig : ManualConfig",
+      "visibility": "public"
+    },
+    {
+      "name": "ContentionBenchmarks",
+      "kind": "class",
+      "file": "tests/Benchmarks/ContentionBenchmarks.cs",
+      "line": 16,
+      "signature": "public class ContentionBenchmarks",
+      "visibility": "public"
+    },
+    {
+      "name": "GlobalSetup",
+      "kind": "method",
+      "file": "tests/Benchmarks/ContentionBenchmarks.cs",
+      "line": 35,
+      "signature": "public void GlobalSetup()",
+      "visibility": "public"
+    },
+    {
+      "name": "IterationSetup",
+      "kind": "method",
+      "file": "tests/Benchmarks/ContentionBenchmarks.cs",
+      "line": 54,
+      "signature": "public void IterationSetup()",
+      "visibility": "public"
+    },
+    {
+      "name": "Raw_Contention_Hit",
+      "kind": "method",
+      "file": "tests/Benchmarks/ContentionBenchmarks.cs",
+      "line": 80,
+      "signature": "public async Task<object?> Raw_Contention_Hit()",
+      "visibility": "public"
+    },
+    {
+      "name": "Metered_Contention_Hit",
+      "kind": "method",
+      "file": "tests/Benchmarks/ContentionBenchmarks.cs",
+      "line": 95,
+      "signature": "public async Task<object?> Metered_Contention_Hit()",
+      "visibility": "public"
+    },
+    {
+      "name": "Raw_Contention_Miss",
+      "kind": "method",
+      "file": "tests/Benchmarks/ContentionBenchmarks.cs",
+      "line": 110,
+      "signature": "public async Task<object?> Raw_Contention_Miss()",
+      "visibility": "public"
+    },
+    {
+      "name": "Metered_Contention_Miss",
+      "kind": "method",
+      "file": "tests/Benchmarks/ContentionBenchmarks.cs",
+      "line": 126,
+      "signature": "public async Task<object?> Metered_Contention_Miss()",
+      "visibility": "public"
+    },
+    {
+      "name": "GlobalCleanup",
+      "kind": "method",
+      "file": "tests/Benchmarks/ContentionBenchmarks.cs",
+      "line": 142,
+      "signature": "public void GlobalCleanup()",
+      "visibility": "public"
+    },
+    {
+      "name": "MetricsOverheadBenchmarks",
+      "kind": "class",
+      "file": "tests/Benchmarks/MetricsOverheadBenchmarks.cs",
+      "line": 21,
+      "signature": "public class MetricsOverheadBenchmarks",
+      "visibility": "public"
+    },
+    {
+      "name": "Setup",
+      "kind": "method",
+      "file": "tests/Benchmarks/MetricsOverheadBenchmarks.cs",
+      "line": 32,
+      "signature": "public void Setup()",
+      "visibility": "public"
+    },
+    {
+      "name": "Cleanup",
+      "kind": "method",
+      "file": "tests/Benchmarks/MetricsOverheadBenchmarks.cs",
+      "line": 43,
+      "signature": "public void Cleanup()",
+      "visibility": "public"
+    },
+    {
+      "name": "NoMetrics",
+      "kind": "method",
+      "file": "tests/Benchmarks/MetricsOverheadBenchmarks.cs",
+      "line": 52,
+      "signature": "public long NoMetrics()",
+      "visibility": "public"
+    },
+    {
+      "name": "Counter_WithTags",
+      "kind": "method",
+      "file": "tests/Benchmarks/MetricsOverheadBenchmarks.cs",
+      "line": 62,
+      "signature": "public void Counter_WithTags()",
+      "visibility": "public"
+    },
+    {
+      "name": "Counter_NoTags",
+      "kind": "method",
+      "file": "tests/Benchmarks/MetricsOverheadBenchmarks.cs",
+      "line": 71,
+      "signature": "public void Counter_NoTags()",
+      "visibility": "public"
+    },
+    {
+      "name": "Interlocked_Increment",
+      "kind": "method",
+      "file": "tests/Benchmarks/MetricsOverheadBenchmarks.cs",
+      "line": 80,
+      "signature": "public long Interlocked_Increment()",
+      "visibility": "public"
+    },
+    {
+      "name": "Interlocked_Add",
+      "kind": "method",
+      "file": "tests/Benchmarks/MetricsOverheadBenchmarks.cs",
+      "line": 89,
+      "signature": "public long Interlocked_Add()",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheHit_WithCounter",
+      "kind": "method",
+      "file": "tests/Benchmarks/MetricsOverheadBenchmarks.cs",
+      "line": 98,
+      "signature": "public void CacheHit_WithCounter()",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheHit_WithInterlocked",
+      "kind": "method",
+      "file": "tests/Benchmarks/MetricsOverheadBenchmarks.cs",
+      "line": 113,
+      "signature": "public void CacheHit_WithInterlocked()",
+      "visibility": "public"
+    },
+    {
+      "name": "HighContention_Counter",
+      "kind": "method",
+      "file": "tests/Benchmarks/MetricsOverheadBenchmarks.cs",
+      "line": 128,
+      "signature": "public void HighContention_Counter()",
+      "visibility": "public"
+    },
+    {
+      "name": "HighContention_Interlocked",
+      "kind": "method",
+      "file": "tests/Benchmarks/MetricsOverheadBenchmarks.cs",
+      "line": 140,
+      "signature": "public void HighContention_Interlocked()",
+      "visibility": "public"
+    },
+    {
+      "name": "ConcurrencyTests",
+      "kind": "class",
+      "file": "tests/Integration/ConcurrencyTests.cs",
+      "line": 21,
+      "signature": "public class ConcurrencyTests : IDisposable",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "tests/Integration/ConcurrencyTests.cs",
+      "line": 25,
+      "signature": "public void Dispose()",
+      "visibility": "public"
+    },
+    {
+      "name": "ConcurrentHitMissOperations_WithNamedCache_ShouldEmitCorrectMetrics",
+      "kind": "method",
+      "file": "tests/Integration/ConcurrencyTests.cs",
+      "line": 38,
+      "signature": "public async Task ConcurrentHitMissOperations_WithNamedCache_ShouldEmitCorrectMetrics()",
+      "visibility": "public"
+    },
+    {
+      "name": "ConcurrentEvictions_MultipleNamedCaches_ShouldAttributeMetricsCorrectly",
+      "kind": "method",
+      "file": "tests/Integration/ConcurrencyTests.cs",
+      "line": 107,
+      "signature": "public async Task ConcurrentEvictions_MultipleNamedCaches_ShouldAttributeMetricsCorrectly()",
+      "visibility": "public"
+    },
+    {
+      "name": "HighFrequencyConcurrentOperations_ShouldMaintainMetricAccuracy",
+      "kind": "method",
+      "file": "tests/Integration/ConcurrencyTests.cs",
+      "line": 198,
+      "signature": "public async Task HighFrequencyConcurrentOperations_ShouldMaintainMetricAccuracy()",
+      "visibility": "public"
+    },
+    {
+      "name": "ConcurrentOperations_WithAdditionalTags_ShouldMaintainTagIntegrity",
+      "kind": "method",
+      "file": "tests/Integration/ConcurrencyTests.cs",
+      "line": 281,
+      "signature": "public async Task ConcurrentOperations_WithAdditionalTags_ShouldMaintainTagIntegrity()",
+      "visibility": "public"
+    },
+    {
+      "name": "RapidCacheStateChanges_ShouldNotCauseMetricRaceConditions",
+      "kind": "method",
+      "file": "tests/Integration/ConcurrencyTests.cs",
+      "line": 363,
+      "signature": "public async Task RapidCacheStateChanges_ShouldNotCauseMetricRaceConditions()",
+      "visibility": "public"
+    },
+    {
+      "name": "ConcurrentCacheInstantiation_ShouldCreateMetersThreadSafely",
+      "kind": "method",
+      "file": "tests/Integration/ConcurrencyTests.cs",
+      "line": 456,
+      "signature": "public async Task ConcurrentCacheInstantiation_ShouldCreateMetersThreadSafely()",
+      "visibility": "public"
+    },
+    {
+      "name": "ConcurrentDisposeAndTryGetValue_ShouldNotThrowOrCorrupt",
+      "kind": "method",
+      "file": "tests/Integration/ConcurrencyTests.cs",
+      "line": 572,
+      "signature": "public async Task ConcurrentDisposeAndTryGetValue_ShouldNotThrowOrCorrupt()",
+      "visibility": "public"
+    },
+    {
+      "name": "ConcurrentDisposeAndSet_ShouldNotThrowOrCorrupt",
+      "kind": "method",
+      "file": "tests/Integration/ConcurrencyTests.cs",
+      "line": 638,
+      "signature": "public async Task ConcurrentDisposeAndSet_ShouldNotThrowOrCorrupt()",
+      "visibility": "public"
+    },
+    {
+      "name": "DisposeDuringEvictionCallback_ShouldNotThrowOrDeadlock",
+      "kind": "method",
+      "file": "tests/Integration/ConcurrencyTests.cs",
+      "line": 698,
+      "signature": "public async Task DisposeDuringEvictionCallback_ShouldNotThrowOrDeadlock()",
+      "visibility": "public"
+    },
+    {
+      "name": "DisposeDuringGetOrCreateFactory_ShouldNotCorruptState",
+      "kind": "method",
+      "file": "tests/Integration/ConcurrencyTests.cs",
+      "line": 776,
+      "signature": "public async Task DisposeDuringGetOrCreateFactory_ShouldNotCorruptState()",
+      "visibility": "public"
+    },
+    {
+      "name": "MultipleConcurrentDisposeCalls_ShouldBeIdempotent",
+      "kind": "method",
+      "file": "tests/Integration/ConcurrencyTests.cs",
+      "line": 837,
+      "signature": "public async Task MultipleConcurrentDisposeCalls_ShouldBeIdempotent()",
+      "visibility": "public"
+    },
+    {
+      "name": "MultiCacheScenarioTests",
+      "kind": "class",
+      "file": "tests/Integration/MultiCacheScenarioTests.cs",
+      "line": 24,
+      "signature": "public class MultiCacheScenarioTests",
+      "visibility": "public"
+    },
+    {
+      "name": "ThreeNamedCaches_OperateIndependentlyWithSeparateMetrics",
+      "kind": "method",
+      "file": "tests/Integration/MultiCacheScenarioTests.cs",
+      "line": 31,
+      "signature": "public async Task ThreeNamedCaches_OperateIndependentlyWithSeparateMetrics()",
+      "visibility": "public"
+    },
+    {
+      "name": "CachesWithDifferentAdditionalTags_EmitDistinctMetrics",
+      "kind": "method",
+      "file": "tests/Integration/MultiCacheScenarioTests.cs",
+      "line": 109,
+      "signature": "public async Task CachesWithDifferentAdditionalTags_EmitDistinctMetrics()",
+      "visibility": "public"
+    },
+    {
+      "name": "MultiCacheEvictionScenarios_EmitCorrectEvictionMetrics",
+      "kind": "method",
+      "file": "tests/Integration/MultiCacheScenarioTests.cs",
+      "line": 169,
+      "signature": "public async Task MultiCacheEvictionScenarios_EmitCorrectEvictionMetrics()",
+      "visibility": "public"
+    },
+    {
+      "name": "ConcurrentMultiCacheOperations_MaintainMetricAccuracy",
+      "kind": "method",
+      "file": "tests/Integration/MultiCacheScenarioTests.cs",
+      "line": 297,
+      "signature": "public async Task ConcurrentMultiCacheOperations_MaintainMetricAccuracy()",
+      "visibility": "public"
+    },
+    {
+      "name": "CachesWithDifferentMeterNames_EmitToCorrectMeters",
+      "kind": "method",
+      "file": "tests/Integration/MultiCacheScenarioTests.cs",
+      "line": 385,
+      "signature": "public async Task CachesWithDifferentMeterNames_EmitToCorrectMeters()",
+      "visibility": "public"
+    },
+    {
+      "name": "OpenTelemetryIntegrationTests",
+      "kind": "class",
+      "file": "tests/Integration/OpenTelemetryIntegrationTests.cs",
+      "line": 20,
+      "signature": "public class OpenTelemetryIntegrationTests",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_Hit_EmitsMetricsToOpenTelemetry",
+      "kind": "method",
+      "file": "tests/Integration/OpenTelemetryIntegrationTests.cs",
+      "line": 26,
+      "signature": "public async Task MeteredMemoryCache_Hit_EmitsMetricsToOpenTelemetry()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_Miss_EmitsMetricsToOpenTelemetry",
+      "kind": "method",
+      "file": "tests/Integration/OpenTelemetryIntegrationTests.cs",
+      "line": 67,
+      "signature": "public async Task MeteredMemoryCache_Miss_EmitsMetricsToOpenTelemetry()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_Eviction_EmitsMetricsToOpenTelemetry",
+      "kind": "method",
+      "file": "tests/Integration/OpenTelemetryIntegrationTests.cs",
+      "line": 105,
+      "signature": "public async Task MeteredMemoryCache_Eviction_EmitsMetricsToOpenTelemetry()",
+      "visibility": "public"
+    },
+    {
+      "name": "NamedCache_EmitsMetricsWithCorrectTags",
+      "kind": "method",
+      "file": "tests/Integration/OpenTelemetryIntegrationTests.cs",
+      "line": 167,
+      "signature": "public async Task NamedCache_EmitsMetricsWithCorrectTags()",
+      "visibility": "public"
+    },
+    {
+      "name": "MultipleCaches_EmitSeparateMetrics",
+      "kind": "method",
+      "file": "tests/Integration/OpenTelemetryIntegrationTests.cs",
+      "line": 204,
+      "signature": "public async Task MultipleCaches_EmitSeparateMetrics()",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheWithAdditionalTags_EmitsAllTags",
+      "kind": "method",
+      "file": "tests/Integration/OpenTelemetryIntegrationTests.cs",
+      "line": 246,
+      "signature": "public async Task CacheWithAdditionalTags_EmitsAllTags()",
+      "visibility": "public"
+    },
+    {
+      "name": "ConcurrentOperations_EmitCorrectMetrics",
+      "kind": "method",
+      "file": "tests/Integration/OpenTelemetryIntegrationTests.cs",
+      "line": 279,
+      "signature": "public async Task ConcurrentOperations_EmitCorrectMetrics()",
+      "visibility": "public"
+    },
+    {
+      "name": "BclAdoptionCoverageTests",
+      "kind": "class",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 17,
+      "signature": "public class BclAdoptionCoverageTests",
+      "visibility": "public"
+    },
+    {
+      "name": "MeterName_Constant_HasExpectedValue",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 22,
+      "signature": "public void MeterName_Constant_HasExpectedValue()",
+      "visibility": "public"
+    },
+    {
+      "name": "Eviction_OnExpired_IncrementsEvictionCounter",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 32,
+      "signature": "public async Task Eviction_OnExpired_IncrementsEvictionCounter()",
+      "visibility": "public"
+    },
+    {
+      "name": "Eviction_OnCapacity_IncrementsEvictionCounter",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 63,
+      "signature": "public async Task Eviction_OnCapacity_IncrementsEvictionCounter()",
+      "visibility": "public"
+    },
+    {
+      "name": "Eviction_OnReplaced_DoesNotIncrementEvictionCounter",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 93,
+      "signature": "public void Eviction_OnReplaced_DoesNotIncrementEvictionCounter()",
+      "visibility": "public"
+    },
+    {
+      "name": "EntryCount_IncrementsOnCommit_NotOnCreate",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 117,
+      "signature": "public void EntryCount_IncrementsOnCommit_NotOnCreate()",
+      "visibility": "public"
+    },
+    {
+      "name": "EntryCount_DecrementsOnRemove",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 147,
+      "signature": "public async Task EntryCount_DecrementsOnRemove()",
+      "visibility": "public"
+    },
+    {
+      "name": "EntryCount_DecrementsOnReplaced_NetCountStaysAccurate",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 169,
+      "signature": "public async Task EntryCount_DecrementsOnReplaced_NetCountStaysAccurate()",
+      "visibility": "public"
+    },
+    {
+      "name": "EstimatedSize_NotRegistered_WhenTrackStatisticsDisabled",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 194,
+      "signature": "public void EstimatedSize_NotRegistered_WhenTrackStatisticsDisabled()",
+      "visibility": "public"
+    },
+    {
+      "name": "EstimatedSize_NotRegistered_WhenInnerIsNotMemoryCache",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 224,
+      "signature": "public void EstimatedSize_NotRegistered_WhenInnerIsNotMemoryCache()",
+      "visibility": "public"
+    },
+    {
+      "name": "NullMeterFactory_CreatesOwnedMeter_DisposeCleansUp",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 251,
+      "signature": "public void NullMeterFactory_CreatesOwnedMeter_DisposeCleansUp()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetCurrentStatistics_EstimatedSize_ComesFromInnerMemoryCache",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 277,
+      "signature": "public void GetCurrentStatistics_EstimatedSize_ComesFromInnerMemoryCache()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetCurrentStatistics_EstimatedSize_NullWhenInnerIsNotMemoryCache",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 311,
+      "signature": "public void GetCurrentStatistics_EstimatedSize_NullWhenInnerIsNotMemoryCache()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetCurrentStatistics_AfterDispose_ThrowsObjectDisposedException",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 327,
+      "signature": "public void GetCurrentStatistics_AfterDispose_ThrowsObjectDisposedException()",
+      "visibility": "public"
+    },
+    {
+      "name": "Tags_CacheNameIsFirstTag_InAllMeasurements",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 343,
+      "signature": "public void Tags_CacheNameIsFirstTag_InAllMeasurements()",
+      "visibility": "public"
+    },
+    {
+      "name": "CreateEntry",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 419,
+      "signature": "public ICacheEntry CreateEntry(object key) => new FakeCacheEntry(key, this);",
+      "visibility": "public"
+    },
+    {
+      "name": "Remove",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 421,
+      "signature": "public void Remove(object key) => _store.Remove(key);",
+      "visibility": "public"
+    },
+    {
+      "name": "TryGetValue",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 423,
+      "signature": "public bool TryGetValue(object key, out object? value) => _store.TryGetValue(key, out value);",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 425,
+      "signature": "public void Dispose() { }",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "tests/Unit/BclAdoptionCoverageTests.cs",
+      "line": 449,
+      "signature": "public void Dispose() => _cache.Commit(Key, Value);",
+      "visibility": "public"
+    },
+    {
+      "name": "BenchGateTests",
+      "kind": "class",
+      "file": "tests/Unit/BenchGateTests.cs",
+      "line": 6,
+      "signature": "public class BenchGateTests",
+      "visibility": "public"
+    },
+    {
+      "name": "NoRegression_WhenMeansWithinThreshold",
+      "kind": "method",
+      "file": "tests/Unit/BenchGateTests.cs",
+      "line": 11,
+      "signature": "public void NoRegression_WhenMeansWithinThreshold()",
+      "visibility": "public"
+    },
+    {
+      "name": "DetectsTimeRegression",
+      "kind": "method",
+      "file": "tests/Unit/BenchGateTests.cs",
+      "line": 22,
+      "signature": "public void DetectsTimeRegression()",
+      "visibility": "public"
+    },
+    {
+      "name": "AllocationRegressionRequiresBothPercentAndAbsolute",
+      "kind": "method",
+      "file": "tests/Unit/BenchGateTests.cs",
+      "line": 32,
+      "signature": "public void AllocationRegressionRequiresBothPercentAndAbsolute()",
+      "visibility": "public"
+    },
+    {
+      "name": "ImprovementReported",
+      "kind": "method",
+      "file": "tests/Unit/BenchGateTests.cs",
+      "line": 46,
+      "signature": "public void ImprovementReported()",
+      "visibility": "public"
+    },
+    {
+      "name": "SigmaFiltersInsignificantDelta",
+      "kind": "method",
+      "file": "tests/Unit/BenchGateTests.cs",
+      "line": 57,
+      "signature": "public void SigmaFiltersInsignificantDelta()",
+      "visibility": "public"
+    },
+    {
+      "name": "NewBenchmarkIgnored",
+      "kind": "method",
+      "file": "tests/Unit/BenchGateTests.cs",
+      "line": 69,
+      "signature": "public void NewBenchmarkIgnored()",
+      "visibility": "public"
+    },
+    {
+      "name": "BenchGateValidationTests",
+      "kind": "class",
+      "file": "tests/Unit/BenchGateValidationTests.cs",
+      "line": 12,
+      "signature": "public class BenchGateValidationTests",
+      "visibility": "public"
+    },
+    {
+      "name": "BenchGate_ShouldPass_WhenMeteredCachePerformanceStable",
+      "kind": "method",
+      "file": "tests/Unit/BenchGateValidationTests.cs",
+      "line": 22,
+      "signature": "public void BenchGate_ShouldPass_WhenMeteredCachePerformanceStable()",
+      "visibility": "public"
+    },
+    {
+      "name": "BenchGate_ShouldFail_WhenMeteredCachePerformanceDegrades",
+      "kind": "method",
+      "file": "tests/Unit/BenchGateValidationTests.cs",
+      "line": 58,
+      "signature": "public void BenchGate_ShouldFail_WhenMeteredCachePerformanceDegrades()",
+      "visibility": "public"
+    },
+    {
+      "name": "BenchGate_ShouldDetectAllocationRegressions_InMeteredCache",
+      "kind": "method",
+      "file": "tests/Unit/BenchGateValidationTests.cs",
+      "line": 90,
+      "signature": "public void BenchGate_ShouldDetectAllocationRegressions_InMeteredCache()",
+      "visibility": "public"
+    },
+    {
+      "name": "BenchGate_ShouldFilterInsignificantChanges_UsingStatisticalAnalysis",
+      "kind": "method",
+      "file": "tests/Unit/BenchGateValidationTests.cs",
+      "line": 126,
+      "signature": "public void BenchGate_ShouldFilterInsignificantChanges_UsingStatisticalAnalysis()",
+      "visibility": "public"
+    },
+    {
+      "name": "BenchGate_ShouldIgnoreNewBenchmarks_WhenAddingNewTests",
+      "kind": "method",
+      "file": "tests/Unit/BenchGateValidationTests.cs",
+      "line": 159,
+      "signature": "public void BenchGate_ShouldIgnoreNewBenchmarks_WhenAddingNewTests()",
+      "visibility": "public"
+    },
+    {
+      "name": "BenchGate_ShouldDetectImprovements_WhenPerformanceOptimized",
+      "kind": "method",
+      "file": "tests/Unit/BenchGateValidationTests.cs",
+      "line": 191,
+      "signature": "public void BenchGate_ShouldDetectImprovements_WhenPerformanceOptimized()",
+      "visibility": "public"
+    },
+    {
+      "name": "BenchGate_ShouldHandleEdgeCases_GracefullyWithoutExceptions",
+      "kind": "method",
+      "file": "tests/Unit/BenchGateValidationTests.cs",
+      "line": 225,
+      "signature": "public void BenchGate_ShouldHandleEdgeCases_GracefullyWithoutExceptions()",
+      "visibility": "public"
+    },
+    {
+      "name": "BenchGate_IntegrationTest_ShouldValidateCompleteWorkflow",
+      "kind": "method",
+      "file": "tests/Unit/BenchGateValidationTests.cs",
+      "line": 260,
+      "signature": "public void BenchGate_IntegrationTest_ShouldValidateCompleteWorkflow()",
+      "visibility": "public"
+    },
+    {
+      "name": "CoverageGapTests",
+      "kind": "class",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 11,
+      "signature": "public class CoverageGapTests",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheStatistics_EstimatedSize_CanBeSetAndRead",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 16,
+      "signature": "public void CacheStatistics_EstimatedSize_CanBeSetAndRead()",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheStatistics_EstimatedSize_DefaultsToNull",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 29,
+      "signature": "public void CacheStatistics_EstimatedSize_DefaultsToNull()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_NullMeterFactory_CreatesFallbackMeter",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 41,
+      "signature": "public void MeteredMemoryCache_NullMeterFactory_CreatesFallbackMeter()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_NullMeterFactory_WithOptions_CreatesFallbackMeter",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 57,
+      "signature": "public void MeteredMemoryCache_NullMeterFactory_WithOptions_CreatesFallbackMeter()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_WithTrackStatistics_RegistersEstimatedSizeGauge",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 75,
+      "signature": "public void MeteredMemoryCache_WithTrackStatistics_RegistersEstimatedSizeGauge()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_WithTrackStatistics_ReportsEstimatedSize",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 100,
+      "signature": "public void MeteredMemoryCache_WithTrackStatistics_ReportsEstimatedSize()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_DisposalGuard_EstimatedSizeReturnsZeroAfterDispose",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 143,
+      "signature": "public void MeteredMemoryCache_DisposalGuard_EstimatedSizeReturnsZeroAfterDispose()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_DisposalGuard_WithDisposeInner_NoThrow",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 175,
+      "signature": "public void MeteredMemoryCache_DisposalGuard_WithDisposeInner_NoThrow()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_NonNullMeterFactory_UsesFactoryMeter",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 213,
+      "signature": "public void MeteredMemoryCache_NonNullMeterFactory_UsesFactoryMeter()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_NonNullMeterFactory_WithOptions_UsesFactoryMeter",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 235,
+      "signature": "public void MeteredMemoryCache_NonNullMeterFactory_WithOptions_UsesFactoryMeter()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_EvictionCallback_AfterDisposal_NoMetricUpdate",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 254,
+      "signature": "public void MeteredMemoryCache_EvictionCallback_AfterDisposal_NoMetricUpdate()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_AdditionalTags_EmptyKeyAfterTrim_Excluded",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 313,
+      "signature": "public void MeteredMemoryCache_AdditionalTags_EmptyKeyAfterTrim_Excluded()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_AdditionalTags_CacheNameDuplicate_Excluded",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 364,
+      "signature": "public void MeteredMemoryCache_AdditionalTags_CacheNameDuplicate_Excluded()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_EstimatedSize_TOCTOU_CatchesObjectDisposedException",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 424,
+      "signature": "public void MeteredMemoryCache_EstimatedSize_TOCTOU_CatchesObjectDisposedException()",
+      "visibility": "public"
+    },
+    {
+      "name": "DecorateMemoryCacheWithMetrics_NoRegistration_Throws",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 457,
+      "signature": "public void DecorateMemoryCacheWithMetrics_NoRegistration_Throws()",
+      "visibility": "public"
+    },
+    {
+      "name": "DecorateMemoryCacheWithMetrics_MultipleRegistrations_Throws",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 468,
+      "signature": "public void DecorateMemoryCacheWithMetrics_MultipleRegistrations_Throws()",
+      "visibility": "public"
+    },
+    {
+      "name": "Create",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 489,
+      "signature": "public Meter Create(MeterOptions options)",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "tests/Unit/CoverageGapTests.cs",
+      "line": 496,
+      "signature": "public void Dispose()",
+      "visibility": "public"
+    },
+    {
+      "name": "EdgeCaseTests",
+      "kind": "class",
+      "file": "tests/Unit/EdgeCaseTests.cs",
+      "line": 13,
+      "signature": "public class EdgeCaseTests",
+      "visibility": "public"
+    },
+    {
+      "name": "EvictionCallback_AddingItemsDuringEviction_ShouldNotCorruptState",
+      "kind": "method",
+      "file": "tests/Unit/EdgeCaseTests.cs",
+      "line": 22,
+      "signature": "public async Task EvictionCallback_AddingItemsDuringEviction_ShouldNotCorruptState()",
+      "visibility": "public"
+    },
+    {
+      "name": "EvictionCallback_RemovingItemsDuringEviction_ShouldNotCorruptState",
+      "kind": "method",
+      "file": "tests/Unit/EdgeCaseTests.cs",
+      "line": 95,
+      "signature": "public async Task EvictionCallback_RemovingItemsDuringEviction_ShouldNotCorruptState()",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheItemPriority_EvictionOrdering_LowerPriorityEvictedFirst",
+      "kind": "method",
+      "file": "tests/Unit/EdgeCaseTests.cs",
+      "line": 159,
+      "signature": "public void CacheItemPriority_EvictionOrdering_LowerPriorityEvictedFirst()",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheItemPriority_NeverRemove_SurvivesCompact",
+      "kind": "method",
+      "file": "tests/Unit/EdgeCaseTests.cs",
+      "line": 226,
+      "signature": "public void CacheItemPriority_NeverRemove_SurvivesCompact()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeterDisposedBeforeCache_ShouldNotThrow",
+      "kind": "method",
+      "file": "tests/Unit/EdgeCaseTests.cs",
+      "line": 273,
+      "signature": "public void MeterDisposedBeforeCache_ShouldNotThrow()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeterDisposedDuringOperations_ShouldNotCorrupt",
+      "kind": "method",
+      "file": "tests/Unit/EdgeCaseTests.cs",
+      "line": 312,
+      "signature": "public async Task MeterDisposedDuringOperations_ShouldNotCorrupt()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeterFactoryDisposedBeforeCache_ShouldNotThrow",
+      "kind": "method",
+      "file": "tests/Unit/EdgeCaseTests.cs",
+      "line": 377,
+      "signature": "public void MeterFactoryDisposedBeforeCache_ShouldNotThrow()",
+      "visibility": "public"
+    },
+    {
+      "name": "RapidKeyOverwrite_ShouldMaintainCorrectStatistics",
+      "kind": "method",
+      "file": "tests/Unit/EdgeCaseTests.cs",
+      "line": 415,
+      "signature": "public async Task RapidKeyOverwrite_ShouldMaintainCorrectStatistics()",
+      "visibility": "public"
+    },
+    {
+      "name": "NullValue_ShouldBeHandledCorrectly",
+      "kind": "method",
+      "file": "tests/Unit/EdgeCaseTests.cs",
+      "line": 453,
+      "signature": "public void NullValue_ShouldBeHandledCorrectly()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetCurrentStatistics_OnFreshCache_ReturnsZeros",
+      "kind": "method",
+      "file": "tests/Unit/EdgeCaseTests.cs",
+      "line": 479,
+      "signature": "public void GetCurrentStatistics_OnFreshCache_ReturnsZeros()",
+      "visibility": "public"
+    },
+    {
+      "name": "Create",
+      "kind": "method",
+      "file": "tests/Unit/EdgeCaseTests.cs",
+      "line": 507,
+      "signature": "public Meter Create(MeterOptions options)",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "tests/Unit/EdgeCaseTests.cs",
+      "line": 514,
+      "signature": "public void Dispose()",
+      "visibility": "public"
+    },
+    {
+      "name": "MemoryCacheTests",
+      "kind": "class",
+      "file": "tests/Unit/MemoryCacheTests.cs",
+      "line": 5,
+      "signature": "public class MemoryCacheTests",
+      "visibility": "public"
+    },
+    {
+      "name": "BasicMemoryCache_SetAndGetValue",
+      "kind": "method",
+      "file": "tests/Unit/MemoryCacheTests.cs",
+      "line": 8,
+      "signature": "public void BasicMemoryCache_SetAndGetValue()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCacheOptionsTests",
+      "kind": "class",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 7,
+      "signature": "public class MeteredMemoryCacheOptionsTests",
+      "visibility": "public"
+    },
+    {
+      "name": "DefaultConstructor_SetsExpectedDefaults",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 10,
+      "signature": "public void DefaultConstructor_SetsExpectedDefaults()",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheName_CanBeSetAndRetrieved",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 24,
+      "signature": "public void CacheName_CanBeSetAndRetrieved()",
+      "visibility": "public"
+    },
+    {
+      "name": "DisposeInner_CanBeSetAndRetrieved",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 38,
+      "signature": "public void DisposeInner_CanBeSetAndRetrieved()",
+      "visibility": "public"
+    },
+    {
+      "name": "AdditionalTags_CanBeModified",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 51,
+      "signature": "public void AdditionalTags_CanBeModified()",
+      "visibility": "public"
+    },
+    {
+      "name": "AdditionalTags_UsesOrdinalStringComparer",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 69,
+      "signature": "public void AdditionalTags_UsesOrdinalStringComparer()",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheName_AcceptsValidValues",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 90,
+      "signature": "public void CacheName_AcceptsValidValues(string? cacheName)",
+      "visibility": "public"
+    },
+    {
+      "name": "AdditionalTags_RequiredAttribute_IsPresent",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 101,
+      "signature": "public void AdditionalTags_RequiredAttribute_IsPresent()",
+      "visibility": "public"
+    },
+    {
+      "name": "AdditionalTags_CannotBeSetToNull",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 116,
+      "signature": "public void AdditionalTags_CannotBeSetToNull()",
+      "visibility": "public"
+    },
+    {
+      "name": "AdditionalTags_AcceptsValidTagCollections",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 127,
+      "signature": "public void AdditionalTags_AcceptsValidTagCollections(IDictionary<string, object?> tags)",
+      "visibility": "public"
+    },
+    {
+      "name": "GetValidAdditionalTagsData",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 139,
+      "signature": "public static IEnumerable<object[]> GetValidAdditionalTagsData()",
+      "visibility": "public"
+    },
+    {
+      "name": "Properties_ArePublicAndSettable",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 147,
+      "signature": "public void Properties_ArePublicAndSettable()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCacheOptionsValidatorTests",
+      "kind": "class",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 173,
+      "signature": "public class MeteredMemoryCacheOptionsValidatorTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_ValidOptions_ReturnsSuccess",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 178,
+      "signature": "public void Validate_ValidOptions_ReturnsSuccess()",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_NullCacheName_ReturnsSuccess",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 202,
+      "signature": "public void Validate_NullCacheName_ReturnsSuccess()",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_EmptyOrWhitespaceCacheName_ReturnsFailure",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 224,
+      "signature": "public void Validate_EmptyOrWhitespaceCacheName_ReturnsFailure(string invalidCacheName)",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_EmptyOrWhitespaceTagKeys_ReturnsFailure",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 246,
+      "signature": "public void Validate_EmptyOrWhitespaceTagKeys_ReturnsFailure(string invalidKey)",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_MultipleInvalidTagKeys_ReturnsFailureWithSingleMessage",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 268,
+      "signature": "public void Validate_MultipleInvalidTagKeys_ReturnsFailureWithSingleMessage()",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_BothCacheNameAndTagKeysInvalid_ReturnsMultipleFailures",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 293,
+      "signature": "public void Validate_BothCacheNameAndTagKeysInvalid_ReturnsMultipleFailures()",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_ValidTagKeysWithNullValues_ReturnsFailure",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 316,
+      "signature": "public void Validate_ValidTagKeysWithNullValues_ReturnsFailure()",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_EmptyAdditionalTags_ReturnsSuccess",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 339,
+      "signature": "public void Validate_EmptyAdditionalTags_ReturnsSuccess()",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_ValidCacheNames_ReturnsSuccess",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 362,
+      "signature": "public void Validate_ValidCacheNames_ReturnsSuccess(string validCacheName)",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_NameParameterIsIgnored",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsTests.cs",
+      "line": 379,
+      "signature": "public void Validate_NameParameterIsIgnored()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCacheOptionsValidatorEnhancedTests",
+      "kind": "class",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsValidatorEnhancedTests.cs",
+      "line": 8,
+      "signature": "public class MeteredMemoryCacheOptionsValidatorEnhancedTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_WithNullTagValues_ShouldFail",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsValidatorEnhancedTests.cs",
+      "line": 14,
+      "signature": "public void Validate_WithNullTagValues_ShouldFail()",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_WithInvalidTagValueTypes_ShouldFail",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsValidatorEnhancedTests.cs",
+      "line": 33,
+      "signature": "public void Validate_WithInvalidTagValueTypes_ShouldFail()",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_WithValidTagValueTypes_ShouldSucceed",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsValidatorEnhancedTests.cs",
+      "line": 61,
+      "signature": "public void Validate_WithValidTagValueTypes_ShouldSucceed()",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_WithEmptyAdditionalTags_ShouldSucceed",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsValidatorEnhancedTests.cs",
+      "line": 88,
+      "signature": "public void Validate_WithEmptyAdditionalTags_ShouldSucceed()",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_WithEmptyCacheName_ShouldFail",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsValidatorEnhancedTests.cs",
+      "line": 106,
+      "signature": "public void Validate_WithEmptyCacheName_ShouldFail()",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_WithMultipleValidationFailures_ShouldFailWithAllMessages",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsValidatorEnhancedTests.cs",
+      "line": 125,
+      "signature": "public void Validate_WithMultipleValidationFailures_ShouldFailWithAllMessages()",
+      "visibility": "public"
+    },
+    {
+      "name": "Validate_WithManyInvalidTypes_ShouldLimitErrorMessageLength",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheOptionsValidatorEnhancedTests.cs",
+      "line": 152,
+      "signature": "public void Validate_WithManyInvalidTypes_ShouldLimitErrorMessageLength()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCacheSharedTests",
+      "kind": "class",
+      "file": "tests/Unit/MeteredMemoryCacheSharedTests.cs",
+      "line": 13,
+      "signature": "public class MeteredMemoryCacheSharedTests : MeteredCacheTestBase<MeteredCacheTestSubject>",
+      "visibility": "public"
+    },
+    {
+      "name": "TryGet_WithNamedCache_RecordsMetricsWithCacheName",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheSharedTests.cs",
+      "line": 58,
+      "signature": "public void TryGet_WithNamedCache_RecordsMetricsWithCacheName()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetOrCreate_WithNamedCache_RecordsMetricsWithCacheName",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheSharedTests.cs",
+      "line": 90,
+      "signature": "public void GetOrCreate_WithNamedCache_RecordsMetricsWithCacheName()",
+      "visibility": "public"
+    },
+    {
+      "name": "WithAdditionalTags_EmitsAllTagsOnMetrics",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheSharedTests.cs",
+      "line": 119,
+      "signature": "public void WithAdditionalTags_EmitsAllTagsOnMetrics()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetCurrentStatistics_ReturnsStatistics",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheSharedTests.cs",
+      "line": 147,
+      "signature": "public void GetCurrentStatistics_ReturnsStatistics()",
+      "visibility": "public"
+    },
+    {
+      "name": "PublishMetrics_NoOp_DoesNotThrow",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheSharedTests.cs",
+      "line": 165,
+      "signature": "public void PublishMetrics_NoOp_DoesNotThrow()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetCurrentStatistics_AfterOperations_ReturnsCorrectCounts",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheSharedTests.cs",
+      "line": 179,
+      "signature": "public void GetCurrentStatistics_AfterOperations_ReturnsCorrectCounts()",
+      "visibility": "public"
+    },
+    {
+      "name": "HitRatio_EdgeCases_HandlesCorrectly",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheSharedTests.cs",
+      "line": 205,
+      "signature": "public void HitRatio_EdgeCases_HandlesCorrectly()",
+      "visibility": "public"
+    },
+    {
+      "name": "CreateEntry_RegistersEvictionCallback",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheSharedTests.cs",
+      "line": 234,
+      "signature": "public async Task CreateEntry_RegistersEvictionCallback()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCacheTests",
+      "kind": "class",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 11,
+      "signature": "public class MeteredMemoryCacheTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Collect",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 26,
+      "signature": "public void Collect()",
+      "visibility": "public"
+    },
+    {
+      "name": "WaitForCounterAsync",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 62,
+      "signature": "public async Task<bool> WaitForCounterAsync(string instrumentName, long expectedValue, TimeSpan timeout)",
+      "visibility": "public"
+    },
+    {
+      "name": "GetAggregatedCount",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 119,
+      "signature": "public long GetAggregatedCount(string instrumentName, params KeyValuePair<string, object?>[] requiredTags)",
+      "visibility": "public"
+    },
+    {
+      "name": "AssertAllMeasurementsHaveTag",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 136,
+      "signature": "public void AssertAllMeasurementsHaveTag(string tagKey, string expectedValue)",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 144,
+      "signature": "public void Dispose() => _listener.Dispose();",
+      "visibility": "public"
+    },
+    {
+      "name": "TagListCopyIsThreadSafeForConcurrentAdd",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 148,
+      "signature": "public void TagListCopyIsThreadSafeForConcurrentAdd()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_HitAndMissOperations_RecordsCorrectMetrics",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 174,
+      "signature": "public void MeteredMemoryCache_HitAndMissOperations_RecordsCorrectMetrics()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_EvictionScenario_RecordsEvictionMetrics",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 193,
+      "signature": "public async Task MeteredMemoryCache_EvictionScenario_RecordsEvictionMetrics()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_WithCacheName_EmitsCacheNameTag",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 217,
+      "signature": "public void MeteredMemoryCache_WithCacheName_EmitsCacheNameTag()",
+      "visibility": "public"
+    },
+    {
+      "name": "TagListMutationBug_DocumentsInconsistentPatternUsage",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 234,
+      "signature": "public async Task TagListMutationBug_DocumentsInconsistentPatternUsage()",
+      "visibility": "public"
+    },
+    {
+      "name": "TagListMutationBug_ReadonlyFieldDefensiveCopyLosesTagsInDirectUsage",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 310,
+      "signature": "public void TagListMutationBug_ReadonlyFieldDefensiveCopyLosesTagsInDirectUsage()",
+      "visibility": "public"
+    },
+    {
+      "name": "OptionsConstructor_WithCacheName_SetsNameProperty",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 406,
+      "signature": "public void OptionsConstructor_WithCacheName_SetsNameProperty()",
+      "visibility": "public"
+    },
+    {
+      "name": "TagListInitializationBug_OptionsConstructor_SameMutationBugAsBasicConstructor",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 421,
+      "signature": "public void TagListInitializationBug_OptionsConstructor_SameMutationBugAsBasicConstructor()",
+      "visibility": "public"
+    },
+    {
+      "name": "OptionsConstructor_WithNullCacheName_NamePropertyIsDefault",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 507,
+      "signature": "public void OptionsConstructor_WithNullCacheName_NamePropertyIsDefault()",
+      "visibility": "public"
+    },
+    {
+      "name": "DisposedFieldVisibility_EvictionCallbacksNeedVolatileForThreadSafety",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 522,
+      "signature": "public async Task DisposedFieldVisibility_EvictionCallbacksNeedVolatileForThreadSafety()",
+      "visibility": "public"
+    },
+    {
+      "name": "StaticHashSetThreadSafety_InvestigateServiceCollectionExtensionsForConcurrentAccess",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 602,
+      "signature": "public void StaticHashSetThreadSafety_InvestigateServiceCollectionExtensionsForConcurrentAccess()",
+      "visibility": "public"
+    },
+    {
+      "name": "DependencyInjectionFixes_ValidateResolvedIssues",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 665,
+      "signature": "public void DependencyInjectionFixes_ValidateResolvedIssues()",
+      "visibility": "public"
+    },
+    {
+      "name": "DecoratorDIFixes_ValidateIsolatedConfiguration",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 699,
+      "signature": "public void DecoratorDIFixes_ValidateIsolatedConfiguration()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeterDisposal_UsingVarPreventsTestInterference",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 724,
+      "signature": "public void MeterDisposal_UsingVarPreventsTestInterference()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetOrCreate_RaceConditionScenario_OnlyCountsMissWhenFactoryRuns",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 793,
+      "signature": "public void GetOrCreate_RaceConditionScenario_OnlyCountsMissWhenFactoryRuns()",
+      "visibility": "public"
+    },
+    {
+      "name": "OptionsConstructor_WithEmptyCacheName_NamePropertyIsDefault",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 835,
+      "signature": "public void OptionsConstructor_WithEmptyCacheName_NamePropertyIsDefault()",
+      "visibility": "public"
+    },
+    {
+      "name": "OptionsConstructor_WithAdditionalTags_EmitsAllTagsOnMetrics",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 850,
+      "signature": "public void OptionsConstructor_WithAdditionalTags_EmitsAllTagsOnMetrics()",
+      "visibility": "public"
+    },
+    {
+      "name": "OptionsConstructor_WithDuplicateCacheNameTag_CacheNameTakesPrecedence",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 875,
+      "signature": "public void OptionsConstructor_WithDuplicateCacheNameTag_CacheNameTakesPrecedence()",
+      "visibility": "public"
+    },
+    {
+      "name": "OptionsConstructor_WithDisposeInner_DisposesInnerCacheOnDispose",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 902,
+      "signature": "public void OptionsConstructor_WithDisposeInner_DisposesInnerCacheOnDispose()",
+      "visibility": "public"
+    },
+    {
+      "name": "OptionsConstructor_WithoutDisposeInner_DoesNotDisposeInnerCache",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 919,
+      "signature": "public void OptionsConstructor_WithoutDisposeInner_DoesNotDisposeInnerCache()",
+      "visibility": "public"
+    },
+    {
+      "name": "StringConstructor_WithCacheName_SetsNameProperty",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 940,
+      "signature": "public void StringConstructor_WithCacheName_SetsNameProperty()",
+      "visibility": "public"
+    },
+    {
+      "name": "StringConstructor_WithNullCacheName_NamePropertyIsDefault",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 951,
+      "signature": "public void StringConstructor_WithNullCacheName_NamePropertyIsDefault()",
+      "visibility": "public"
+    },
+    {
+      "name": "StringConstructor_WithEmptyCacheName_NamePropertyIsDefault",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 962,
+      "signature": "public void StringConstructor_WithEmptyCacheName_NamePropertyIsDefault()",
+      "visibility": "public"
+    },
+    {
+      "name": "StringConstructor_WithDisposeInner_DisposesInnerCacheOnDispose",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 973,
+      "signature": "public void StringConstructor_WithDisposeInner_DisposesInnerCacheOnDispose()",
+      "visibility": "public"
+    },
+    {
+      "name": "StringConstructor_WithoutDisposeInner_DoesNotDisposeInnerCache",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 986,
+      "signature": "public void StringConstructor_WithoutDisposeInner_DoesNotDisposeInnerCache()",
+      "visibility": "public"
+    },
+    {
+      "name": "TryGet_WithNamedCache_RecordsMetricsWithCacheName",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 1003,
+      "signature": "public void TryGet_WithNamedCache_RecordsMetricsWithCacheName()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetOrCreate_WithNamedCache_RecordsMetricsWithCacheName",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 1032,
+      "signature": "public void GetOrCreate_WithNamedCache_RecordsMetricsWithCacheName()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCache_MultipleNamedCaches_EmitSeparateMetrics",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 1059,
+      "signature": "public void MeteredMemoryCache_MultipleNamedCaches_EmitSeparateMetrics()",
+      "visibility": "public"
+    },
+    {
+      "name": "Constructor_NullabilityValidation_NullAndEmpty",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 1096,
+      "signature": "public void Constructor_NullabilityValidation_NullAndEmpty(string? invalidInput)",
+      "visibility": "public"
+    },
+    {
+      "name": "Constructor_NullabilityValidation_WhitespaceString",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 1107,
+      "signature": "public void Constructor_NullabilityValidation_WhitespaceString()",
+      "visibility": "public"
+    },
+    {
+      "name": "Constructor_ArgumentNullException_Validation",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 1118,
+      "signature": "public void Constructor_ArgumentNullException_Validation()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetOrCreate_NullFactoryResult_AllowsNullForNullableTypes",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 1134,
+      "signature": "public void GetOrCreate_NullFactoryResult_AllowsNullForNullableTypes()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetOrCreate_FactoryThrowsException_ExceptionPropagatesCorrectly",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 1161,
+      "signature": "public void GetOrCreate_FactoryThrowsException_ExceptionPropagatesCorrectly()",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheName_Normalization_HandlesWhitespaceAndPreventsCardinalityIssues",
+      "kind": "method",
+      "file": "tests/Unit/MeteredMemoryCacheTests.cs",
+      "line": 1179,
+      "signature": "public void CacheName_Normalization_HandlesWhitespaceAndPreventsCardinalityIssues()",
+      "visibility": "public"
+    },
+    {
+      "name": "MetricEmissionAccuracyTests",
+      "kind": "class",
+      "file": "tests/Unit/MetricEmissionAccuracyTests.cs",
+      "line": 16,
+      "signature": "public class MetricEmissionAccuracyTests",
+      "visibility": "public"
+    },
+    {
+      "name": "HitMissRatio_ExactCounting_ValidatesAccuracy",
+      "kind": "method",
+      "file": "tests/Unit/MetricEmissionAccuracyTests.cs",
+      "line": 20,
+      "signature": "public void HitMissRatio_ExactCounting_ValidatesAccuracy()",
+      "visibility": "public"
+    },
+    {
+      "name": "EvictionMetrics_DeterministicScenario_ValidatesAccuracyAndTags",
+      "kind": "method",
+      "file": "tests/Unit/MetricEmissionAccuracyTests.cs",
+      "line": 53,
+      "signature": "public async Task EvictionMetrics_DeterministicScenario_ValidatesAccuracyAndTags()",
+      "visibility": "public"
+    },
+    {
+      "name": "MultipleNamedCaches_IsolatedMetrics_ValidatesTagSegregation",
+      "kind": "method",
+      "file": "tests/Unit/MetricEmissionAccuracyTests.cs",
+      "line": 107,
+      "signature": "public void MultipleNamedCaches_IsolatedMetrics_ValidatesTagSegregation()",
+      "visibility": "public"
+    },
+    {
+      "name": "AdditionalTags_AccurateEmission_ValidatesCustomTagPropagation",
+      "kind": "method",
+      "file": "tests/Unit/MetricEmissionAccuracyTests.cs",
+      "line": 171,
+      "signature": "public void AdditionalTags_AccurateEmission_ValidatesCustomTagPropagation()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetOrCreateMethod_AccurateMetrics_ValidatesFactoryScenarios",
+      "kind": "method",
+      "file": "tests/Unit/MetricEmissionAccuracyTests.cs",
+      "line": 217,
+      "signature": "public void GetOrCreateMethod_AccurateMetrics_ValidatesFactoryScenarios()",
+      "visibility": "public"
+    },
+    {
+      "name": "TryGetStronglyTyped_AccurateMetrics_ValidatesTypeConversion",
+      "kind": "method",
+      "file": "tests/Unit/MetricEmissionAccuracyTests.cs",
+      "line": 257,
+      "signature": "public void TryGetStronglyTyped_AccurateMetrics_ValidatesTypeConversion()",
+      "visibility": "public"
+    },
+    {
+      "name": "CreateEntryMethod_AccurateEvictionRegistration_ValidatesCallbackSetup",
+      "kind": "method",
+      "file": "tests/Unit/MetricEmissionAccuracyTests.cs",
+      "line": 302,
+      "signature": "public async Task CreateEntryMethod_AccurateEvictionRegistration_ValidatesCallbackSetup()",
+      "visibility": "public"
+    },
+    {
+      "name": "ZeroMeasurements_EdgeCase_ValidatesNoFalsePositives",
+      "kind": "method",
+      "file": "tests/Unit/MetricEmissionAccuracyTests.cs",
+      "line": 358,
+      "signature": "public void ZeroMeasurements_EdgeCase_ValidatesNoFalsePositives()",
+      "visibility": "public"
+    },
+    {
+      "name": "ComprehensiveMultiCacheScenario_CompleteIsolationValidation_ValidatesAllOperations",
+      "kind": "method",
+      "file": "tests/Unit/MetricEmissionAccuracyTests.cs",
+      "line": 375,
+      "signature": "public async Task ComprehensiveMultiCacheScenario_CompleteIsolationValidation_ValidatesAllOperations()",
+      "visibility": "public"
+    },
+    {
+      "name": "HighVolumeOperations_AccurateAggregation_ValidatesScalability",
+      "kind": "method",
+      "file": "tests/Unit/MetricEmissionAccuracyTests.cs",
+      "line": 540,
+      "signature": "public void HighVolumeOperations_AccurateAggregation_ValidatesScalability()",
+      "visibility": "public"
+    },
+    {
+      "name": "CounterOverflowBoundary_ValidatesBehaviorNearMaxValue",
+      "kind": "method",
+      "file": "tests/Unit/MetricEmissionAccuracyTests.cs",
+      "line": 591,
+      "signature": "public void CounterOverflowBoundary_ValidatesBehaviorNearMaxValue()",
+      "visibility": "public"
+    },
+    {
+      "name": "CounterAtMaxValue_Increment_WrapsToNegative",
+      "kind": "method",
+      "file": "tests/Unit/MetricEmissionAccuracyTests.cs",
+      "line": 636,
+      "signature": "public void CounterAtMaxValue_Increment_WrapsToNegative()",
+      "visibility": "public"
+    },
+    {
+      "name": "NegativeConfigurationTests",
+      "kind": "class",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 13,
+      "signature": "public class NegativeConfigurationTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Constructor_NullInnerCache_ThrowsArgumentNullException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 18,
+      "signature": "public void Constructor_NullInnerCache_ThrowsArgumentNullException()",
+      "visibility": "public"
+    },
+    {
+      "name": "Constructor_NullMeter_ThrowsArgumentNullException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 30,
+      "signature": "public void Constructor_NullMeter_ThrowsArgumentNullException()",
+      "visibility": "public"
+    },
+    {
+      "name": "Constructor_NullOptions_ThrowsArgumentNullException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 42,
+      "signature": "public void Constructor_NullOptions_ThrowsArgumentNullException()",
+      "visibility": "public"
+    },
+    {
+      "name": "Constructor_NullInnerCacheWithOptions_ThrowsArgumentNullException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 55,
+      "signature": "public void Constructor_NullInnerCacheWithOptions_ThrowsArgumentNullException()",
+      "visibility": "public"
+    },
+    {
+      "name": "Constructor_NullMeterWithOptions_ThrowsArgumentNullException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 68,
+      "signature": "public void Constructor_NullMeterWithOptions_ThrowsArgumentNullException()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCacheOptions_NullAdditionalTagsKey_ThrowsArgumentNullException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 83,
+      "signature": "public void MeteredMemoryCacheOptions_NullAdditionalTagsKey_ThrowsArgumentNullException()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCacheOptions_DuplicateAdditionalTagsKey_ThrowsArgumentException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 94,
+      "signature": "public void MeteredMemoryCacheOptions_DuplicateAdditionalTagsKey_ThrowsArgumentException()",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache_NullServiceCollection_ThrowsArgumentNullException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 109,
+      "signature": "public void AddNamedMeteredMemoryCache_NullServiceCollection_ThrowsArgumentNullException()",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache_InvalidCacheName_ThrowsArgumentException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 120,
+      "signature": "public void AddNamedMeteredMemoryCache_InvalidCacheName_ThrowsArgumentException(string cacheName)",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache_NullCacheName_ThrowsArgumentException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 132,
+      "signature": "public void AddNamedMeteredMemoryCache_NullCacheName_ThrowsArgumentException()",
+      "visibility": "public"
+    },
+    {
+      "name": "DecorateMemoryCacheWithMetrics_NullServiceCollection_ThrowsArgumentNullException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 144,
+      "signature": "public void DecorateMemoryCacheWithMetrics_NullServiceCollection_ThrowsArgumentNullException()",
+      "visibility": "public"
+    },
+    {
+      "name": "DecorateMemoryCacheWithMetrics_NoMemoryCacheRegistered_ThrowsInvalidOperationException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 153,
+      "signature": "public void DecorateMemoryCacheWithMetrics_NoMemoryCacheRegistered_ThrowsInvalidOperationException()",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose_MultipleCalls_DoesNotThrow",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 167,
+      "signature": "public void Dispose_MultipleCalls_DoesNotThrow()",
+      "visibility": "public"
+    },
+    {
+      "name": "TryGetValue_AfterDispose_ThrowsObjectDisposedException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 181,
+      "signature": "public void TryGetValue_AfterDispose_ThrowsObjectDisposedException()",
+      "visibility": "public"
+    },
+    {
+      "name": "CreateEntry_AfterDispose_ThrowsObjectDisposedException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 195,
+      "signature": "public void CreateEntry_AfterDispose_ThrowsObjectDisposedException()",
+      "visibility": "public"
+    },
+    {
+      "name": "Remove_AfterDispose_ThrowsObjectDisposedException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 209,
+      "signature": "public void Remove_AfterDispose_ThrowsObjectDisposedException()",
+      "visibility": "public"
+    },
+    {
+      "name": "Set_AfterDispose_ThrowsObjectDisposedException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 223,
+      "signature": "public void Set_AfterDispose_ThrowsObjectDisposedException()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetOrCreate_AfterDispose_ThrowsObjectDisposedException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 237,
+      "signature": "public void GetOrCreate_AfterDispose_ThrowsObjectDisposedException()",
+      "visibility": "public"
+    },
+    {
+      "name": "TryGet_AfterDispose_ThrowsObjectDisposedException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 251,
+      "signature": "public void TryGet_AfterDispose_ThrowsObjectDisposedException()",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose_WithDisposeInnerTrue_DisposesInnerCache",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 265,
+      "signature": "public void Dispose_WithDisposeInnerTrue_DisposesInnerCache()",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose_WithDisposeInnerFalse_DoesNotDisposeInnerCache",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 281,
+      "signature": "public void Dispose_WithDisposeInnerFalse_DoesNotDisposeInnerCache()",
+      "visibility": "public"
+    },
+    {
+      "name": "TryGetValue_NullKey_ThrowsArgumentNullException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 300,
+      "signature": "public void TryGetValue_NullKey_ThrowsArgumentNullException()",
+      "visibility": "public"
+    },
+    {
+      "name": "CreateEntry_NullKey_ThrowsArgumentNullException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 314,
+      "signature": "public void CreateEntry_NullKey_ThrowsArgumentNullException()",
+      "visibility": "public"
+    },
+    {
+      "name": "Remove_NullKey_ThrowsArgumentNullException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 328,
+      "signature": "public void Remove_NullKey_ThrowsArgumentNullException()",
+      "visibility": "public"
+    },
+    {
+      "name": "Set_NullKey_ThrowsArgumentNullException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 342,
+      "signature": "public void Set_NullKey_ThrowsArgumentNullException()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetOrCreate_NullKey_ThrowsArgumentNullException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 356,
+      "signature": "public void GetOrCreate_NullKey_ThrowsArgumentNullException()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetOrCreate_NullFactory_ThrowsNullReferenceException",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 370,
+      "signature": "public void GetOrCreate_NullFactory_ThrowsNullReferenceException()",
+      "visibility": "public"
+    },
+    {
+      "name": "VeryLongCacheName_DoesNotCauseIssues",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 385,
+      "signature": "public void VeryLongCacheName_DoesNotCauseIssues()",
+      "visibility": "public"
+    },
+    {
+      "name": "SpecialCharactersInCacheName_DoesNotCauseIssues",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 398,
+      "signature": "public void SpecialCharactersInCacheName_DoesNotCauseIssues()",
+      "visibility": "public"
+    },
+    {
+      "name": "MaximumAdditionalTags_DoesNotCauseIssues",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 411,
+      "signature": "public void MaximumAdditionalTags_DoesNotCauseIssues()",
+      "visibility": "public"
+    },
+    {
+      "name": "EmptyStringCacheName_IsAccepted",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 429,
+      "signature": "public void EmptyStringCacheName_IsAccepted()",
+      "visibility": "public"
+    },
+    {
+      "name": "NullCacheName_IsAccepted",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 441,
+      "signature": "public void NullCacheName_IsAccepted()",
+      "visibility": "public"
+    },
+    {
+      "name": "ServiceProvider_CorrectConfiguration_CreatesCache",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 453,
+      "signature": "public void ServiceProvider_CorrectConfiguration_CreatesCache()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCacheOptionsValidator_ValidOptions_ReturnsSuccess",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 470,
+      "signature": "public void MeteredMemoryCacheOptionsValidator_ValidOptions_ReturnsSuccess()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCacheOptionsValidator_EmptyCacheName_ReturnsFailure",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 489,
+      "signature": "public void MeteredMemoryCacheOptionsValidator_EmptyCacheName_ReturnsFailure()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCacheOptionsValidator_EmptyTagKey_ReturnsFailure",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 509,
+      "signature": "public void MeteredMemoryCacheOptionsValidator_EmptyTagKey_ReturnsFailure()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredMemoryCacheOptionsValidator_MultipleValidationFailures_ReturnsAllFailures",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 529,
+      "signature": "public void MeteredMemoryCacheOptionsValidator_MultipleValidationFailures_ReturnsAllFailures()",
+      "visibility": "public"
+    },
+    {
+      "name": "CacheName_WithLeadingTrailingWhitespace_IsNormalizedCorrectly",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 553,
+      "signature": "public void CacheName_WithLeadingTrailingWhitespace_IsNormalizedCorrectly()",
+      "visibility": "public"
+    },
+    {
+      "name": "AdditionalTags_InvalidOperations_ThrowsExpectedExceptions",
+      "kind": "method",
+      "file": "tests/Unit/NegativeConfigurationTests.cs",
+      "line": 567,
+      "signature": "public void AdditionalTags_InvalidOperations_ThrowsExpectedExceptions()",
+      "visibility": "public"
+    },
+    {
+      "name": "ServiceCollectionExtensionsTests",
+      "kind": "class",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 11,
+      "signature": "public class ServiceCollectionExtensionsTests",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache_RegistersRequiredServices",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 15,
+      "signature": "public void AddNamedMeteredMemoryCache_RegistersRequiredServices()",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache_WithMinimalConfiguration",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 52,
+      "signature": "public void AddNamedMeteredMemoryCache_WithMinimalConfiguration()",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache_SupportsMultipleNamedCaches",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 82,
+      "signature": "public void AddNamedMeteredMemoryCache_SupportsMultipleNamedCaches()",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache_ThrowsOnNullCacheName",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 108,
+      "signature": "public void AddNamedMeteredMemoryCache_ThrowsOnNullCacheName()",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache_ThrowsOnEmptyName",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 120,
+      "signature": "public void AddNamedMeteredMemoryCache_ThrowsOnEmptyName()",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache_RegistersMultipleDistinctCaches",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 137,
+      "signature": "public void AddNamedMeteredMemoryCache_RegistersMultipleDistinctCaches()",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache_CachesAreFunctionalWithoutMeterFactory",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 160,
+      "signature": "public void AddNamedMeteredMemoryCache_CachesAreFunctionalWithoutMeterFactory()",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache_ValidatesOptionsOnStart",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 186,
+      "signature": "public void AddNamedMeteredMemoryCache_ValidatesOptionsOnStart()",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache_SupportsOptionsReconfiguration",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 205,
+      "signature": "public void AddNamedMeteredMemoryCache_SupportsOptionsReconfiguration()",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache_AcceptsValidCacheNames",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 236,
+      "signature": "public void AddNamedMeteredMemoryCache_AcceptsValidCacheNames(string cacheName)",
+      "visibility": "public"
+    },
+    {
+      "name": "DecorateMemoryCacheWithMetrics_RequiresExistingCacheRegistration",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 251,
+      "signature": "public void DecorateMemoryCacheWithMetrics_RequiresExistingCacheRegistration()",
+      "visibility": "public"
+    },
+    {
+      "name": "DecorateMemoryCacheWithMetrics_WithMinimalConfiguration",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 273,
+      "signature": "public void DecorateMemoryCacheWithMetrics_WithMinimalConfiguration()",
+      "visibility": "public"
+    },
+    {
+      "name": "DecorateMemoryCacheWithMetrics_ConfiguresOptions",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 291,
+      "signature": "public void DecorateMemoryCacheWithMetrics_ConfiguresOptions()",
+      "visibility": "public"
+    },
+    {
+      "name": "DecorateMemoryCacheWithMetrics_PreservesInnerCacheInstance",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 318,
+      "signature": "public void DecorateMemoryCacheWithMetrics_PreservesInnerCacheInstance()",
+      "visibility": "public"
+    },
+    {
+      "name": "ServiceCollectionExtensions_HandlesConcurrentRegistrations",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 344,
+      "signature": "public void ServiceCollectionExtensions_HandlesConcurrentRegistrations()",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache_AllowsMultipleServiceCollections",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsTests.cs",
+      "line": 395,
+      "signature": "public void AddNamedMeteredMemoryCache_AllowsMultipleServiceCollections()",
+      "visibility": "public"
+    },
+    {
+      "name": "ServiceCollectionExtensionsValidationTests",
+      "kind": "class",
+      "file": "tests/Unit/ServiceCollectionExtensionsValidationTests.cs",
+      "line": 12,
+      "signature": "public class ServiceCollectionExtensionsValidationTests",
+      "visibility": "public"
+    },
+    {
+      "name": "DecorateMemoryCacheWithMetrics_WithInvalidOptions_ShouldThrowValidationException",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsValidationTests.cs",
+      "line": 19,
+      "signature": "public void DecorateMemoryCacheWithMetrics_WithInvalidOptions_ShouldThrowValidationException()",
+      "visibility": "public"
+    },
+    {
+      "name": "DecorateMemoryCacheWithMetrics_WithNoMemoryCacheRegistration_ShouldThrowInvalidOperationException",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsValidationTests.cs",
+      "line": 45,
+      "signature": "public void DecorateMemoryCacheWithMetrics_WithNoMemoryCacheRegistration_ShouldThrowInvalidOperationException()",
+      "visibility": "public"
+    },
+    {
+      "name": "DecorateMemoryCacheWithMetrics_WithValidConfiguration_ShouldWorkCorrectly",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsValidationTests.cs",
+      "line": 64,
+      "signature": "public void DecorateMemoryCacheWithMetrics_WithValidConfiguration_ShouldWorkCorrectly()",
+      "visibility": "public"
+    },
+    {
+      "name": "DecorateMemoryCacheWithMetrics_MultipleCalls_ShouldCreateUniqueOptionsNames",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsValidationTests.cs",
+      "line": 88,
+      "signature": "public void DecorateMemoryCacheWithMetrics_MultipleCalls_ShouldCreateUniqueOptionsNames()",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache_WithInvalidOptions_ShouldThrowValidationException",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsValidationTests.cs",
+      "line": 108,
+      "signature": "public void AddNamedMeteredMemoryCache_WithInvalidOptions_ShouldThrowValidationException()",
+      "visibility": "public"
+    },
+    {
+      "name": "DecorateMemoryCacheWithMetrics_WithMultipleRegistrations_ShouldThrowInvalidOperationException",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsValidationTests.cs",
+      "line": 133,
+      "signature": "public void DecorateMemoryCacheWithMetrics_WithMultipleRegistrations_ShouldThrowInvalidOperationException()",
+      "visibility": "public"
+    },
+    {
+      "name": "DecorateMemoryCacheWithMetrics_WithImplementationInstance_ShouldResolveCorrectly",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsValidationTests.cs",
+      "line": 154,
+      "signature": "public void DecorateMemoryCacheWithMetrics_WithImplementationInstance_ShouldResolveCorrectly()",
+      "visibility": "public"
+    },
+    {
+      "name": "DecorateMemoryCacheWithMetrics_WithKeyedServiceDescriptor_ShouldThrowInvalidOperationException",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsValidationTests.cs",
+      "line": 181,
+      "signature": "public void DecorateMemoryCacheWithMetrics_WithKeyedServiceDescriptor_ShouldThrowInvalidOperationException()",
+      "visibility": "public"
+    },
+    {
+      "name": "AddNamedMeteredMemoryCache_WithValidConfiguration_ShouldWorkCorrectly",
+      "kind": "method",
+      "file": "tests/Unit/ServiceCollectionExtensionsValidationTests.cs",
+      "line": 204,
+      "signature": "public void AddNamedMeteredMemoryCache_WithValidConfiguration_ShouldWorkCorrectly()",
+      "visibility": "public"
+    },
+    {
+      "name": "IMeteredCacheTestSubject",
+      "kind": "interface",
+      "file": "tests/Unit/Shared/IMeteredCacheTestSubject.cs",
+      "line": 10,
+      "signature": "public interface IMeteredCacheTestSubject : IDisposable",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredCacheTestBase",
+      "kind": "class",
+      "file": "tests/Unit/Shared/MeteredCacheTestBase.cs",
+      "line": 30,
+      "signature": "public abstract class MeteredCacheTestBase<TTestSubject>",
+      "visibility": "public"
+    },
+    {
+      "name": "HitAndMissOperations_RecordsCorrectMetrics",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MeteredCacheTestBase.cs",
+      "line": 71,
+      "signature": "public void HitAndMissOperations_RecordsCorrectMetrics()",
+      "visibility": "public"
+    },
+    {
+      "name": "EvictionScenario_RecordsEvictionMetrics",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MeteredCacheTestBase.cs",
+      "line": 103,
+      "signature": "public async Task EvictionScenario_RecordsEvictionMetrics()",
+      "visibility": "public"
+    },
+    {
+      "name": "WithCacheName_EmitsCacheNameTag",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MeteredCacheTestBase.cs",
+      "line": 139,
+      "signature": "public void WithCacheName_EmitsCacheNameTag()",
+      "visibility": "public"
+    },
+    {
+      "name": "MultipleNamedCaches_EmitSeparateMetrics",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MeteredCacheTestBase.cs",
+      "line": 163,
+      "signature": "public void MultipleNamedCaches_EmitSeparateMetrics()",
+      "visibility": "public"
+    },
+    {
+      "name": "HighVolumeOperations_AccurateAggregation",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MeteredCacheTestBase.cs",
+      "line": 202,
+      "signature": "public void HighVolumeOperations_AccurateAggregation()",
+      "visibility": "public"
+    },
+    {
+      "name": "MeteredCacheTestSubject",
+      "kind": "class",
+      "file": "tests/Unit/Shared/MeteredCacheTestSubject.cs",
+      "line": 17,
+      "signature": "public sealed class MeteredCacheTestSubject : IMeteredCacheTestSubject",
+      "visibility": "public"
+    },
+    {
+      "name": "GetCurrentStatistics",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MeteredCacheTestSubject.cs",
+      "line": 97,
+      "signature": "public object? GetCurrentStatistics()",
+      "visibility": "public"
+    },
+    {
+      "name": "PublishMetrics",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MeteredCacheTestSubject.cs",
+      "line": 110,
+      "signature": "public void PublishMetrics()",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MeteredCacheTestSubject.cs",
+      "line": 123,
+      "signature": "public void Dispose()",
+      "visibility": "public"
+    },
+    {
+      "name": "Collect",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MetricCollectionHarness.cs",
+      "line": 134,
+      "signature": "public void Collect()",
+      "visibility": "public"
+    },
+    {
+      "name": "GetMeasurements",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MetricCollectionHarness.cs",
+      "line": 148,
+      "signature": "public IReadOnlyList<MetricMeasurement> GetMeasurements(string instrumentName)",
+      "visibility": "public"
+    },
+    {
+      "name": "GetMeasurementsWithTags",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MetricCollectionHarness.cs",
+      "line": 166,
+      "signature": "public IReadOnlyList<MetricMeasurement> GetMeasurementsWithTags(string instrumentName, params KeyValuePair<string, object?>[] requiredTags)",
+      "visibility": "public"
+    },
+    {
+      "name": "GetAggregatedCount",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MetricCollectionHarness.cs",
+      "line": 181,
+      "signature": "public long GetAggregatedCount(string instrumentName, params KeyValuePair<string, object?>[] requiredTags)",
+      "visibility": "public"
+    },
+    {
+      "name": "AssertMeasurementCount",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MetricCollectionHarness.cs",
+      "line": 191,
+      "signature": "public void AssertMeasurementCount(string instrumentName, int expectedCount)",
+      "visibility": "public"
+    },
+    {
+      "name": "WaitForMetricAsync",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MetricCollectionHarness.cs",
+      "line": 203,
+      "signature": "public async Task<bool> WaitForMetricAsync(string instrumentName, int expectedCount, TimeSpan timeout)",
+      "visibility": "public"
+    },
+    {
+      "name": "WaitForMetricWithTagsAsync",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MetricCollectionHarness.cs",
+      "line": 241,
+      "signature": "public async Task<bool> WaitForMetricWithTagsAsync(string instrumentName, int expectedCount, TimeSpan timeout, params KeyValuePair<string, object?>[] requiredTags)",
+      "visibility": "public"
+    },
+    {
+      "name": "AssertAggregatedCount",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MetricCollectionHarness.cs",
+      "line": 271,
+      "signature": "public void AssertAggregatedCount(string instrumentName, long expectedTotal)",
+      "visibility": "public"
+    },
+    {
+      "name": "AssertAllMeasurementsHaveTags",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MetricCollectionHarness.cs",
+      "line": 288,
+      "signature": "public void AssertAllMeasurementsHaveTags(string instrumentName, params KeyValuePair<string, object?>[] requiredTags)",
+      "visibility": "public"
+    },
+    {
+      "name": "Reset",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MetricCollectionHarness.cs",
+      "line": 314,
+      "signature": "public void Reset()",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "tests/Unit/Shared/MetricCollectionHarness.cs",
+      "line": 338,
+      "signature": "public void Dispose()",
+      "visibility": "public"
+    },
+    {
+      "name": "TagListThreadSafetyTests",
+      "kind": "class",
+      "file": "tests/Unit/TagListThreadSafetyTests.cs",
+      "line": 16,
+      "signature": "public class TagListThreadSafetyTests",
+      "visibility": "public"
+    },
+    {
+      "name": "Dispose",
+      "kind": "method",
+      "file": "tests/Unit/TagListThreadSafetyTests.cs",
+      "line": 71,
+      "signature": "public void Dispose() => _listener.Dispose();",
+      "visibility": "public"
+    },
+    {
+      "name": "ConcurrentMetricEmission_WithSharedTagList_ShouldNotThrow",
+      "kind": "method",
+      "file": "tests/Unit/TagListThreadSafetyTests.cs",
+      "line": 75,
+      "signature": "public void ConcurrentMetricEmission_WithSharedTagList_ShouldNotThrow()",
+      "visibility": "public"
+    },
+    {
+      "name": "ConcurrentEvictionCallbacks_WithSharedTagList_ShouldNotThrow",
+      "kind": "method",
+      "file": "tests/Unit/TagListThreadSafetyTests.cs",
+      "line": 135,
+      "signature": "public async Task ConcurrentEvictionCallbacks_WithSharedTagList_ShouldNotThrow()",
+      "visibility": "public"
+    },
+    {
+      "name": "MixedConcurrentOperations_WithTagListEnumeration_ShouldNotThrow",
+      "kind": "method",
+      "file": "tests/Unit/TagListThreadSafetyTests.cs",
+      "line": 217,
+      "signature": "public async Task MixedConcurrentOperations_WithTagListEnumeration_ShouldNotThrow()",
+      "visibility": "public"
+    },
+    {
+      "name": "StressTest_TagListEnumeration_UnderExtremeLoad",
+      "kind": "method",
+      "file": "tests/Unit/TagListThreadSafetyTests.cs",
+      "line": 300,
+      "signature": "public async Task StressTest_TagListEnumeration_UnderExtremeLoad()",
+      "visibility": "public"
+    },
+    {
+      "name": "ReproduceInvalidOperationException_DuringTagListEnumeration",
+      "kind": "method",
+      "file": "tests/Unit/TagListThreadSafetyTests.cs",
+      "line": 380,
+      "signature": "public void ReproduceInvalidOperationException_DuringTagListEnumeration()",
+      "visibility": "public"
+    },
+    {
+      "name": "BenchmarkSample",
+      "kind": "record",
+      "file": "tools/BenchGate/GateComparer.cs",
+      "line": 14,
+      "signature": "public sealed record BenchmarkSample(string Id, double Mean, double StdDev, int N, double AllocBytes, List<double>? Samples = null);",
+      "visibility": "public"
+    },
+    {
+      "name": "GateComparer",
+      "kind": "class",
+      "file": "tools/BenchGate/GateComparer.cs",
+      "line": 24,
+      "signature": "public sealed class GateComparer(",
+      "visibility": "public"
+    },
+    {
+      "name": "Main",
+      "kind": "method",
+      "file": "tools/BenchGate/Program.cs",
+      "line": 14,
+      "signature": "public static int Main(string[] args)",
+      "visibility": "public"
+    },
+    {
+      "name": "Alternative",
+      "kind": "enum",
+      "file": "tools/BenchGate/Statistics/Alternative.cs",
+      "line": 20,
+      "signature": "public enum Alternative",
+      "visibility": "public"
+    },
+    {
+      "name": "MannWhitney",
+      "kind": "class",
+      "file": "tools/BenchGate/Statistics/MannWhitney.cs",
+      "line": 18,
+      "signature": "public static class MannWhitney",
+      "visibility": "public"
+    },
+    {
+      "name": "Test",
+      "kind": "method",
+      "file": "tools/BenchGate/Statistics/MannWhitney.cs",
+      "line": 39,
+      "signature": "public static MannWhitneyResult Test(ReadOnlySpan<double> x, ReadOnlySpan<double> y, Alternative alt = Alternative.TwoSided)",
+      "visibility": "public"
+    },
+    {
+      "name": "struct",
+      "kind": "record",
+      "file": "tools/BenchGate/Statistics/MannWhitneyResult.cs",
+      "line": 22,
+      "signature": "public readonly record struct MannWhitneyResult(",
+      "visibility": "public"
+    }
+  ],
+  "benchmark_files": [
+    "tests/Benchmarks.Async.RuntimeAsync/Benchmarks.Async.RuntimeAsync.csproj",
+    "tests/Benchmarks.Async/AsyncCacheBenchmarks.cs",
+    "tests/Benchmarks.Async/Benchmarks.Async.csproj",
+    "tests/Benchmarks/Benchmarks.csproj",
+    "tests/Benchmarks/CacheBenchmarks.cs",
+    "tests/Benchmarks/ContentionBenchmarks.cs",
+    "tests/Benchmarks/MetricsOverheadBenchmarks.cs"
+  ],
+  "coverage_summary": {
+    "public_symbols": 469,
+    "documented_symbols": 13,
+    "coverage_pct": 2.8
+  },
+  "changed_files": [
+    ".github/workflows/ci.yml",
+    "Directory.Build.props",
+    "Directory.Packages.props",
+    "docs/built-in-memorycache-metrics.md",
+    "examples/AspNetCore/src/AspNetCore.csproj",
+    "examples/BasicUsage/BasicUsage.csproj",
+    "examples/MultiCache/MultiCache.csproj",
+    "global.json",
+    "src/CacheImplementations/CacheImplementations.csproj",
+    "src/CacheImplementations/ServiceCollectionExtensions.cs",
+    "tests/Benchmarks/CacheBenchmarks.cs",
+    "tests/Benchmarks/ContentionBenchmarks.cs",
+    "tests/Benchmarks/MetricsOverheadBenchmarks.cs",
+    "tests/Integration/Integration.csproj"
+  ],
+  "changed_lines": {
+    "docs/built-in-memorycache-metrics.md": [
+      [
+        258,
+        258
+      ]
+    ]
+  }
+}

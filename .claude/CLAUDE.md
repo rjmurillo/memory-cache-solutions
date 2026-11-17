@@ -237,6 +237,11 @@ Violation Handling: Any merge or PR lacking this ordered evidence for perf-touch
 | GCPauseTimeTotalMs            | Sum of GC pause durations                                         | `dotnet-trace` / PerfView (events: `GCStop`, `GCSuspendEE`, `GCRestartEE`) aggregated                                                                                     | Milliseconds per full run     | > +3% relative AND > 0.5 ms absolute                                             |
 | AllocationRateBps (optional)  | Allocation bytes per second (indirect contention via GC pressure) | `dotnet-counters` (`alloc-rate`)                                                                                                                                          | Bytes/sec                     | > +3% with no functional justification                                           |
 
+Suspended on net11.0: BenchmarkDotNet 0.15.8 does not recognize .NET 11.
+`[ThreadingDiagnoser]` rejects every benchmark there, so it is removed from `tests/Benchmarks`.
+LockContentionCount and MonitorWaitCount have no source until a BenchmarkDotNet release supports .NET 11.
+Until then, collect contention with the `dotnet-counters` and `dotnet-trace` methods above.
+
 Collection Procedure:
 
 1. Baseline Run: Execute benchmarks with required diagnosers enabled (ensure affected benchmark classes have `[ThreadingDiagnoser]`). Save the HTML/CSV output plus any trace (`.nettrace`) or counters log:
