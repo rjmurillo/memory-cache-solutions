@@ -1,12 +1,12 @@
 # AGENTS.md
 
-Read the linked file before you change the matching area.
+Read the listed file before you change the matching area.
 
 ```text
 [Index]|root: .
 |.claude/CLAUDE.md: build and test order, BenchGate, per-OS baselines, perf commit evidence
 |.claude/rules/testing.md (tests/**): unique Meter and cache names via SharedUtilities, flaky-test patterns
-|.claude/rules/csharp.md (*.cs): XML docs on public and internal members, no #region
+|.claude/rules/csharp.md (*.cs, *.csproj, *.sln): XML docs on public and internal members, no #region
 |tests/Benchmarks.Async/README.md: async hit benchmarks, direct and selfcheck modes, SDK 11 pin
 |benchmarks/baseline/README.md: baseline file naming and refresh
 ```
